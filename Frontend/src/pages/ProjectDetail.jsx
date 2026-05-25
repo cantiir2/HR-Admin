@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { format as formatDate } from 'date-fns';
 import { useParams, Link } from 'react-router-dom';
 import api from '../lib/api';
 import { ArrowLeft, Plus, Calendar as CalendarIcon, LayoutDashboard, Clock, X, Pencil, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -102,6 +103,7 @@ const ProjectDetail = () => {
   const fetchProject = useCallback(async () => {
     try {
       const res = await api.get(`/api/projects/${id}`);
+      console.log('Fetched project data:', res.data);
       setProject(res.data);
     } catch (err) {
       console.error(err);
@@ -381,6 +383,10 @@ const ProjectDetail = () => {
           <h2 className="text-2xl font-bold text-white">{project.name}</h2>
           <p className="text-sm text-surface-400 mt-1">{project.description}</p>
           <div className="flex flex-wrap items-center gap-4 mt-3 text-xs">
+            <div className="flex items-center gap-1.5 bg-surface-800/50 px-2 py-1 rounded-lg border border-white/[0.05]">
+              <span className="text-surface-500">Project Start - End:</span>
+              <span className="text-with font-medium">{project.contractStart && project.contractEnd ? `${toDateInputValue(project.contractStart)} to ${toDateInputValue(project.contractEnd)}` : '-'}</span>
+            </div>
             <div className="flex items-center gap-1.5 bg-surface-800/50 px-2 py-1 rounded-lg border border-white/[0.05]">
               <span className="text-surface-500">Customer Company:</span>
               <span className="text-white font-medium">{project.customer || '-'}</span>
