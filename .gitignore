@@ -1,0 +1,13 @@
+# Ignore all compressed backup files
+*.rar
+*.zip
+
+# Ignore local environment files
+.env
+
+# Ignore IDE specific folders
+.vscode/
+.idea/
+# Ignore node modules
+node_modules/
+dist/

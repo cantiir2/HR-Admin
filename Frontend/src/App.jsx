@@ -1,0 +1,63 @@
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
+import Login from './pages/Login';
+import MemberDashboard from './pages/MemberDashboard';
+import MemberProfile from './pages/MemberProfile';
+import MemberLayout from './components/MemberLayout';
+import AdminLayout from './components/AdminLayout';
+import AdminDashboardHome from './pages/admin/AdminDashboardHome';
+import AdminAttendanceList from './pages/admin/AdminAttendanceList';
+import UserManagement from './pages/admin/UserManagement';
+import ProjectManagement from './pages/admin/ProjectManagement';
+import ProjectDetail from './pages/ProjectDetail';
+import SystemMaster from './pages/admin/SystemMaster';
+import AvailableMember from './pages/admin/AvailableMember';
+import ProtectedRoute from './components/ProtectedRoute';
+
+function App() {
+  return (
+    <ThemeProvider>
+      <AuthProvider>
+        <Router>
+        <div className="min-h-screen bg-surface-50 text-surface-950 dark:bg-surface-950 dark:text-white font-sans transition-colors duration-200">
+          <Routes>
+            <Route path="/login" element={<Login />} />
+
+            {/* Member Routes — nested inside MemberLayout */}
+            <Route path="/member" element={
+              <ProtectedRoute allowedRoles={['MEMBER', 'ADMIN']}>
+                <MemberLayout />
+              </ProtectedRoute>
+            }>
+              <Route index element={<MemberDashboard />} />
+              <Route path="profile" element={<MemberProfile />} />
+              <Route path="projects/:id" element={<ProjectDetail />} />
+            </Route>
+
+            {/* Admin Routes — nested inside AdminLayout */}
+            <Route path="/admin" element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <AdminLayout />
+              </ProtectedRoute>
+            }>
+              <Route index element={<AdminDashboardHome />} />
+              <Route path="attendance" element={<AdminAttendanceList />} />
+              <Route path="users" element={<UserManagement />} />
+              <Route path="projects" element={<ProjectManagement />} />
+              <Route path="projects/:id" element={<ProjectDetail />} />
+              <Route path="system" element={<SystemMaster />} />
+              <Route path="available-members" element={<AvailableMember />} />
+            </Route>
+
+            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+          </div>
+        </Router>
+      </AuthProvider>
+    </ThemeProvider>
+  );
+}
+
+export default App;

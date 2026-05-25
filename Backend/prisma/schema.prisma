@@ -1,0 +1,242 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Master System (Lookup table for Job Roles, etc.) ─────────────────────
+model SystemMaster {
+  id          String   @id @default(uuid())
+  category    String   // "JOB_ROLE", "GENDER", "RELIGION", etc.
+  code        String   // "SA", "PG", "PM"
+  name        String   // "System Analyst", "Programmer"
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([category, code])
+  @@map("tb_m_system")
+}
+
+// ─── Role Enum ─────────────────────────────────────────────────────────────
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+// ─── User ──────────────────────────────────────────────────────────────────
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String
+  name          String
+  role          Role      @default(MEMBER)
+  jobRoleCode   String?   // e.g. "SA", "PG" — references SystemMaster
+
+  // Contract
+  contractStart DateTime?
+  contractEnd   DateTime?
+
+  // Profile
+  phone         String?
+  address       String?   @db.Text
+  birthDate     DateTime?
+  birthPlace    String?
+  gender        String?
+  religion      String?
+  maritalStatus String?
+  education     String?
+  cvFile        String?   @db.Text  // Base64 encoded PDF
+  cvFileName    String?
+  profilePhotoName String?
+  profilePhoto  String?   @db.Text  // Base64 encoded image
+  workingExperience String? @db.Text
+  skill         String?   @db.Text
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  fatherName    String?
+  motherName    String?
+  ktpNumberEncrypted String? @db.Text
+  kkNumberEncrypted  String? @db.Text
+
+  attendances   Attendance[]
+  projects      ProjectMember[]
+  tasks         Task[]
+  documents     UserDocument[]
+  jobHistories  UserJobHistory[]
+  contracts     UserContract[]
+  managedProjects Project[] @relation("ProjectManager")
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("tb_m_user")
+}
+
+// ─── User Documents ───────────────────────────────────────────────────────
+model UserDocument {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fileName     String
+  fileType     String?
+  fileData     String   @db.Text
+  documentType String
+  label        String?
+  originalFileName String?
+  storedFileName String?
+  filePath     String?
+  mimeType     String?
+  fileSize     Int?
+  uploadedAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@map("tb_m_user_document")
+}
+
+model UserJobHistory {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName String
+  jobTitle    String
+  description String?  @db.Text
+  startDate   DateTime? @db.Date
+  endDate     DateTime? @db.Date
+  isPresent   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@map("tb_m_user_job_history")
+}
+
+model UserContract {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contractNumber String   @unique
+  vendor         String
+  startDate      DateTime @db.Date
+  endDate        DateTime @db.Date
+  contractValue  Decimal  @db.Decimal(18, 2)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
+  @@map("tb_m_user_contract")
+}
+
+// ─── Project ───────────────────────────────────────────────────────────────
+model Project {
+  id            String          @id @default(uuid())
+  name          String
+  description   String?         @db.Text
+
+  customer         String? @db.VarChar(255) // Customer company name
+  customerName     String? // Customer representative / PIC name
+  woNumber        String?
+
+  projectManagerId String?
+  projectManager   User? @relation("ProjectManager", fields: [projectManagerId], references: [id], onDelete: SetNull)
+
+  location      String?
+  latitude      Float?
+  longitude     Float?
+  contractStart DateTime
+  contractEnd   DateTime
+  status        String          @default("active") // active, completed, cancelled
+  members       ProjectMember[]
+  milestones    Milestone[]
+
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@map("tb_m_project")
+}
+
+// ─── Project Member (Junction) ─────────────────────────────────────────────
+model ProjectMember {
+  id        String  @id @default(uuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleInProject String? // "Lead", "Member", etc.
+  joinedAt  DateTime? @db.Date
+  leftAt    DateTime? @db.Date
+
+  @@unique([projectId, userId])
+  @@map("tb_m_project_member")
+}
+
+// ─── Attendance (1 record per user per day) ────────────────────────────────
+model Attendance {
+  id             String    @id @default(uuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date           DateTime  @db.Date
+
+  // Check-In
+  checkInTime    DateTime?
+  checkInPhoto   String?   @db.Text
+  checkInLat     Float?
+  checkInLng     Float?
+  checkInNote    String?
+
+  // Check-Out
+  checkOutTime   DateTime?
+  checkOutPhoto  String?   @db.Text
+  checkOutLat    Float?
+  checkOutLng    Float?
+  checkOutNote   String?
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([userId, date])
+  @@map("tb_m_attendance")
+}
+
+// ─── Milestone ─────────────────────────────────────────────────────────────
+model Milestone {
+  id          String   @id @default(uuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name        String
+  weekNo      Int?
+  startDate   DateTime?
+  endDate     DateTime?
+  status      String   @default("pending") // pending, active, completed
+  tasks       Task[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("tb_m_milestone")
+}
+
+// ─── Task ──────────────────────────────────────────────────────────────────
+model Task {
+  id          String    @id @default(uuid())
+  milestoneId String
+  milestone   Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  assignedToId String?
+  assignedTo  User?     @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  title       String
+  description String?   @db.Text
+  status      String    @default("TODO") // TODO, IN_PROGRESS, REVIEW, DONE
+  startDate   DateTime?
+  dueDate     DateTime?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("tb_m_task")
+}
