@@ -68,6 +68,12 @@ const getTotalWeeks = (projectStartDate, projectEndDate) => {
   return Math.max(1, Math.ceil(totalDays / 7));
 };
 
+const getWeekStartDate = (projectStartDate, weekIndex) => {
+  const start = new Date(`${toDateInputValue(projectStartDate)}T00:00:00Z`);
+  start.setUTCDate(start.getUTCDate() + (weekIndex * 7));
+  return start;
+};
+
 const getMilestoneWeekRange = (projectStartDate, milestoneStartDate, milestoneEndDate) => {
   const projectStart = new Date(`${toDateInputValue(projectStartDate)}T00:00:00Z`);
   const milestoneStart = new Date(`${toDateInputValue(milestoneStartDate)}T00:00:00Z`);
@@ -441,14 +447,31 @@ const ProjectDetail = () => {
                 <div className="min-w-max p-4 space-y-2">
                   <div className="flex">
                     <div className="w-64 shrink-0 px-3 py-3 text-xs font-semibold uppercase text-surface-400">Milestone</div>
-                    <div className="grid" style={{ gridTemplateColumns: `repeat(${totalWeeks}, minmax(120px, 1fr))` }}>
-                      {Array.from({ length: totalWeeks }, (_, index) => (
-                        <div key={index} className={`relative border-l border-white/[0.06] px-3 py-3 text-center text-xs font-semibold ${todayWeek === index + 1 ? 'text-brand-300 bg-brand-500/10' : 'text-surface-400'}`}>
-                          Week {index + 1}
-                          {todayWeek === index + 1 && <span className="block text-[10px] text-brand-400 mt-1">Today</span>}
-                        </div>
-                      ))}
-                    </div>
+                      <div className="grid" style={{ gridTemplateColumns: `repeat(${totalWeeks}, minmax(120px, 1fr))` }}>
+                        {Array.from({ length: totalWeeks }, (_, index) => {
+                          const weekDate = getWeekStartDate(project.contractStart, index);
+                          const isTodayWeek = todayWeek === index + 1;
+                          
+                          return (
+                            <div key={index} className={`relative border-l border-white/[0.06] px-2 py-3 text-center text-xs ${isTodayWeek ? 'text-brand-300 bg-brand-500/10' : 'text-surface-400'}`}>
+                              {/* Bulan & Tahun di atas */}
+                              <div className="text-[9px] uppercase font-bold opacity-70 mb-1">
+                                {format(weekDate, 'MMM yyyy', { locale: idLocale })}
+                              </div>
+                              
+                              {/* Label Week */}
+                              <div className="font-semibold">Week {index + 1}</div>
+                              
+                              {/* Tanggal (DD) */}
+                              <div className="text-[10px] mt-1 font-mono">
+                                {format(weekDate, 'dd')}
+                              </div>
+
+                              {isTodayWeek && <span className="block text-[10px] text-brand-400 mt-1 font-bold">Today</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
                   </div>
                   {project.milestones?.map(milestone => {
                     if (!milestone.startDate || !milestone.endDate) return null;

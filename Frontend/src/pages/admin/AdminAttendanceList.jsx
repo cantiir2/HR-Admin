@@ -53,7 +53,7 @@ const AdminAttendanceList = () => {
           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-surface-500" />
           <input type="text" placeholder="Cari nama atau email..." value={search} onChange={e => { setSearch(e.target.value); setPageNo(1); }} className="input-dark pl-11 text-sm" />
         </div>
-        <input type="date" disabled={showAll} value={selectedDate} onChange={e => { setSelectedDate(e.target.value); setPageNo(1); }} className="input-dark text-sm md:w-44 disabled:opacity-50" />
+        <input type="date" disabled={showAll} value={selectedDate} onChange={e => { setSelectedDate(e.target.value); setPageNo(1); }} className="input-dark text-sm md:w-44 disabled:opacity-50 input-dark text-sm w-full [color-scheme:light] dark:[color-scheme:dark]" />
         <label className="flex items-center gap-2 px-4 rounded-xl border border-white/[0.08] text-sm text-surface-300">
           <input type="checkbox" checked={showAll} onChange={e => { setShowAll(e.target.checked); setPageNo(1); }} />
           Show All

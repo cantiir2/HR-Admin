@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import api from '../../lib/api';
 import { Plus, Pencil, Trash2, X, FolderKanban, MapPin, Users, Calendar, LayoutDashboard } from 'lucide-react';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import AppSelect from '../../components/AppSelect';
+import Pagination from '../../components/Pagination';
 
 const ProjectManagement = () => {
   const [projects, setProjects] = useState([]);
@@ -13,14 +14,52 @@ const ProjectManagement = () => {
   const [editingProject, setEditingProject] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
   const [memberForm, setMemberForm] = useState({ userId: '', roleInProject: 'Member', joinedAt: '', leftAt: '' });
+  const [filters, setFilters] = useState({
+    search: '', status: '', projectManagerId: '', customer: '', dateFrom: '', dateTo: ''
+  });
+  const [page, setPage] = useState({
+    pageNo: 1, pageSize: 10, totalRows: 0, totalPages: 1
+  });
+  const [loading, setLoading] = useState(false);
+  const pageSizeRef = useRef(10);
   const [form, setForm] = useState({
     name: '', description: '', location: '', customer: '', customerName: '', woNumber: '', projectManagerId: '', contractStart: '', contractEnd: '', status: 'active'
   });
 
-  const fetchProjects = async () => {
-    const res = await api.get('/api/projects');
-    setProjects(res.data);
-  };
+  const fetchProjects = useCallback(async (pageNo = 1, pageSize = pageSizeRef.current) => {
+    if (filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo) {
+      alert('Tanggal mulai filter tidak boleh lebih besar dari tanggal selesai filter.');
+      return;
+    }
+
+    pageSizeRef.current = pageSize;
+    setLoading(true);
+
+    try {
+      const res = await api.post('/api/projects/search', {
+        pageNo,
+        pageSize,
+        search: filters.search,
+        status: filters.status,
+        projectManagerId: filters.projectManagerId,
+        customer: filters.customer,
+        dateFrom: filters.dateFrom,
+        dateTo: filters.dateTo
+      });
+
+      setProjects(res.data.data || []);
+      setPage(res.data.page || {
+        pageNo,
+        pageSize,
+        totalRows: 0,
+        totalPages: 1
+      });
+    } catch (err) {
+      alert(err.response?.data?.error || 'Gagal mengambil data project');
+    } finally {
+      setLoading(false);
+    }
+  }, [filters]);
 
   const fetchUsers = async () => {
     const res = await api.get('/api/users');
@@ -30,9 +69,29 @@ const ProjectManagement = () => {
   useEffect(() => {
     // Existing screen pattern: initial API hydration updates local list state.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchProjects();
     fetchUsers();
   }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchProjects(1, pageSizeRef.current);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [fetchProjects]);
+
+  const doSearch = async (pageNo, pageSize) => {
+    await fetchProjects(pageNo, pageSize);
+  };
+
+  const changePageSize = (pageSize) => {
+    pageSizeRef.current = pageSize;
+    setPage(prev => ({
+      ...prev,
+      pageNo: 1,
+      pageSize
+    }));
+  };
 
   const openCreate = () => {
     setEditingProject(null);
@@ -68,7 +127,7 @@ const ProjectManagement = () => {
         await api.post('/api/projects', form);
       }
       setShowModal(false);
-      fetchProjects();
+      fetchProjects(page.pageNo, page.pageSize);
     } catch (err) {
       alert(err.response?.data?.error || 'Gagal menyimpan');
     }
@@ -76,8 +135,11 @@ const ProjectManagement = () => {
 
   const handleDelete = async (id) => {
     if (!confirm('Yakin ingin menghapus project ini?')) return;
+    const nextPageNo = projects.length === 1 && page.pageNo > 1
+      ? page.pageNo - 1
+      : page.pageNo;
     await api.delete(`/api/projects/${id}`);
-    fetchProjects();
+    fetchProjects(nextPageNo, page.pageSize);
   };
 
   const openMembers = (project) => {
@@ -90,7 +152,7 @@ const ProjectManagement = () => {
     e.preventDefault();
     try {
       await api.post(`/api/projects/${selectedProject.id}/members`, memberForm);
-      fetchProjects();
+      fetchProjects(page.pageNo, page.pageSize);
       // Refresh selected project
       const updated = await api.get(`/api/projects/${selectedProject.id}`);
       setSelectedProject(updated.data);
@@ -102,7 +164,7 @@ const ProjectManagement = () => {
 
   const removeMember = async (userId) => {
     await api.delete(`/api/projects/${selectedProject.id}/members/${userId}`);
-    fetchProjects();
+    fetchProjects(page.pageNo, page.pageSize);
     const updated = await api.get(`/api/projects/${selectedProject.id}`);
     setSelectedProject(updated.data);
   };
@@ -125,9 +187,96 @@ const ProjectManagement = () => {
         </button>
       </div>
 
+      <div className="glass-card p-4 mb-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 items-center">
+
+          <label className="block text-sm text-surface-300">Cari Project
+          <input
+            className="input-dark text-sm w-full"
+            placeholder="Cari project / customer / WO"
+            value={filters.search}
+            onChange={e => setFilters({ ...filters, search: e.target.value })}
+          />
+          </label>
+
+          <label className="block text-sm text-surface-300">Status Project
+          <AppSelect
+            value={filters.status}
+            className="w-full"
+            onChange={value => setFilters({ ...filters, status: value })}
+            options={[
+              ['', 'Semua Status'],
+              ['active', 'Active'],
+              ['completed', 'Completed'],
+              ['cancelled', 'Cancelled']
+            ]}
+          />
+          </label>
+
+          <label className="block text-sm text-surface-300">Project Manager
+          <AppSelect
+            value={filters.projectManagerId}
+            className="w-full"
+            onChange={value => setFilters({ ...filters, projectManagerId: value })}
+            options={[
+              ['', 'Semua Project Manager'],
+              ...allUsers
+                .filter(u => u.jobRoleCode === 'PM' || u.role === 'ADMIN')
+                .map(u => [u.id, `${u.name} (${u.jobRoleCode || u.role})`])
+            ]}
+          />
+          </label>
+
+          <div className="flex items-center gap-2 w-full">
+            <label className="block text-sm text-surface-300">Start Date Project
+            <input
+              type="date"
+              className="input-dark text-sm w-full [color-scheme:light] dark:[color-scheme:dark]"
+              value={filters.dateFrom}
+              onChange={e => setFilters({ ...filters, dateFrom: e.target.value })}
+            />
+            </label>
+            <span className="text-surface-500 text-sm">-</span>
+            <label className="block text-sm text-surface-300">End Date Project
+            <input
+              type="date"
+              className="input-dark text-sm w-full [color-scheme:light] dark:[color-scheme:dark]"
+              value={filters.dateTo}
+              onChange={e => setFilters({ ...filters, dateTo: e.target.value })}
+            />
+            </label>
+          </div>
+
+        </div>
+
+        {/* Bagian Tombol Reset - Terpisah di bawah kanan */}
+        <div className="flex justify-end mt-4 pt-3 border-t border-white/[0.06]">
+          <button
+            type="button"
+            className="btn-ghost text-sm px-4 py-2"
+            onClick={() => {
+              setFilters({
+                search: '',
+                status: '',
+                projectManagerId: '',
+                customer: '',
+                dateFrom: '',
+                dateTo: ''
+              });
+              setPage(prev => ({
+                ...prev,
+                pageNo: 1
+              }));
+            }}
+          >
+            Reset Filter
+          </button>
+        </div>
+      </div>
+
       {/* Project Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {projects.map(project => (
+        {!loading && projects.map(project => (
           <div key={project.id} className="glass-card p-5 hover:border-white/[0.15] transition-all">
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -170,7 +319,7 @@ const ProjectManagement = () => {
               )}
               <div className="flex items-center gap-2 text-xs text-surface-400">
                 <Calendar size={12} />
-                {format(new Date(project.contractStart), 'dd/MM/yy')} — {format(new Date(project.contractEnd), 'dd/MM/yy')}
+                {format(new Date(project.contractStart), 'MM/dd/yy')} — {format(new Date(project.contractEnd), 'MM/dd/yy')}
               </div>
               <div className="flex items-center gap-2 text-xs text-surface-400">
                 <Users size={12} /> {project.members.length} anggota
@@ -182,10 +331,10 @@ const ProjectManagement = () => {
               {project.members.slice(0, 5).map(m => (
                 <div key={m.id} className="w-7 h-7 rounded-full gradient-brand flex items-center justify-center text-[10px] font-bold border-2 border-surface-900" title={m.user.name}>
                   {m.user.profilePhoto ? (
-                        <img src={m.user.profilePhoto} alt="avatar" className="w-full h-full rounded-lg object-cover" />
-                      ) : (
-                        m.user.name.charAt(0).toUpperCase()
-                      )}
+                    <img src={m.user.profilePhoto} alt="avatar" className="w-full h-full rounded-lg object-cover" />
+                  ) : (
+                    m.user.name.charAt(0).toUpperCase()
+                  )}
                 </div>
               ))}
               {project.members.length > 5 && (
@@ -211,10 +360,24 @@ const ProjectManagement = () => {
             </div>
           </div>
         ))}
-        {projects.length === 0 && (
-          <div className="col-span-full text-center py-16 text-surface-400 text-sm">Belum ada project</div>
+        {loading && (
+          <div className="col-span-full text-center py-16 text-surface-400 text-sm">Memuat project...</div>
+        )}
+        {!loading && projects.length === 0 && (
+          <div className="col-span-full text-center py-16 text-surface-400 text-sm">Tidak ada project sesuai filter.</div>
         )}
       </div>
+
+      {page.totalRows > 0 && (
+        <div className="mt-6 glass-card p-4">
+          <Pagination
+            page={page}
+            doSearch={doSearch}
+            changePageSize={changePageSize}
+            hideGoToPage={false}
+          />
+        </div>
+      )}
 
       {/* Project Modal */}
       {showModal && (

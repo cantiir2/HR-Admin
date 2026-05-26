@@ -30,6 +30,104 @@ module.exports = (prisma) => {
     }
   });
 
+  // POST search projects with filters and pagination
+  router.post('/search', authenticateToken, authenticateAdmin, async (req, res) => {
+    try {
+      const {
+        pageNo: pageNoBody = 1,
+        pageSize: pageSizeBody = 5,
+        search = '',
+        status = '',
+        projectManagerId = '',
+        customer = '',
+        dateFrom = '',
+        dateTo = ''
+      } = req.body || {};
+
+      const pageNo = Math.max(parseInt(pageNoBody, 10) || 1, 1);
+      const pageSize = Math.min(Math.max(parseInt(pageSizeBody, 10) || 5, 1), 50);
+      const skip = (pageNo - 1) * pageSize;
+
+      if (dateFrom && dateTo && dateFrom > dateTo) {
+        return res.status(400).json({
+          error: 'Tanggal mulai filter tidak boleh lebih besar dari tanggal selesai filter'
+        });
+      }
+
+      const andWhere = [];
+
+      if (search) {
+        andWhere.push({
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { description: { contains: search, mode: 'insensitive' } },
+            { customer: { contains: search, mode: 'insensitive' } },
+            { customerName: { contains: search, mode: 'insensitive' } },
+            { woNumber: { contains: search, mode: 'insensitive' } },
+            { location: { contains: search, mode: 'insensitive' } }
+          ]
+        });
+      }
+
+      if (status) andWhere.push({ status });
+      if (projectManagerId) andWhere.push({ projectManagerId });
+
+      if (customer) {
+        andWhere.push({
+          customer: {
+            contains: customer,
+            mode: 'insensitive'
+          }
+        });
+      }
+
+      if (dateFrom && dateTo) {
+        andWhere.push({
+          contractStart: { lte: new Date(dateTo) },
+          contractEnd: { gte: new Date(dateFrom) }
+        });
+      } else if (dateFrom) {
+        andWhere.push({ contractEnd: { gte: new Date(dateFrom) } });
+      } else if (dateTo) {
+        andWhere.push({ contractStart: { lte: new Date(dateTo) } });
+      }
+
+      const where = andWhere.length ? { AND: andWhere } : {};
+      const include = {
+        projectManager: { select: { id: true, name: true, email: true, jobRoleCode: true, profilePhoto: true } },
+        members: {
+          include: {
+            user: { select: { id: true, name: true, email: true, jobRoleCode: true, profilePhoto: true } }
+          }
+        }
+      };
+
+      const [totalRows, projects] = await Promise.all([
+        prisma.project.count({ where }),
+        prisma.project.findMany({
+          where,
+          include,
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: pageSize
+        })
+      ]);
+
+      res.json({
+        data: projects,
+        page: {
+          pageNo,
+          pageSize,
+          totalRows,
+          totalPages: Math.ceil(totalRows / pageSize)
+        }
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
+
   // GET single project
   router.get('/:id', authenticateToken, async (req, res) => {
     try {

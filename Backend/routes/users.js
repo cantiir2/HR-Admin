@@ -53,6 +53,108 @@ module.exports = (prisma) => {
     }
   });
 
+  // POST users search with filters and pagination
+  router.post('/search', authenticateToken, authenticateAdmin, async (req, res) => {
+    try {
+      const {
+        pageNo: pageNoBody = 1,
+        pageSize: pageSizeBody = 10,
+        search = '',
+        role = '',
+        jobRoleCode = '',
+        contractStatus = ''
+      } = req.body || {};
+
+      const pageNo = Math.max(parseInt(pageNoBody, 10) || 1, 1);
+      const pageSize = Math.min(Math.max(parseInt(pageSizeBody, 10) || 10, 1), 50);
+      const skip = (pageNo - 1) * pageSize;
+      const andWhere = [];
+
+      if (search) {
+        andWhere.push({
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
+            { phone: { contains: search, mode: 'insensitive' } }
+          ]
+        });
+      }
+      if (role) andWhere.push({ role });
+      if (jobRoleCode) andWhere.push({ jobRoleCode });
+
+      const where = andWhere.length ? { AND: andWhere } : {};
+      const select = {
+        id: true, email: true, name: true, role: true, jobRoleCode: true,
+        phone: true, contractStart: true, contractEnd: true,
+        profilePhoto: true, profilePhotoName: true, createdAt: true,
+        ktpNumberEncrypted: true, kkNumberEncrypted: true,
+        contracts: { orderBy: { endDate: 'desc' }, take: 1 },
+        projects: { include: { project: { select: { name: true } } } }
+      };
+      const toSafeUser = user => ({
+        ...user,
+        ktpNumberEncrypted: undefined,
+        kkNumberEncrypted: undefined,
+        ktpNumberMasked: maskEncryptedNumber(user.ktpNumberEncrypted),
+        kkNumberMasked: maskEncryptedNumber(user.kkNumberEncrypted)
+      });
+
+      let totalRows;
+      let users;
+
+      if (contractStatus) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const thirtyDaysLater = new Date(today);
+        thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
+
+        const candidates = await prisma.user.findMany({
+          where,
+          select,
+          orderBy: { createdAt: 'desc' }
+        });
+        const matchesStatus = user => {
+          const contractEnd = user.contracts[0]?.endDate || user.contractEnd;
+          if (!contractEnd) return false;
+          const endDate = new Date(contractEnd);
+          if (contractStatus === 'active') return endDate >= today;
+          if (contractStatus === 'expired') return endDate < today;
+          if (contractStatus === 'expiring_30_days') {
+            return endDate >= today && endDate <= thirtyDaysLater;
+          }
+          return true;
+        };
+        const filteredUsers = candidates.filter(matchesStatus);
+        totalRows = filteredUsers.length;
+        users = filteredUsers.slice(skip, skip + pageSize);
+      } else {
+        [totalRows, users] = await Promise.all([
+          prisma.user.count({ where }),
+          prisma.user.findMany({
+            where,
+            select,
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: pageSize
+          })
+        ]);
+      }
+
+      res.json({
+        data: users.map(toSafeUser),
+        page: {
+          pageNo,
+          pageSize,
+          totalRows,
+          totalPages: Math.ceil(totalRows / pageSize)
+        }
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
+
   // GET members ordered by project availability (Admin)
   router.get('/available-members', authenticateToken, authenticateAdmin, async (req, res) => {
     try {
@@ -150,6 +252,131 @@ module.exports = (prisma) => {
 
       rows.sort((a, b) => a.priority_order - b.priority_order || a.name.localeCompare(b.name));
       res.json(rows);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
+
+  // POST available members search with filters and pagination
+  router.post('/available-members/search', authenticateToken, authenticateAdmin, async (req, res) => {
+    try {
+      const {
+        pageNo: pageNoBody = 1,
+        pageSize: pageSizeBody = 10,
+        startDate = '',
+        endDate = '',
+        skill = '',
+        search = ''
+      } = req.body || {};
+      const pageNo = Math.max(parseInt(pageNoBody, 10) || 1, 1);
+      const pageSize = Math.min(Math.max(parseInt(pageSizeBody, 10) || 10, 1), 50);
+      const skip = (pageNo - 1) * pageSize;
+
+      if ((startDate && !isDateInput(startDate)) || (endDate && !isDateInput(endDate))) {
+        return res.status(400).json({ error: 'Format tanggal harus YYYY-MM-DD' });
+      }
+      if (startDate && endDate && startDate > endDate) {
+        return res.status(400).json({ error: 'Tanggal mulai tidak boleh lebih besar dari tanggal selesai' });
+      }
+
+      const parseDateOnly = value => {
+        const [year, month, day] = value.split('-').map(Number);
+        return new Date(Date.UTC(year, month - 1, day));
+      };
+      const toDateOnly = date => {
+        if (!date) return null;
+        const value = new Date(date);
+        return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()));
+      };
+      const rangeStart = startDate ? parseDateOnly(startDate) : (endDate ? parseDateOnly(endDate) : null);
+      const rangeEnd = endDate ? parseDateOnly(endDate) : rangeStart;
+      const today = toDateOnly(new Date());
+
+      const jobRoles = await prisma.systemMaster.findMany({
+        where: { category: 'JOB_ROLE', isActive: true },
+        select: { code: true, name: true }
+      });
+      const jobRoleMap = new Map(jobRoles.map(role => [role.code, role.name]));
+      const users = await prisma.user.findMany({
+        where: {
+          role: 'MEMBER',
+          ...(skill ? { jobRoleCode: skill } : {}),
+          ...(search ? {
+            OR: [
+              { name: { contains: search, mode: 'insensitive' } },
+              { email: { contains: search, mode: 'insensitive' } }
+            ]
+          } : {})
+        },
+        select: {
+          id: true, name: true, email: true, jobRoleCode: true, skill: true,
+          projects: {
+            where: { project: { status: 'active' } },
+            include: { project: { select: { id: true, name: true, contractStart: true, contractEnd: true } } }
+          }
+        },
+        orderBy: { name: 'asc' }
+      });
+
+      const rows = users.map(user => {
+        const assignments = user.projects
+          .map(item => ({
+            ...item,
+            assignedStart: toDateOnly(item.joinedAt || item.project.contractStart),
+            assignedEnd: toDateOnly(item.leftAt || item.project.contractEnd)
+          }))
+          .filter(item => item.assignedStart && item.assignedEnd);
+        const conflictAssignments = assignments.filter(item => (
+          rangeStart
+            ? item.assignedStart <= rangeEnd && item.assignedEnd >= rangeStart
+            : item.assignedStart <= today && item.assignedEnd >= today
+        ));
+        const nearestEnd = conflictAssignments
+          .map(item => item.assignedEnd)
+          .sort((a, b) => a.getTime() - b.getTime())[0] || null;
+        const isAvailable = conflictAssignments.length === 0;
+
+        let availabilityStatus = 'Available Now';
+        let availableFrom = null;
+        let priorityOrder = 0;
+        if (rangeStart && isAvailable) {
+          availabilityStatus = 'Available On Selected Date';
+          availableFrom = rangeStart;
+        } else if (!isAvailable) {
+          availabilityStatus = 'Available From';
+          availableFrom = nearestEnd;
+          priorityOrder = nearestEnd ? nearestEnd.getTime() : Number.MAX_SAFE_INTEGER;
+        }
+
+        return {
+          user_id: user.id,
+          name: user.name,
+          email: user.email,
+          job_title: jobRoleMap.get(user.jobRoleCode) || user.jobRoleCode || null,
+          job_role_code: user.jobRoleCode,
+          job_role_name: jobRoleMap.get(user.jobRoleCode) || user.jobRoleCode || null,
+          skill: user.skill,
+          current_project: conflictAssignments.map(item => item.project.name).join(', ') || null,
+          available_from: availableFrom,
+          availability_status: availabilityStatus,
+          matching_score: priorityOrder,
+          priority_order: priorityOrder
+        };
+      });
+
+      rows.sort((a, b) => a.priority_order - b.priority_order || a.name.localeCompare(b.name));
+      const totalRows = rows.length;
+
+      res.json({
+        data: rows.slice(skip, skip + pageSize),
+        page: {
+          pageNo,
+          pageSize,
+          totalRows,
+          totalPages: Math.ceil(totalRows / pageSize)
+        }
+      });
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Server error' });

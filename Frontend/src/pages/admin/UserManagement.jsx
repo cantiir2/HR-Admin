@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import api from '../../lib/api';
 import {
   Pencil, Trash2, Search, X, UserPlus, Eye, Download, Loader2,
@@ -9,6 +9,7 @@ import AppAlert from '../../components/AppAlert';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import UserAvatar from '../../components/UserAvatar';
 import AppSelect from '../../components/AppSelect';
+import Pagination from '../../components/Pagination';
 import { displaySystemValue, formatWorkingPeriod, parseWorkingExperience } from '../../lib/profileFormat';
 
 const UserManagement = () => {
@@ -24,17 +25,37 @@ const UserManagement = () => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [confirm, setConfirm] = useState(null);
-  const [search, setSearch] = useState('');
+  const [filters, setFilters] = useState({ search: '', role: '', jobRoleCode: '', contractStatus: '' });
+  const [page, setPage] = useState({ pageNo: 1, pageSize: 10, totalRows: 0, totalPages: 1 });
+  const [loading, setLoading] = useState(false);
+  const pageSizeRef = useRef(10);
   const [jobHistoryForm, setJobHistoryForm] = useState({ id: '', companyName: '', jobTitle: '', description: '', startDate: '', endDate: '', isPresent: false });
   const [contractHistoryForm, setContractHistoryForm] = useState({ id: '', contractNumber: '', vendor: '', startDate: '', endDate: '', contractValue: '' });
   const [form, setForm] = useState({
     name: '', email: '', password: '', role: 'MEMBER', jobRoleCode: '',
   });
 
-  const fetchUsers = async () => {
-    const res = await api.get('/api/users');
-    setUsers(res.data);
-  };
+  const fetchUsers = useCallback(async (pageNo = 1, pageSize = pageSizeRef.current) => {
+    pageSizeRef.current = pageSize;
+    setLoading(true);
+    setError('');
+    try {
+      const res = await api.post('/api/users/search', {
+        pageNo,
+        pageSize,
+        search: filters.search,
+        role: filters.role,
+        jobRoleCode: filters.jobRoleCode,
+        contractStatus: filters.contractStatus
+      });
+      setUsers(res.data.data || []);
+      setPage(res.data.page || { pageNo, pageSize, totalRows: 0, totalPages: 1 });
+    } catch (err) {
+      setError(err.response?.data?.error || 'Gagal mengambil data user');
+    } finally {
+      setLoading(false);
+    }
+  }, [filters]);
 
   const fetchJobRoles = async () => {
     const res = await api.get('/api/system?category=JOB_ROLE');
@@ -49,10 +70,25 @@ const UserManagement = () => {
   useEffect(() => {
     // Existing screen pattern: initial API hydration updates local list state.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchUsers();
     fetchJobRoles();
     fetchReligions();
   }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchUsers(1, pageSizeRef.current);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [fetchUsers]);
+
+  const doSearch = async (pageNo, pageSize) => {
+    await fetchUsers(pageNo, pageSize);
+  };
+
+  const changePageSize = (pageSize) => {
+    pageSizeRef.current = pageSize;
+    setPage(prev => ({ ...prev, pageNo: 1, pageSize }));
+  };
 
   const openCreate = () => {
     setEditingUser(null);
@@ -82,7 +118,7 @@ const UserManagement = () => {
         await api.post('/api/users', form);
       }
       setShowModal(false);
-      await fetchUsers();
+      await fetchUsers(page.pageNo, page.pageSize);
       setMessage(editingUser ? 'Data user berhasil diperbarui' : 'User baru berhasil ditambahkan');
     } catch (err) {
       setError(err.response?.data?.error || 'Gagal menyimpan');
@@ -112,8 +148,11 @@ const UserManagement = () => {
         setError('');
         setMessage('');
         try {
+          const nextPageNo = users.length === 1 && page.pageNo > 1
+            ? page.pageNo - 1
+            : page.pageNo;
           await api.delete(`/api/users/${user.id}`);
-          await fetchUsers();
+          await fetchUsers(nextPageNo, page.pageSize);
           setMessage('User berhasil dihapus');
         } catch (err) {
           setError(err.response?.data?.error || 'Gagal menghapus user');
@@ -191,11 +230,6 @@ const UserManagement = () => {
     document.body.removeChild(link);
   };
 
-  const filtered = users.filter(u => {
-    const q = search.toLowerCase();
-    return u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
-  });
-
   const daysUntilExpiry = (dateStr) => {
     if (!dateStr) return null;
     const diff = Math.ceil((new Date(dateStr) - new Date()) / (1000 * 60 * 60 * 24));
@@ -218,10 +252,37 @@ const UserManagement = () => {
         </button>
       </div>
 
-      {/* Search */}
-      <div className="relative mb-4">
-        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-surface-500" />
-        <input type="text" placeholder="Cari nama atau email..." value={search} onChange={e => setSearch(e.target.value)} className="input-dark pl-11 text-sm" />
+      <div className="glass-card p-4 mb-4">
+        {/* Bagian Input Filter */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+          <div className="relative">
+            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-surface-500" />
+            <input
+              type="text"
+              placeholder="Cari nama, email, telepon..."
+              value={filters.search}
+              onChange={e => setFilters({ ...filters, search: e.target.value })}
+              className="input-dark pl-11 text-sm w-full"
+            />
+          </div>
+          <AppSelect value={filters.role} onChange={value => setFilters({ ...filters, role: value })} options={[['', 'Semua Role'], ['ADMIN', 'Admin'], ['MEMBER', 'Member']]} />
+          <AppSelect value={filters.jobRoleCode} onChange={value => setFilters({ ...filters, jobRoleCode: value })} options={[['', 'Semua Job Role'], ...jobRoles.filter(j => j.isActive).map(j => [j.code, `${j.code} - ${j.name}`])]} />
+          <AppSelect value={filters.contractStatus} onChange={value => setFilters({ ...filters, contractStatus: value })} options={[['', 'Semua Kontrak'], ['active', 'Active'], ['expiring_30_days', 'Expired <= 30 Hari'], ['expired', 'Expired']]} />
+        </div>
+
+        {/* Bagian Tombol Reset - Terpisah di bawah kanan */}
+        <div className="flex justify-end mt-4 pt-3 border-t border-white/[0.06]">
+          <button
+            type="button"
+            className="btn-ghost text-sm px-4 py-2"
+            onClick={() => {
+              setFilters({ search: '', role: '', jobRoleCode: '', contractStatus: '' });
+              setPage(prev => ({ ...prev, pageNo: 1 }));
+            }}
+          >
+            Reset Filter
+          </button>
+        </div>
       </div>
 
       {/* Table */}
@@ -240,7 +301,7 @@ const UserManagement = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.04]">
-              {filtered.map(user => {
+              {!loading && users.map(user => {
                 const latestContract = user.contracts?.[0];
                 const contractEnd = latestContract?.endDate || user.contractEnd;
                 const days = daysUntilExpiry(contractEnd);
@@ -296,11 +357,20 @@ const UserManagement = () => {
               })}
             </tbody>
           </table>
-          {filtered.length === 0 && (
+          {loading && (
+            <div className="text-center py-12 text-surface-400 text-sm">Memuat data user...</div>
+          )}
+          {!loading && users.length === 0 && (
             <div className="text-center py-12 text-surface-400 text-sm">Tidak ada data user</div>
           )}
         </div>
       </div>
+
+      {page.totalRows > 0 && (
+        <div className="mt-4 glass-card p-4">
+          <Pagination page={page} doSearch={doSearch} changePageSize={changePageSize} hideGoToPage={false} />
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && (
@@ -407,15 +477,15 @@ const UserManagement = () => {
                   <WorkingExperienceList value={detailUser.workingExperience} />
                   <div className="pt-3 border-t border-white/[0.06] space-y-3">
                     <p className="text-xs text-surface-500">Job History</p>
-                    <div className="grid sm:grid-cols-2 gap-2">
+                    {/* <div className="grid sm:grid-cols-2 gap-2">
                       <input className="input-dark text-sm" placeholder="Perusahaan *" value={jobHistoryForm.companyName} onChange={e => setJobHistoryForm({...jobHistoryForm, companyName: e.target.value})} />
                       <input className="input-dark text-sm" placeholder="Jabatan *" value={jobHistoryForm.jobTitle} onChange={e => setJobHistoryForm({...jobHistoryForm, jobTitle: e.target.value})} />
                       <input type="date" className="input-dark text-sm" value={jobHistoryForm.startDate} onChange={e => setJobHistoryForm({...jobHistoryForm, startDate: e.target.value})} />
                       <input type="date" disabled={jobHistoryForm.isPresent} className="input-dark text-sm" value={jobHistoryForm.endDate} onChange={e => setJobHistoryForm({...jobHistoryForm, endDate: e.target.value})} />
-                    </div>
-                    <textarea className="input-dark text-sm" placeholder="Deskripsi" value={jobHistoryForm.description} onChange={e => setJobHistoryForm({...jobHistoryForm, description: e.target.value})} />
+                    </div> */}
+                    {/* <textarea className="input-dark text-sm" placeholder="Deskripsi" value={jobHistoryForm.description} onChange={e => setJobHistoryForm({...jobHistoryForm, description: e.target.value})} />
                     <label className="text-xs text-surface-400 flex gap-2"><input type="checkbox" checked={jobHistoryForm.isPresent} onChange={e => setJobHistoryForm({...jobHistoryForm, isPresent: e.target.checked})} /> Masih bekerja</label>
-                    <button type="button" onClick={saveJobHistory} className="btn-primary text-xs">{jobHistoryForm.id ? 'Update Pekerjaan' : 'Tambah Pekerjaan'}</button>
+                    <button type="button" onClick={saveJobHistory} className="btn-primary text-xs">{jobHistoryForm.id ? 'Update Pekerjaan' : 'Tambah Pekerjaan'}</button> */}
                     {detailUser.jobHistories?.map(item => (
                       <div key={item.id} className="flex justify-between border-t border-white/[0.06] pt-2 text-sm">
                         <span className="text-surface-300">{item.jobTitle} - {item.companyName}</span>
@@ -445,7 +515,18 @@ const UserManagement = () => {
                       </div>
                       <div>
                         <label className="block text-xs text-surface-400 mb-1">Nilai Kontrak *</label>
-                        <input type="number" min="0" className="input-dark text-sm" value={contractHistoryForm.contractValue} onChange={e => setContractHistoryForm({...contractHistoryForm, contractValue: e.target.value})} />
+                        <input
+                          type="text"
+                          className="input-dark text-sm"
+                          value={contractHistoryForm.contractValue ? 'Rp. ' + new Intl.NumberFormat('id-ID').format(contractHistoryForm.contractValue) : ''}
+                          onChange={(e) => {
+                            const rawValue = e.target.value.replace(/[^0-9]/g, '');
+                            setContractHistoryForm({
+                              ...contractHistoryForm,
+                              contractValue: rawValue === '' ? '' : parseInt(rawValue, 10),
+                            });
+                          }}
+                        />
                       </div>
                       <div>
                         <label className="block text-xs text-surface-400 mb-1">Tanggal Mulai *</label>

@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import Webcam from "react-webcam";
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import {
@@ -24,6 +25,8 @@ const MemberDashboard = () => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [initialLoading, setInitialLoading] = useState(true);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const webcamRef = useRef(null);
 
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
@@ -51,6 +54,18 @@ const MemberDashboard = () => {
     } finally {
       setInitialLoading(false);
     }
+  };
+
+  const capturePhoto = useCallback(() => {
+    const imageSrc = webcamRef.current.getScreenshot();
+    setPhotoBase64(imageSrc);
+    setIsCameraOpen(false);
+    setError('');
+  }, [webcamRef]);
+
+  const retakePhoto = () => {
+    setPhotoBase64(null);
+    setIsCameraOpen(true);
   };
 
   const handleExport = async () => {
@@ -116,7 +131,7 @@ const MemberDashboard = () => {
   const canCheckOut = isCurrentMonth && (todayRecord && todayRecord.checkInTime && !todayRecord.checkOutTime);
 
   const currentYear = new Date().getFullYear();
-  const years = Array.from({length: 5}, (_, i) => currentYear - i);
+  const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
   const months = [
     { value: 1, label: 'Januari' }, { value: 2, label: 'Februari' }, { value: 3, label: 'Maret' },
     { value: 4, label: 'April' }, { value: 5, label: 'Mei' }, { value: 6, label: 'Juni' },
@@ -173,23 +188,47 @@ const MemberDashboard = () => {
           <p className="text-sm text-surface-400 mb-5">Ambil foto dan lokasi untuk absensi</p>
 
           <div className="space-y-4">
-            <div>
-              <input type="file" accept="image/*" capture="user" id="cameraInput" className="hidden" onChange={handlePhotoCapture} />
-              <label htmlFor="cameraInput" className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-white/[0.1] rounded-xl hover:border-brand-500/40 cursor-pointer overflow-hidden transition-all group">
-                {photoBase64 ? (
-                  <div className="relative w-full h-full">
-                    <img src={photoBase64} alt="Preview" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <span className="text-sm font-medium text-white bg-white/20 backdrop-blur px-4 py-2 rounded-full">Ganti Foto</span>
-                    </div>
+            <div className="w-full h-64 border-2 border-dashed border-white/[0.1] rounded-xl overflow-hidden relative bg-black/20 flex flex-col items-center justify-center">
+              
+              {/* Jika foto sudah diambil, tampilkan hasilnya */}
+              {photoBase64 ? (
+                <div className="relative w-full h-full group">
+                  <img src={photoBase64} alt="Captured" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={retakePhoto} className="text-sm font-medium text-white bg-white/20 backdrop-blur px-4 py-2 rounded-full">
+                      Foto Ulang
+                    </button>
                   </div>
-                ) : (
-                  <div className="flex flex-col items-center text-surface-500 group-hover:text-brand-400 transition-colors">
-                    <div className="w-14 h-14 rounded-2xl bg-white/[0.06] flex items-center justify-center mb-3"><Camera size={24} /></div>
-                    <span className="font-medium text-sm">Tap untuk Ambil Foto</span>
+                </div>
+              ) : isCameraOpen ? (
+                /* Jika kamera dibuka, tampilkan live stream */
+                <div className="relative w-full h-full flex flex-col items-center">
+                  <Webcam
+                    audio={false}
+                    ref={webcamRef}
+                    screenshotFormat="image/jpeg"
+                    videoConstraints={{ facingMode: "user" }} // "user" = kamera depan, "environment" = kamera belakang
+                    className="w-full h-full object-cover"
+                  />
+                  <button 
+                    onClick={capturePhoto} 
+                    className="absolute bottom-4 bg-brand-500 text-white p-3 rounded-full shadow-lg hover:scale-105 transition-transform"
+                  >
+                    <Camera size={24} />
+                  </button>
+                </div>
+              ) : (
+                /* Tombol awal untuk menyalakan kamera */
+                <button 
+                  onClick={() => setIsCameraOpen(true)} 
+                  className="flex flex-col items-center text-surface-500 hover:text-brand-400 transition-colors"
+                >
+                  <div className="w-14 h-14 rounded-2xl bg-white/[0.06] flex items-center justify-center mb-3">
+                    <Camera size={24} />
                   </div>
-                )}
-              </label>
+                  <span className="font-medium text-sm">Buka Kamera Absensi</span>
+                </button>
+              )}
             </div>
 
             <button onClick={getLocation} disabled={locationLoading}
@@ -205,8 +244,8 @@ const MemberDashboard = () => {
 
             <button onClick={() => handleSubmit(canCheckIn ? 'check-in' : 'check-out')} disabled={loading}
               className={`w-full py-3.5 font-semibold rounded-xl transition-all shadow-lg hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 flex items-center justify-center gap-2 ${canCheckIn
-                  ? 'bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-emerald-500/20'
-                  : 'bg-gradient-to-r from-rose-600 to-rose-500 text-white shadow-rose-500/20'
+                ? 'bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-emerald-500/20'
+                : 'bg-gradient-to-r from-rose-600 to-rose-500 text-white shadow-rose-500/20'
                 }`}>
               {loading ? <Loader2 size={18} className="animate-spin" /> : canCheckIn ? <><ArrowUpCircle size={18} /> Check-In</> : <><ArrowDownCircle size={18} /> Check-Out</>}
             </button>
@@ -236,8 +275,8 @@ const MemberDashboard = () => {
               <CalendarDays size={18} className="text-brand-400" />
               <h2 className="text-lg font-semibold text-white">Riwayat</h2>
             </div>
-            <button 
-              onClick={handleExport} 
+            <button
+              onClick={handleExport}
               disabled={exportLoading}
               className="px-3 py-1.5 text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg hover:bg-emerald-500/20 flex items-center gap-2 transition-colors disabled:opacity-50"
             >
@@ -245,19 +284,19 @@ const MemberDashboard = () => {
               Export
             </button>
           </div>
-          
+
           <div className="grid grid-cols-2 gap-3">
-            <AppSelect 
-              value={filterMonth} 
+            <AppSelect
+              value={filterMonth}
               onChange={value => setFilterMonth(parseInt(value))}
               className="py-2 text-sm"
               options={months}
             />
-            <AppSelect 
-              value={filterYear} 
+            <AppSelect
+              value={filterYear}
               onChange={value => setFilterYear(parseInt(value))}
               className="py-2 text-sm"
-              options={years.map(y => ({value: y, label: y}))}
+              options={years.map(y => ({ value: y, label: y }))}
             />
           </div>
         </div>

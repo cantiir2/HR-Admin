@@ -1,16 +1,40 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { CalendarDays, Search, Users } from 'lucide-react';
 import api from '../../lib/api';
 import AppSelect from '../../components/AppSelect';
 import AppAlert from '../../components/AppAlert';
+import Pagination from '../../components/Pagination';
 
 const AvailableMember = () => {
   const [members, setMembers] = useState([]);
   const [jobRoles, setJobRoles] = useState([]);
-  const [filters, setFilters] = useState({ startDate: '', endDate: '', skill: '' });
-  const [search, setSearch] = useState('');
+  const [filters, setFilters] = useState({ startDate: '', endDate: '', skill: '', search: '' });
+  const [page, setPage] = useState({ pageNo: 1, pageSize: 10, totalRows: 0, totalPages: 1 });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const pageSizeRef = useRef(10);
+
+  const fetchMembers = useCallback(async (pageNo = 1, pageSize = pageSizeRef.current) => {
+    pageSizeRef.current = pageSize;
+    setLoading(true);
+    setError('');
+    try {
+      const res = await api.post('/api/users/available-members/search', {
+        pageNo,
+        pageSize,
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        skill: filters.skill,
+        search: filters.search
+      });
+      setMembers(res.data.data || []);
+      setPage(res.data.page || { pageNo, pageSize, totalRows: 0, totalPages: 1 });
+    } catch (err) {
+      setError(err.response?.data?.error || 'Gagal mengambil availability member');
+    } finally {
+      setLoading(false);
+    }
+  }, [filters]);
 
   useEffect(() => {
     api.get('/api/system', { params: { category: 'JOB_ROLE', isActive: true } })
@@ -19,25 +43,20 @@ const AvailableMember = () => {
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const res = await api.get('/api/users/available-members', { params: filters });
-        setMembers(res.data);
-      } catch (err) {
-        setError(err.response?.data?.error || 'Gagal mengambil availability member');
-      } finally {
-        setLoading(false);
-      }
+    const timer = setTimeout(() => {
+      fetchMembers(1, pageSizeRef.current);
     }, 250);
     return () => clearTimeout(timer);
-  }, [filters]);
+  }, [fetchMembers]);
 
-  const displayed = useMemo(() => members.filter(member => {
-    const q = search.toLowerCase();
-    return member.name.toLowerCase().includes(q) || member.email.toLowerCase().includes(q);
-  }), [members, search]);
+  const doSearch = async (pageNo, pageSize) => {
+    await fetchMembers(pageNo, pageSize);
+  };
+
+  const changePageSize = (pageSize) => {
+    pageSizeRef.current = pageSize;
+    setPage(prev => ({ ...prev, pageNo: 1, pageSize }));
+  };
 
   return (
     <div className="animate-fade-in space-y-5">
@@ -48,17 +67,25 @@ const AvailableMember = () => {
       <AppAlert tone="error" message={error} />
       <div className="glass-card p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="block text-sm text-surface-300">Start Date
-          <input type="date" className="input-dark text-sm mt-1" value={filters.startDate} onChange={e => setFilters({ ...filters, startDate: e.target.value })} />
+          <input 
+            type="date" 
+            className="input-dark text-sm mt-1 [color-scheme:light] dark:[color-scheme:dark]"
+            value={filters.startDate} 
+            onChange={e => setFilters({ ...filters, startDate: e.target.value })} />
         </label>
         <label className="block text-sm text-surface-300">End Date
-          <input type="date" className="input-dark text-sm mt-1" value={filters.endDate} onChange={e => setFilters({ ...filters, endDate: e.target.value })} />
+          <input 
+            type="date" 
+            className="input-dark text-sm mt-1 [color-scheme:light] dark:[color-scheme:dark]"
+            value={filters.endDate} 
+            onChange={e => setFilters({ ...filters, endDate: e.target.value })} />
         </label>
         <AppSelect label="Job Role / Skill" value={filters.skill} onChange={value => setFilters({ ...filters, skill: value })} options={[['', 'Semua role'], ...jobRoles.map(role => [role.code, role.name])]} />
         <div>
           <label className="block text-sm text-surface-300 mb-1">Search Nama</label>
           <div className="relative">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-500" />
-            <input className="input-dark text-sm pl-9" placeholder="Cari nama" value={search} onChange={e => setSearch(e.target.value)} />
+            <input className="input-dark text-sm pl-9" placeholder="Cari nama" value={filters.search} onChange={e => setFilters({ ...filters, search: e.target.value })} />
           </div>
         </div>
       </div>
@@ -69,7 +96,7 @@ const AvailableMember = () => {
               <th className="px-4 py-3">Member</th><th className="px-4 py-3">Job / Skill</th><th className="px-4 py-3">Current Project</th><th className="px-4 py-3">Available From</th><th className="px-4 py-3">Status</th>
             </tr></thead>
             <tbody className="divide-y divide-white/[0.04]">
-              {displayed.map(member => (
+              {!loading && members.map(member => (
                 <tr key={member.user_id}>
                   <td className="px-4 py-3"><p className="text-white font-medium">{member.name}</p><p className="text-xs text-surface-500">{member.email}</p></td>
                   <td className="px-4 py-3 text-surface-300"><p>{member.job_role_name || member.job_title || '-'}</p><p className="text-xs text-surface-500">{member.job_role_code || '-'}</p></td>
@@ -86,10 +113,15 @@ const AvailableMember = () => {
               ))}
             </tbody>
           </table>
-          {!loading && !displayed.length && <div className="text-center text-surface-400 text-sm py-12"><CalendarDays className="mx-auto mb-2" />Tidak ada member sesuai filter.</div>}
+          {!loading && !members.length && <div className="text-center text-surface-400 text-sm py-12"><CalendarDays className="mx-auto mb-2" />Tidak ada member sesuai filter.</div>}
           {loading && <div className="text-center text-surface-400 text-sm py-12">Memuat availability...</div>}
         </div>
       </div>
+      {page.totalRows > 0 && (
+        <div className="mt-4 glass-card p-4">
+          <Pagination page={page} doSearch={doSearch} changePageSize={changePageSize} hideGoToPage={false} />
+        </div>
+      )}
     </div>
   );
 };
