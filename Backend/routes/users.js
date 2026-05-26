@@ -56,57 +56,97 @@ module.exports = (prisma) => {
   // GET members ordered by project availability (Admin)
   router.get('/available-members', authenticateToken, authenticateAdmin, async (req, res) => {
     try {
-      const { startDate, endDate, skill, projectId } = req.query;
+      const { startDate, endDate, skill } = req.query;
       if ((startDate && !isDateInput(startDate)) || (endDate && !isDateInput(endDate))) {
         return res.status(400).json({ error: 'Format tanggal harus YYYY-MM-DD' });
       }
       if (startDate && endDate && startDate > endDate) {
         return res.status(400).json({ error: 'Tanggal mulai tidak boleh lebih besar dari tanggal selesai' });
       }
-      const rangeStart = startDate ? new Date(startDate) : null;
-      const rangeEnd = endDate ? new Date(endDate) : null;
-      const today = new Date();
+
+      const parseDateOnly = (value) => {
+        const [year, month, day] = value.split('-').map(Number);
+        return new Date(Date.UTC(year, month - 1, day));
+      };
+      const toDateOnly = (date) => {
+        if (!date) return null;
+        const value = new Date(date);
+        return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()));
+      };
+
+      const rangeStart = startDate ? parseDateOnly(startDate) : (endDate ? parseDateOnly(endDate) : null);
+      const rangeEnd = endDate ? parseDateOnly(endDate) : rangeStart;
+      const today = toDateOnly(new Date());
+
+      const jobRoles = await prisma.systemMaster.findMany({
+        where: { category: 'JOB_ROLE', isActive: true },
+        select: { code: true, name: true }
+      });
+      const jobRoleMap = new Map(jobRoles.map(role => [role.code, role.name]));
+
       const users = await prisma.user.findMany({
         where: {
           role: 'MEMBER',
-          ...(skill ? { skill: { contains: skill, mode: 'insensitive' } } : {})
+          ...(skill ? { jobRoleCode: skill } : {})
         },
         select: {
           id: true, name: true, email: true, jobRoleCode: true, skill: true,
           projects: {
             where: {
-              ...(projectId ? { projectId: { not: projectId } } : {}),
               project: { status: 'active' }
             },
-            include: { project: { select: { id: true, name: true, contractEnd: true } } }
+            include: { project: { select: { id: true, name: true, contractStart: true, contractEnd: true } } }
           }
-        }
+        },
+        orderBy: { name: 'asc' }
       });
 
       const rows = users.map(user => {
-        const assignments = user.projects.filter(item => {
-          if (!rangeStart || !rangeEnd) return item.project.contractEnd >= today;
-          const assignedStart = item.joinedAt || new Date(0);
-          const assignedEnd = item.leftAt || item.project.contractEnd;
-          return assignedStart <= rangeEnd && assignedEnd >= rangeStart;
-        });
-        const nextEnd = assignments
-          .map(item => item.leftAt || item.project.contractEnd)
-          .sort((a, b) => a - b)[0];
-        const availableNow = assignments.length === 0;
+        const assignments = user.projects
+          .map(item => ({
+            ...item,
+            assignedStart: toDateOnly(item.joinedAt || item.project.contractStart),
+            assignedEnd: toDateOnly(item.leftAt || item.project.contractEnd)
+          }))
+          .filter(item => item.assignedStart && item.assignedEnd);
+
+        const conflictAssignments = assignments.filter(item => (
+          rangeStart
+            ? item.assignedStart <= rangeEnd && item.assignedEnd >= rangeStart
+            : item.assignedStart <= today && item.assignedEnd >= today
+        ));
+        const nearestEnd = conflictAssignments
+          .map(item => item.assignedEnd)
+          .sort((a, b) => a.getTime() - b.getTime())[0] || null;
+        const isAvailable = conflictAssignments.length === 0;
+
+        let availabilityStatus = 'Available Now';
+        let availableFrom = null;
+        let priorityOrder = 0;
+        if (rangeStart && isAvailable) {
+          availabilityStatus = 'Available On Selected Date';
+          availableFrom = rangeStart;
+        } else if (!isAvailable) {
+          availabilityStatus = 'Available From';
+          availableFrom = nearestEnd;
+          priorityOrder = nearestEnd ? nearestEnd.getTime() : Number.MAX_SAFE_INTEGER;
+        }
+
         return {
           user_id: user.id,
           name: user.name,
           email: user.email,
-          job_title: user.jobRoleCode,
+          job_title: jobRoleMap.get(user.jobRoleCode) || user.jobRoleCode || null,
+          job_role_code: user.jobRoleCode,
+          job_role_name: jobRoleMap.get(user.jobRoleCode) || user.jobRoleCode || null,
           skill: user.skill,
-          current_project: assignments.map(item => item.project.name).join(', ') || null,
-          available_from: availableNow ? null : nextEnd,
-          availability_status: availableNow ? 'Available Now' : 'Assigned',
-          matching_score: availableNow ? 0 : nextEnd.getTime(),
-          priority_order: availableNow ? 0 : nextEnd.getTime()
+          current_project: conflictAssignments.map(item => item.project.name).join(', ') || null,
+          available_from: availableFrom,
+          availability_status: availabilityStatus,
+          matching_score: priorityOrder,
+          priority_order: priorityOrder
         };
-      }).filter(row => !rangeStart || !rangeEnd || row.availability_status === 'Available Now');
+      });
 
       rows.sort((a, b) => a.priority_order - b.priority_order || a.name.localeCompare(b.name));
       res.json(rows);

@@ -6,9 +6,11 @@ module.exports = (prisma) => {
   // ─── GET all system master entries (optionally filter by category) ───────
   router.get('/', authenticateToken, async (req, res) => {
     try {
-      const { category } = req.query;
+      const { category, isActive } = req.query;
       const where = {};
       if (category) where.category = category;
+      if (isActive === 'true') where.isActive = true;
+      if (isActive === 'false') where.isActive = false;
 
       const items = await prisma.systemMaster.findMany({
         where,
