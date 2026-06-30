@@ -5,6 +5,7 @@ const { PDFParse } = require('pdf-parse');
 const router = express.Router();
 const { authenticateToken, authenticateAdmin } = require('../middleware/auth');
 const { encryptText, decryptText, maskSensitiveNumber } = require('../utils/encryption');
+const { calculateBase64FileSize, validateBase64File } = require('../utils/fileValidation');
 const { log } = require('console');
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -864,14 +865,14 @@ function normalizeDocumentType(value) {
 }
 
 function validateFile(fileData, fileName, fileType) {
-  if (!fileData || !fileName) return 'File dan nama file wajib diisi';
-  if (!ALLOWED_FILE_TYPES.includes(fileType)) return 'Tipe file tidak diizinkan';
-
-  const base64 = String(fileData).split(',').pop() || '';
-  const size = Math.ceil((base64.length * 3) / 4);
-  if (size > MAX_FILE_SIZE) return 'Ukuran file maksimal 10MB';
-
-  return null;
+  return validateBase64File({
+    fileData,
+    fileName,
+    mimeType: fileType,
+    allowedMimeTypes: ALLOWED_FILE_TYPES,
+    maxSizeBytes: MAX_FILE_SIZE,
+    maxSizeLabel: '10MB'
+  });
 }
 
 function toDownloadPayload(document) {
@@ -893,7 +894,7 @@ async function createDocument(prisma, userId, payload) {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
   if (!user) throw new Error('User tidak ditemukan');
   const storedFileName = buildStoredFileName(userId, user.name, normalizedType, fileName);
-  const fileSize = Math.ceil(((String(fileData).split(',').pop() || '').length * 3) / 4);
+  const fileSize = calculateBase64FileSize(fileData);
 
   return prisma.userDocument.create({
     data: {

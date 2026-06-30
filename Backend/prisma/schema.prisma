@@ -28,6 +28,43 @@ enum Role {
   MEMBER
 }
 
+enum NotificationType {
+  CONTRACT_EXPIRING
+  WR_REMINDER
+  WR_LATE
+  LEAVE_REQUEST
+  LEAVE_APPROVAL
+  LEAVE_REJECTED
+  LEAVE_OVER_QUOTA
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  BOTH
+}
+
+enum WorkingReportStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  LATE
+}
+
+enum LeaveRequestStatus {
+  PENDING
+  APPROVED_BY_PM
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum LeaveType {
+  ANNUAL_LEAVE
+  OTHERS
+}
+
 // ─── User ──────────────────────────────────────────────────────────────────
 model User {
   id            String    @id @default(uuid())
@@ -70,11 +107,41 @@ model User {
   jobHistories  UserJobHistory[]
   contracts     UserContract[]
   managedProjects Project[] @relation("ProjectManager")
+  notifications Notification[]
+  workingReports WorkingReport[] @relation("WorkingReportUser")
+  approvedWorkingReports WorkingReport[] @relation("WorkingReportApprovedBy")
+  rejectedWorkingReports WorkingReport[] @relation("WorkingReportRejectedBy")
+  leaveRequests LeaveRequest[] @relation("LeaveRequestUser")
+  pmApprovedLeaveRequests LeaveRequest[] @relation("LeaveRequestPmApprover")
+  adminApprovedLeaveRequests LeaveRequest[] @relation("LeaveRequestAdminApprover")
+  rejectedLeaveRequests LeaveRequest[] @relation("LeaveRequestRejectedBy")
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   @@map("tb_m_user")
+}
+
+model Notification {
+  id            String              @id @default(uuid())
+  userId        String
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type          NotificationType
+  title         String
+  message       String              @db.Text
+  referenceId   String?
+  referenceType String?
+  isRead        Boolean             @default(false)
+  readAt        DateTime?
+  channel       NotificationChannel @default(BOTH)
+  emailSent     Boolean             @default(false)
+  emailSentAt   DateTime?
+  emailError    String?             @db.Text
+  createdAt     DateTime            @default(now())
+
+  @@index([userId, isRead, createdAt])
+  @@index([type, referenceId])
+  @@map("tb_m_notification")
 }
 
 // ─── User Documents ───────────────────────────────────────────────────────
@@ -128,6 +195,7 @@ model UserContract {
   contractValue  Decimal  @db.Decimal(18, 2)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  leaveRequests  LeaveRequest[]
 
   @@index([userId])
   @@map("tb_m_user_contract")
@@ -202,6 +270,67 @@ model Attendance {
 
   @@unique([userId, date])
   @@map("tb_m_attendance")
+}
+
+model WorkingReport {
+  id              String              @id @default(uuid())
+  userId          String
+  user            User                @relation("WorkingReportUser", fields: [userId], references: [id], onDelete: Cascade)
+  month           Int
+  year            Int
+  status          WorkingReportStatus @default(DRAFT)
+  submittedAt     DateTime?
+  approvedAt      DateTime?
+  approvedById    String?
+  approvedBy      User?               @relation("WorkingReportApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  rejectedAt      DateTime?
+  rejectedById    String?
+  rejectedBy      User?               @relation("WorkingReportRejectedBy", fields: [rejectedById], references: [id], onDelete: SetNull)
+  rejectionReason String?             @db.Text
+  isLate          Boolean             @default(false)
+  lateDays        Int                 @default(0)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([userId, month, year])
+  @@index([status, month, year])
+  @@map("tb_t_working_report")
+}
+
+model LeaveRequest {
+  id                    String             @id @default(uuid())
+  userId                String
+  user                  User               @relation("LeaveRequestUser", fields: [userId], references: [id], onDelete: Cascade)
+  contractId            String
+  contract              UserContract       @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  startDate             DateTime           @db.Date
+  endDate               DateTime           @db.Date
+  totalDays             Int
+  reason                String             @db.Text
+  leaveType             LeaveType          @default(ANNUAL_LEAVE)
+  evidencePhoto         String?            @db.Text
+  evidencePhotoName     String?
+  evidencePhotoMimeType String?
+  status                LeaveRequestStatus @default(PENDING)
+  pmApproverId          String?
+  pmApprover            User?              @relation("LeaveRequestPmApprover", fields: [pmApproverId], references: [id], onDelete: SetNull)
+  pmApprovedAt          DateTime?
+  adminApproverId       String?
+  adminApprover         User?              @relation("LeaveRequestAdminApprover", fields: [adminApproverId], references: [id], onDelete: SetNull)
+  adminApprovedAt       DateTime?
+  rejectedById          String?
+  rejectedBy            User?              @relation("LeaveRequestRejectedBy", fields: [rejectedById], references: [id], onDelete: SetNull)
+  rejectedAt            DateTime?
+  rejectionReason       String?            @db.Text
+  isOverQuota           Boolean            @default(false)
+  overQuotaDays         Int                @default(0)
+  warningAcknowledged   Boolean            @default(false)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  @@index([userId, status])
+  @@index([contractId])
+  @@map("tb_t_leave_request")
 }
 
 // ─── Milestone ─────────────────────────────────────────────────────────────

@@ -14,15 +14,21 @@ const AdminAttendanceList = () => {
   const [search, setSearch] = useState('');
   const [pageNo, setPageNo] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [selectedDate, setSelectedDate] = useState(jakartaToday);
+  const [startDate, setStartDate] = useState(jakartaToday);
+  const [endDate, setEndDate] = useState(jakartaToday);
   const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     const fetchAttendances = async () => {
       try {
-        const r = await api.get('/api/attendance', {
-          params: { page: pageNo, limit: pageSize, search, ...(showAll ? { all: true } : { date: selectedDate }) }
-        });
+        const params = { page: pageNo, limit: pageSize, search };
+        if (showAll) {
+          params.all = true;
+        } else {
+          params.startDate = startDate;
+          params.endDate = endDate;
+        }
+        const r = await api.get('/api/attendance', { params });
         if (r.data && r.data.data !== undefined) {
           setAttendances(r.data.data);
           setTotalRecords(r.data.total);
@@ -37,7 +43,7 @@ const AdminAttendanceList = () => {
     };
     const timer = setTimeout(fetchAttendances, 300);
     return () => clearTimeout(timer);
-  }, [pageNo, pageSize, search, selectedDate, showAll]);
+  }, [pageNo, pageSize, search, startDate, endDate, showAll]);
 
   const totalPages = Math.ceil(totalRecords / pageSize);
 
@@ -51,9 +57,13 @@ const AdminAttendanceList = () => {
       <div className="grid gap-3 md:grid-cols-[1fr_auto_auto] mb-4">
         <div className="relative">
           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-surface-500" />
-          <input type="text" placeholder="Cari nama atau email..." value={search} onChange={e => { setSearch(e.target.value); setPageNo(1); }} className="input-dark pl-11 text-sm" />
+          <input type="text" placeholder="Cari nama atau email..." value={search} onChange={e => { setSearch(e.target.value); setPageNo(1); }} className="input-dark pl-11 text-sm w-full" />
         </div>
-        <input type="date" disabled={showAll} value={selectedDate} onChange={e => { setSelectedDate(e.target.value); setPageNo(1); }} className="input-dark text-sm md:w-44 disabled:opacity-50 input-dark text-sm w-full [color-scheme:light] dark:[color-scheme:dark]" />
+        <div className="flex flex-col sm:flex-row items-center gap-2">
+          <input type="date" disabled={showAll} value={startDate} onChange={e => { setStartDate(e.target.value); setPageNo(1); }} className="input-dark text-sm w-full sm:w-auto md:w-36 disabled:opacity-50 [color-scheme:light] dark:[color-scheme:dark]" title="Dari Tanggal" />
+          <span className="text-surface-400 text-sm hidden sm:inline">s/d</span>
+          <input type="date" disabled={showAll} value={endDate} onChange={e => { setEndDate(e.target.value); setPageNo(1); }} className="input-dark text-sm w-full sm:w-auto md:w-36 disabled:opacity-50 [color-scheme:light] dark:[color-scheme:dark]" title="Sampai Tanggal" />
+        </div>
         <label className="flex items-center gap-2 px-4 rounded-xl border border-white/[0.08] text-sm text-surface-300">
           <input type="checkbox" checked={showAll} onChange={e => { setShowAll(e.target.checked); setPageNo(1); }} />
           Show All
@@ -71,7 +81,7 @@ const AdminAttendanceList = () => {
                 <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Check-Out</th>
                 <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Catatan In</th>
                 <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Catatan Out</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Foto</th>
+                {/* <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Foto</th> */}
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.04]">
@@ -94,13 +104,13 @@ const AdminAttendanceList = () => {
                   </td>
                   <td className="px-4 py-3 text-xs text-surface-400 max-w-[150px] truncate">{att.checkInNote || '-'}</td>
                   <td className="px-4 py-3 text-xs text-surface-400 max-w-[150px] truncate">{att.checkOutNote || '-'}</td>
-                  <td className="px-4 py-3">
+                  {/* <td className="px-4 py-3">
                     <div className="flex gap-1">
                       {att.checkInPhoto && <img src={att.checkInPhoto} alt="In" className="w-8 h-8 rounded-lg object-cover border border-white/10" />}
                       {att.checkOutPhoto && <img src={att.checkOutPhoto} alt="Out" className="w-8 h-8 rounded-lg object-cover border border-white/10" />}
                       {!att.checkInPhoto && !att.checkOutPhoto && <span className="text-surface-600 text-xs">-</span>}
                     </div>
-                  </td>
+                  </td> */}
                 </tr>
               ))}
             </tbody>

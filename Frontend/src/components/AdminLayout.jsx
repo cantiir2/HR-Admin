@@ -1,27 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
   Fingerprint, Map as MapIcon, List, Users, FolderKanban,
-  Settings, LogOut, Menu, X, Bell, CalendarCheck
+  Settings, LogOut, Menu, X, CalendarCheck, FileText, CalendarDays, Bell
 } from 'lucide-react';
-import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import UserAvatar from './UserAvatar';
 import ThemeToggle from './ThemeToggle';
+import NotificationBell from './NotificationBell';
 
 const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [notifications, setNotifications] = useState([]);
-  const [showNotif, setShowNotif] = useState(false);
   const { user, logout } = useAuth();
   const name = user?.name;
-
-  useEffect(() => {
-    // Fetch contract expiry notifications
-    api.get('/api/users/expiring-contracts')
-      .then(res => setNotifications(res.data))
-      .catch(() => { });
-  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -33,6 +24,9 @@ const AdminLayout = () => {
     { to: '/admin/users', icon: Users, label: 'User Management' },
     { to: '/admin/projects', icon: FolderKanban, label: 'Project' },
     { to: '/admin/available-members', icon: CalendarCheck, label: 'Available Member' },
+    { to: '/admin/working-reports', icon: FileText, label: 'Working Report' },
+    { to: '/admin/leaves', icon: CalendarDays, label: 'Annual Leave' },
+    { to: '/admin/notifications', icon: Bell, label: 'Inbox' },
     { to: '/admin/system', icon: Settings, label: 'System Master' },
   ];
 
@@ -105,33 +99,7 @@ const AdminLayout = () => {
           <div className="flex-1" />
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            {/* Notification Bell */}
-            <div className="relative">
-              <button
-                onClick={() => setShowNotif(!showNotif)}
-                className="p-2 rounded-lg bg-white/[0.06] text-surface-400 hover:text-amber-400 transition-colors relative"
-              >
-                <Bell size={18} />
-                {notifications.length > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-amber-500 rounded-full text-[10px] font-bold text-white flex items-center justify-center">
-                    {notifications.length}
-                  </span>
-                )}
-              </button>
-              {showNotif && notifications.length > 0 && (
-                <div className="absolute right-0 mt-2 w-80 glass-card p-3 z-50 animate-slide-down max-h-64 overflow-y-auto">
-                  <p className="text-xs font-semibold text-surface-400 uppercase mb-2 px-2">Kontrak Segera Berakhir</p>
-                  {notifications.map(n => (
-                    <div key={n.id} className="px-3 py-2 rounded-lg hover:bg-white/[0.04] transition-colors">
-                      <p className="text-sm font-medium text-white">{n.name}</p>
-                      <p className="text-xs text-amber-400">
-                        Kontrak berakhir: {new Date(n.contractEnd).toLocaleDateString('id-ID')}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <NotificationBell pagePath="/admin/notifications" />
           </div>
         </header>
 

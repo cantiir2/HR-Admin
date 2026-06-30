@@ -446,8 +446,8 @@ const ProjectDetail = () => {
               <div className="overflow-x-auto rounded-xl border border-white/[0.06]">
                 <div className="min-w-max p-4 space-y-2">
                   <div className="flex">
-                    <div className="w-64 shrink-0 px-3 py-3 text-xs font-semibold uppercase text-surface-400">Milestone</div>
-                      <div className="grid" style={{ gridTemplateColumns: `repeat(${totalWeeks}, minmax(120px, 1fr))` }}>
+                    <div className="w-60 shrink-0 px-3 py-3 text-xs font-semibold uppercase text-surface-400">Milestone</div>
+                      <div className="grid" style={{ gridTemplateColumns: `repeat(${totalWeeks}, minmax(100px, 1fr))` }}>
                         {Array.from({ length: totalWeeks }, (_, index) => {
                           const weekDate = getWeekStartDate(project.contractStart, index);
                           const isTodayWeek = todayWeek === index + 1;
@@ -484,11 +484,11 @@ const ProjectDetail = () => {
                     return (
                       <div key={milestone.id}>
                         <div className="flex items-center">
-                          <div className="w-64 shrink-0 px-3 py-3">
+                          <div className="w-60 shrink-0 px-3 py-3">
                             <p className="text-sm font-medium text-white">{milestone.name}</p>
                             <p className="text-[11px] text-surface-500">{format(new Date(milestone.startDate), 'dd MMM yyyy')} - {format(new Date(milestone.endDate), 'dd MMM yyyy')}</p>
                           </div>
-                          <div className="grid items-center min-h-[54px]" style={{ gridTemplateColumns: `repeat(${totalWeeks}, minmax(120px, 1fr))` }}>
+                          <div className="grid items-center min-h-[54px]" style={{ gridTemplateColumns: `repeat(${totalWeeks}, minmax(100px, 1fr))` }}>
                             <div
                               title={`${milestone.name}: ${format(new Date(milestone.startDate), 'dd MMM yyyy')} - ${format(new Date(milestone.endDate), 'dd MMM yyyy')}`}
                               className={`h-8 rounded-lg mx-2 flex items-center px-3 text-xs font-medium text-white shadow-sm ${barColor}`}
@@ -504,11 +504,11 @@ const ProjectDetail = () => {
                           const range = getMilestoneWeekRange(project.contractStart, taskStart, taskEnd);
                           return (
                             <div key={task.id} className="flex items-center bg-white/[0.01]">
-                              <div className="w-64 shrink-0 px-6 py-2">
+                              <div className="w-60 shrink-0 px-6 py-2">
                                 <p className="text-xs text-surface-300">{task.title}</p>
                                 <p className="text-[10px] text-surface-500">Task</p>
                               </div>
-                              <div className="grid items-center min-h-[40px]" style={{ gridTemplateColumns: `repeat(${totalWeeks}, minmax(120px, 1fr))` }}>
+                              <div className="grid items-center min-h-[40px]" style={{ gridTemplateColumns: `repeat(${totalWeeks}, minmax(100px, 1fr))` }}>
                                 <div className="h-5 rounded-md mx-3 bg-surface-500/70" style={{ gridColumn: `${range.startWeek} / ${range.endWeek + 1}` }} title={task.title} />
                               </div>
                             </div>

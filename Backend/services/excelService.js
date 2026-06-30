@@ -397,16 +397,20 @@ const user = await prisma.user.findUnique({
     cA.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
 
     // Right values (names/dates)
+    ['B', 'C', 'D', 'E'].forEach(col => {
+      r.getCell(col).border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+    });
     const cB = r.getCell('B');
     cB.font = { ...baseFont, size: 10 };
     cB.alignment = { horizontal: 'left', vertical: 'middle' };
-    cB.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
 
     // Signature label & box
+    ['F', 'G', 'H'].forEach(col => {
+      r.getCell(col).border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+    });
     const cF = r.getCell('F');
     cF.font = { ...baseFont, size: 10, color: { argb: 'FF0000FF' } }; // Blue text for "Signature"
     cF.alignment = { horizontal: 'center', vertical: 'middle' };
-    cF.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
   }
 
   // Fill signature box with yellow
@@ -415,7 +419,7 @@ const user = await prisma.user.findUnique({
 
   // Adjust signature row heights
   sheet.getRow(sigRowStart + 1).height = 40;
-  sheet.getRow(startRow).height = 40;
+  sheet.getRow(startRow + 1).height = 40;
 
   startRow += 4;
 

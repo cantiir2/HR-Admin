@@ -1,15 +1,15 @@
 import { useState } from 'react';
-import { NavLink, useNavigate, Outlet } from 'react-router-dom';
+import { NavLink, Outlet } from 'react-router-dom';
 import {
-  Fingerprint, Map as MapIcon, LogOut, Menu, X, User
+  Fingerprint, Map as MapIcon, LogOut, Menu, X, User, FileText, CalendarDays, ClipboardCheck, Bell
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import UserAvatar from './UserAvatar';
 import ThemeToggle from './ThemeToggle';
+import NotificationBell from './NotificationBell';
 
 const MemberLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const name = user?.name;
   const jobRole = user?.jobRoleCode || 'Member';
@@ -21,6 +21,10 @@ const MemberLayout = () => {
   const navItems = [
     { to: '/member', icon: MapIcon, label: 'Dashboard Absensi', end: true },
     { to: '/member/profile', icon: User, label: 'Profil Saya' },
+    { to: '/member/working-report', icon: FileText, label: 'Working Report' },
+    { to: '/member/annual-leave', icon: CalendarDays, label: 'Annual Leave' },
+    ...(user?.jobRoleCode === 'PM' ? [{ to: '/member/leave-approval', icon: ClipboardCheck, label: 'Leave Approval' }] : []),
+    { to: '/member/notifications', icon: Bell, label: 'Inbox' },
   ];
 
   return (
@@ -68,8 +72,9 @@ const MemberLayout = () => {
         </nav>
 
         <div className="p-4 border-t border-white/[0.06]">
-          <div className="mb-3 flex justify-end">
-            <ThemeToggle />
+          <div className="mb-3 flex justify-end gap-2 lg:hidden">
+            {/* <ThemeToggle /> */}
+            {/* <NotificationBell pagePath="/member/notifications" /> */}
           </div>
           <div className="flex items-center gap-3 mb-3 px-1">
             <UserAvatar name={name} photo={user?.profilePhoto} size="sm" />
@@ -86,18 +91,31 @@ const MemberLayout = () => {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden">
+      <main className="relative flex-1 flex flex-col h-full overflow-hidden">
+        {/* Top Bar for Desktop */}
+        <div className="hidden lg:flex absolute top-6 right-8 z-50 items-center gap-2">
+          <ThemeToggle />
+          <NotificationBell pagePath="/member/notifications" />
+        </div>
+
         {/* Top Bar for Mobile */}
         <header className="lg:hidden glass-card rounded-none border-x-0 border-t-0 px-4 py-3 flex items-center justify-between gap-4 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="flex-shrink-0 w-8 h-8 rounded-lg gradient-brand flex items-center justify-center shadow-lg shadow-brand-500/20">
               <Fingerprint size={16} />
             </div>
-            <h1 className="text-sm font-bold text-white leading-tight">Project Resource Management System</h1>
+            <h1 className="text-sm font-bold text-white leading-tight">
+              Project Resource Management System
+            </h1>
           </div>
+
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-lg bg-white/[0.06] text-surface-400">
+            <NotificationBell pagePath="/member/notifications" />
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="p-2 rounded-lg bg-white/[0.06] text-surface-400"
+            >
               <Menu size={18} />
             </button>
           </div>

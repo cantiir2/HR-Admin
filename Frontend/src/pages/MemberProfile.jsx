@@ -273,33 +273,33 @@ const MemberProfile = () => {
       <form onSubmit={handleSave} className="space-y-5">
         <Section icon={User} title="Data Pribadi">
           <div className="grid sm:grid-cols-2 gap-3">
-            <Input label="Telepon" value={form.phone} onChange={value => setField('phone', value)} placeholder="08123456789" />
-            <AppSelect label="Jenis Kelamin" value={form.gender} onChange={value => setField('gender', value)} options={[['', '- Pilih -'], ['L', 'Laki-laki'], ['P', 'Perempuan']]} />
-            <Input label="Tempat Lahir" value={form.birthPlace} onChange={value => setField('birthPlace', value)} placeholder="Jakarta" />
-            <Input type="date" label="Tanggal Lahir" value={form.birthDate} onChange={value => setField('birthDate', value)} />
-            <AppSelect label="Agama" value={form.religion} onChange={value => setField('religion', value)} options={[['', '- Pilih -'], ...religions.filter(r => r.isActive).map(r => [r.code, `${r.code} - ${r.name}`])]} />
-            <AppSelect label="Status Pernikahan" value={form.maritalStatus} onChange={value => setField('maritalStatus', value)} options={[['', '- Pilih -'], ['Belum Menikah', 'Belum Menikah'], ['Menikah', 'Menikah'], ['Cerai', 'Cerai']]} />
+            <Input required label="Telepon" value={form.phone} onChange={value => setField('phone', value)} placeholder="08123456789" />
+            <AppSelect required label="Jenis Kelamin" value={form.gender} onChange={value => setField('gender', value)} options={[['', '- Pilih -'], ['L', 'Laki-laki'], ['P', 'Perempuan']]} />
+            <Input required label="Tempat Lahir" value={form.birthPlace} onChange={value => setField('birthPlace', value)} placeholder="Jakarta" />
+            <Input required type="date" label="Tanggal Lahir" value={form.birthDate} onChange={value => setField('birthDate', value)} />
+            <AppSelect required label="Agama" value={form.religion} onChange={value => setField('religion', value)} options={[['', '- Pilih -'], ...religions.filter(r => r.isActive).map(r => [r.code, `${r.code} - ${r.name}`])]} />
+            <AppSelect required label="Status Pernikahan" value={form.maritalStatus} onChange={value => setField('maritalStatus', value)} options={[['', '- Pilih -'], ['Belum Menikah', 'Belum Menikah'], ['Menikah', 'Menikah'], ['Cerai', 'Cerai']]} />
           </div>
-          <Textarea label="Alamat" value={form.address} onChange={value => setField('address', value)} placeholder="Alamat domisili lengkap" />
-          <Input label="Pendidikan Terakhir" value={form.education} onChange={value => setField('education', value)} placeholder="S1 Teknik Informatika" />
+          <Textarea required label="Alamat" value={form.address} onChange={value => setField('address', value)} placeholder="Alamat domisili lengkap" />
+          <Input required label="Pendidikan Terakhir" value={form.education} onChange={value => setField('education', value)} placeholder="S1 Teknik Informatika" />
           <div className="grid sm:grid-cols-2 gap-3">
-            <Input label={`Nomor KTP ${profile.ktpNumberMasked ? `(${profile.ktpNumberMasked})` : ''}`} value={form.ktpNumber} onChange={value => setField('ktpNumber', value)} placeholder="16 digit" />
-            <Input label={`Nomor KK ${profile.kkNumberMasked ? `(${profile.kkNumberMasked})` : ''}`} value={form.kkNumber} onChange={value => setField('kkNumber', value)} placeholder="16 digit" />
+            <Input required={!profile.ktpNumberMasked} label={`Nomor KTP ${profile.ktpNumberMasked ? `(${profile.ktpNumberMasked})` : ''}`} value={form.ktpNumber} onChange={value => setField('ktpNumber', value)} placeholder="16 digit" />
+            <Input required={!profile.kkNumberMasked} label={`Nomor KK ${profile.kkNumberMasked ? `(${profile.kkNumberMasked})` : ''}`} value={form.kkNumber} onChange={value => setField('kkNumber', value)} placeholder="16 digit" />
           </div>
           <p className="text-xs text-surface-500 flex items-center gap-2"><Shield size={13} /> Nomor KTP dan KK dienkripsi oleh server sebelum disimpan.</p>
         </Section>
 
         <Section icon={UsersRound} title="Data Keluarga">
           <div className="grid sm:grid-cols-2 gap-3">
-            <Input label="Nama Ayah" value={form.fatherName} onChange={value => setField('fatherName', value)} placeholder="Nama ayah kandung" />
-            <Input label="Nama Ibu" value={form.motherName} onChange={value => setField('motherName', value)} placeholder="Nama ibu kandung" />
+            <Input required label="Nama Ayah" value={form.fatherName} onChange={value => setField('fatherName', value)} placeholder="Nama ayah kandung" />
+            <Input required label="Nama Ibu" value={form.motherName} onChange={value => setField('motherName', value)} placeholder="Nama ibu kandung" />
           </div>
         </Section>
 
         <Section icon={IdCard} title="Kontak Darurat">
           <div className="grid sm:grid-cols-2 gap-3">
-            <Input label="Nama Kontak Darurat" value={form.emergencyContactName} onChange={value => setField('emergencyContactName', value)} placeholder="Nama keluarga/kerabat" />
-            <Input label="Nomor Darurat" value={form.emergencyContactPhone} onChange={value => setField('emergencyContactPhone', value)} placeholder="08123456789" />
+            <Input required label="Nama Kontak Darurat" value={form.emergencyContactName} onChange={value => setField('emergencyContactName', value)} placeholder="Nama keluarga/kerabat" />
+            <Input required label="Nomor Darurat" value={form.emergencyContactPhone} onChange={value => setField('emergencyContactPhone', value)} placeholder="08123456789" />
           </div>
         </Section>
 
@@ -399,17 +399,21 @@ const Section = ({ icon: Icon, title, children }) => (
   </div>
 );
 
-const Input = ({ label, value, onChange, type = 'text', placeholder = '', disabled = false }) => (
+const Input = ({ label, value, onChange, type = 'text', placeholder = '', disabled = false, required = false }) => (
   <div>
-    <label className="block text-xs text-surface-400 mb-1">{label}</label>
-    <input type={type} disabled={disabled} className="input-dark text-sm disabled:opacity-50" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} />
+    <label className="block text-xs text-surface-400 mb-1">
+      {label} {required && <span className="text-rose-500">*</span>}
+    </label>
+    <input type={type} disabled={disabled} required={required} className="input-dark text-sm disabled:opacity-50" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} />
   </div>
 );
 
-const Textarea = ({ label, value, onChange, rows = 3, placeholder = '' }) => (
+const Textarea = ({ label, value, onChange, rows = 3, placeholder = '', required = false }) => (
   <div>
-    <label className="block text-xs text-surface-400 mb-1">{label}</label>
-    <textarea className="input-dark text-sm resize-none" rows={rows} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} />
+    <label className="block text-xs text-surface-400 mb-1">
+      {label} {required && <span className="text-rose-500">*</span>}
+    </label>
+    <textarea className="input-dark text-sm resize-none" required={required} rows={rows} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} />
   </div>
 );
 

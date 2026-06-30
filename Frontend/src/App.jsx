@@ -4,12 +4,17 @@ import { ThemeProvider } from './context/ThemeContext';
 import Login from './pages/Login';
 import MemberDashboard from './pages/MemberDashboard';
 import MemberProfile from './pages/MemberProfile';
+import WorkingReport from './pages/WorkingReport';
+import AnnualLeave from './pages/AnnualLeave';
+import Notifications from './pages/Notifications';
+import LeaveManagement from './pages/LeaveManagement';
 import MemberLayout from './components/MemberLayout';
 import AdminLayout from './components/AdminLayout';
 import AdminDashboardHome from './pages/admin/AdminDashboardHome';
 import AdminAttendanceList from './pages/admin/AdminAttendanceList';
 import UserManagement from './pages/admin/UserManagement';
 import ProjectManagement from './pages/admin/ProjectManagement';
+import AdminWorkingReports from './pages/admin/AdminWorkingReports';
 import ProjectDetail from './pages/ProjectDetail';
 import SystemMaster from './pages/admin/SystemMaster';
 import AvailableMember from './pages/admin/AvailableMember';
@@ -32,6 +37,10 @@ function App() {
             }>
               <Route index element={<MemberDashboard />} />
               <Route path="profile" element={<MemberProfile />} />
+              <Route path="working-report" element={<WorkingReport />} />
+              <Route path="annual-leave" element={<AnnualLeave />} />
+              <Route path="leave-approval" element={<LeaveManagement />} />
+              <Route path="notifications" element={<Notifications />} />
               <Route path="projects/:id" element={<ProjectDetail />} />
             </Route>
 
@@ -46,6 +55,9 @@ function App() {
               <Route path="users" element={<UserManagement />} />
               <Route path="projects" element={<ProjectManagement />} />
               <Route path="projects/:id" element={<ProjectDetail />} />
+              <Route path="working-reports" element={<AdminWorkingReports />} />
+              <Route path="leaves" element={<LeaveManagement />} />
+              <Route path="notifications" element={<Notifications />} />
               <Route path="system" element={<SystemMaster />} />
               <Route path="available-members" element={<AvailableMember />} />
             </Route>

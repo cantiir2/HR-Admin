@@ -28,9 +28,10 @@ prisma.$on('query', (e) => {
 const cookieParser = require('cookie-parser');
 
 // Middleware
+app.set('trust proxy', 1);
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: true,
   credentials: true
 }));
 app.use(cookieParser());
@@ -43,6 +44,9 @@ app.use('/api/system', require('./routes/system')(prisma));
 app.use('/api/projects', require('./routes/projects')(prisma));
 app.use('/api/attendance', require('./routes/attendance')(prisma));
 app.use('/api/tasks', require('./routes/tasks')(prisma));
+app.use('/api/notifications', require('./routes/notifications')(prisma));
+app.use('/api/working-reports', require('./routes/working-reports')(prisma));
+app.use('/api/leaves', require('./routes/leaves')(prisma));
 
 // Health check
 app.get('/api/health', (req, res) => {

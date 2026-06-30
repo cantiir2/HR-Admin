@@ -109,8 +109,9 @@ const MemberDashboard = () => {
   };
 
   const handleSubmit = async (type) => {
-    if (!photoBase64) { setError('Silakan ambil foto'); return; }
+    // if (!photoBase64) { setError('Silakan ambil foto'); return; }
     if (!location) { setError('Silakan dapatkan lokasi'); return; }
+    if (!note.trim()) { setError('Catatan aktivitas wajib diisi'); return; }
     setLoading(true); setError(''); setMessage('');
     try {
       const endpoint = type === 'check-in' ? '/api/attendance/check-in' : '/api/attendance/check-out';
@@ -185,12 +186,10 @@ const MemberDashboard = () => {
           <h2 className="text-lg font-semibold text-white mb-1">
             {canCheckIn ? 'Check-In' : 'Check-Out'}
           </h2>
-          <p className="text-sm text-surface-400 mb-5">Ambil foto dan lokasi untuk absensi</p>
+          <p className="text-sm text-surface-400 mb-5">Ambil lokasi untuk absensi</p>
 
           <div className="space-y-4">
-            <div className="w-full h-64 border-2 border-dashed border-white/[0.1] rounded-xl overflow-hidden relative bg-black/20 flex flex-col items-center justify-center">
-              
-              {/* Jika foto sudah diambil, tampilkan hasilnya */}
+            {/* <div className="w-full h-64 border-2 border-dashed border-white/[0.1] rounded-xl overflow-hidden relative bg-black/20 flex flex-col items-center justify-center">
               {photoBase64 ? (
                 <div className="relative w-full h-full group">
                   <img src={photoBase64} alt="Captured" className="w-full h-full object-cover" />
@@ -201,7 +200,7 @@ const MemberDashboard = () => {
                   </div>
                 </div>
               ) : isCameraOpen ? (
-                /* Jika kamera dibuka, tampilkan live stream */
+
                 <div className="relative w-full h-full flex flex-col items-center">
                   <Webcam
                     audio={false}
@@ -210,17 +209,16 @@ const MemberDashboard = () => {
                     videoConstraints={{ facingMode: "user" }} // "user" = kamera depan, "environment" = kamera belakang
                     className="w-full h-full object-cover"
                   />
-                  <button 
-                    onClick={capturePhoto} 
+                  <button
+                    onClick={capturePhoto}
                     className="absolute bottom-4 bg-brand-500 text-white p-3 rounded-full shadow-lg hover:scale-105 transition-transform"
                   >
                     <Camera size={24} />
                   </button>
                 </div>
               ) : (
-                /* Tombol awal untuk menyalakan kamera */
-                <button 
-                  onClick={() => setIsCameraOpen(true)} 
+                <button
+                  onClick={() => setIsCameraOpen(true)}
                   className="flex flex-col items-center text-surface-500 hover:text-brand-400 transition-colors"
                 >
                   <div className="w-14 h-14 rounded-2xl bg-white/[0.06] flex items-center justify-center mb-3">
@@ -229,7 +227,7 @@ const MemberDashboard = () => {
                   <span className="font-medium text-sm">Buka Kamera Absensi</span>
                 </button>
               )}
-            </div>
+            </div> */}
 
             <button onClick={getLocation} disabled={locationLoading}
               className={`w-full py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all text-sm font-medium ${location ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-white/[0.06] text-surface-300 border border-white/[0.1] hover:bg-white/[0.1]'}`}>
@@ -239,7 +237,7 @@ const MemberDashboard = () => {
 
             <div className="relative">
               <FileText size={16} className="absolute left-3.5 top-3 text-surface-500" />
-              <textarea className="input-dark pl-10 resize-none text-sm" placeholder="Catatan aktivitas (opsional)..." rows="2" value={note} onChange={e => setNote(e.target.value)} />
+              <textarea className="input-dark pl-10 resize-none text-sm" placeholder="Catatan aktivitas (wajib diisi)..." rows="2" value={note} onChange={e => setNote(e.target.value)} />
             </div>
 
             <button onClick={() => handleSubmit(canCheckIn ? 'check-in' : 'check-out')} disabled={loading}

@@ -133,7 +133,11 @@ const AppSelect = ({
 
   return (
     <div className={className}>
-      {label && <label className="block text-sm text-surface-300 mb-1">{label}</label>}
+      {label && (
+        <label className="block text-sm text-surface-300 mb-1">
+          {label} {required && <span className="text-rose-500">*</span>}
+        </label>
+      )}
       <Select
         classNamePrefix="app-select"
         value={selected}

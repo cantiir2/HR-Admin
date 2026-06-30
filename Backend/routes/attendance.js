@@ -7,7 +7,7 @@ module.exports = (prisma) => {
   router.post('/check-in', authenticateToken, async (req, res) => {
     try {
       const { photo, latitude, longitude, note } = req.body;
-      if (!photo) return res.status(400).json({ error: 'Foto wajib diambil' });
+      // if (!photo) return res.status(400).json({ error: 'Foto wajib diambil' });
       if (!latitude || !longitude) return res.status(400).json({ error: 'Lokasi GPS diperlukan' });
 
       const today = new Date();
@@ -61,7 +61,7 @@ module.exports = (prisma) => {
   router.post('/check-out', authenticateToken, async (req, res) => {
     try {
       const { photo, latitude, longitude, note } = req.body;
-      if (!photo) return res.status(400).json({ error: 'Foto wajib diambil' });
+      // if (!photo) return res.status(400).json({ error: 'Foto wajib diambil' });
       if (!latitude || !longitude) return res.status(400).json({ error: 'Lokasi GPS diperlukan' });
 
       const today = new Date();
@@ -130,14 +130,30 @@ module.exports = (prisma) => {
   // ─── GET All Attendances (Admin) ────────────────────────────────────────
   router.get('/', authenticateToken, authenticateAdmin, async (req, res) => {
     try {
-      const { page, limit, search, date, all, projectManagerId } = req.query;
+      const { page, limit, search, date, startDate, endDate, all, projectManagerId } = req.query;
       
       let whereClause = {};
       if (date && !isValidDateInput(date)) {
         return res.status(400).json({ error: 'Format tanggal harus YYYY-MM-DD' });
       }
+      if (startDate && !isValidDateInput(startDate)) {
+        return res.status(400).json({ error: 'Format tanggal startDate harus YYYY-MM-DD' });
+      }
+      if (endDate && !isValidDateInput(endDate)) {
+        return res.status(400).json({ error: 'Format tanggal endDate harus YYYY-MM-DD' });
+      }
+
       if (all !== 'true') {
-        whereClause.date = jakartaDate(date);
+        if (startDate && endDate) {
+          whereClause.date = {
+            gte: jakartaDate(startDate),
+            lte: jakartaDate(endDate)
+          };
+        } else if (date) {
+          whereClause.date = jakartaDate(date);
+        } else {
+          whereClause.date = jakartaDate();
+        }
       }
       if (search) {
         whereClause.user = {

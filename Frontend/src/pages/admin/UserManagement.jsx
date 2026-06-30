@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import api from '../../lib/api';
 import {
   Pencil, Trash2, Search, X, UserPlus, Eye, Download, Loader2,
@@ -28,12 +28,40 @@ const UserManagement = () => {
   const [filters, setFilters] = useState({ search: '', role: '', jobRoleCode: '', contractStatus: '' });
   const [page, setPage] = useState({ pageNo: 1, pageSize: 10, totalRows: 0, totalPages: 1 });
   const [loading, setLoading] = useState(false);
+  const [statusOptions, setStatusOptions] = useState([['', 'Semua Kontrak']]);
+  const [statusClasses, setStatusClasses] = useState({});
   const pageSizeRef = useRef(10);
   const [jobHistoryForm, setJobHistoryForm] = useState({ id: '', companyName: '', jobTitle: '', description: '', startDate: '', endDate: '', isPresent: false });
   const [contractHistoryForm, setContractHistoryForm] = useState({ id: '', contractNumber: '', vendor: '', startDate: '', endDate: '', contractValue: '' });
   const [form, setForm] = useState({
     name: '', email: '', password: '', role: 'MEMBER', jobRoleCode: '',
   });
+
+useEffect(() => {
+    const fetchContractStatuses = async () => {
+      try {
+        const res = await api.get('/api/system?category=CONTRACT_STATUS&isActive=true');
+        
+        if (res.data && res.data.length > 0) {
+          const dynamicStatusClass = {};
+          const fetchedOptions = [['', 'Semua Kontrak']];
+
+          res.data.forEach(item => {
+            fetchedOptions.push([item.code, item.name || item.code]);
+            
+            dynamicStatusClass[item.code] = item.description || 'badge-info';
+          });
+
+          setStatusOptions(fetchedOptions);
+          setStatusClasses(dynamicStatusClass);
+        }
+      } catch (error) {
+        console.error('Failed to fetch contract statuses', error);
+      }
+    };
+
+    fetchContractStatuses();
+  }, []);
 
   const fetchUsers = useCallback(async (pageNo = 1, pageSize = pageSizeRef.current) => {
     pageSizeRef.current = pageSize;
@@ -92,17 +120,30 @@ const UserManagement = () => {
 
   const openCreate = () => {
     setEditingUser(null);
+    setDetailUser(null);
     setForm({ name: '', email: '', password: '', role: 'MEMBER', jobRoleCode: '' });
     setShowModal(true);
   };
 
-  const openEdit = (user) => {
+  const openEdit = async (user) => {
     setEditingUser(user);
     setForm({
       name: user.name, email: user.email, password: '', role: user.role,
       jobRoleCode: user.jobRoleCode || '',
     });
+    setContractHistoryForm({ id: '', contractNumber: '', vendor: '', startDate: '', endDate: '', contractValue: '' });
     setShowModal(true);
+
+    setDetailUser(null);
+    setDetailLoading(true);
+    try {
+      const res = await api.get(`/api/users/${user.id}/detail`);
+      setDetailUser(res.data);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Gagal mengambil detail user');
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   const submitUser = async () => {
@@ -265,9 +306,21 @@ const UserManagement = () => {
               className="input-dark pl-11 text-sm w-full"
             />
           </div>
-          <AppSelect value={filters.role} onChange={value => setFilters({ ...filters, role: value })} options={[['', 'Semua Role'], ['ADMIN', 'Admin'], ['MEMBER', 'Member']]} />
-          <AppSelect value={filters.jobRoleCode} onChange={value => setFilters({ ...filters, jobRoleCode: value })} options={[['', 'Semua Job Role'], ...jobRoles.filter(j => j.isActive).map(j => [j.code, `${j.code} - ${j.name}`])]} />
-          <AppSelect value={filters.contractStatus} onChange={value => setFilters({ ...filters, contractStatus: value })} options={[['', 'Semua Kontrak'], ['active', 'Active'], ['expiring_30_days', 'Expired <= 30 Hari'], ['expired', 'Expired']]} />
+          <AppSelect 
+            value={filters.role} 
+            onChange={value => setFilters({ ...filters, role: value })} 
+            options={[['', 'Semua Role'], ['ADMIN', 'Admin'], ['MEMBER', 'Member']]} 
+          />
+          <AppSelect 
+            value={filters.jobRoleCode} 
+            onChange={value => setFilters({ ...filters, jobRoleCode: value })} 
+            options={[['', 'Semua Job Role'], ...jobRoles.filter(j => j.isActive).map(j => [j.code, `${j.code} - ${j.name}`])]} 
+          />
+          <AppSelect 
+            value={filters.contractStatus} 
+            onChange={value => setFilters({ ...filters, contractStatus: value })} 
+            options={statusOptions}
+          />
         </div>
 
         {/* Bagian Tombol Reset - Terpisah di bawah kanan */}
@@ -375,43 +428,255 @@ const UserManagement = () => {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="w-full max-w-lg glass-card-light p-6 animate-scale-in max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className={`w-full ${editingUser ? 'max-w-4xl' : 'max-w-lg'} glass-card-light p-6 animate-scale-in max-h-[90vh] overflow-y-auto`} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold text-white">{editingUser ? 'Edit User' : 'Tambah User Baru'}</h3>
               <button onClick={() => setShowModal(false)} className="p-1 text-surface-400 hover:text-white"><X size={20} /></button>
             </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm text-surface-300 mb-1">Nama Lengkap *</label>
-                <input type="text" required className="input-dark text-sm" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
-              </div>
-              <div>
-                <label className="block text-sm text-surface-300 mb-1">Email *</label>
-                <input type="email" required className="input-dark text-sm" value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
-              </div>
-              <div>
-                <label className="block text-sm text-surface-300 mb-1">Password {editingUser ? '(kosongkan jika tidak diubah)' : '*'}</label>
-                <input type="password" className="input-dark text-sm" required={!editingUser} value={form.password} onChange={e => setForm({...form, password: e.target.value})} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+            
+            {!editingUser ? (
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm text-surface-300 mb-1">Role Sistem</label>
-                  <AppSelect value={form.role} onChange={value => setForm({...form, role: value})} options={[['MEMBER', 'Member'], ['ADMIN', 'Admin']]} />
+                  <label className="block text-sm text-surface-300 mb-1">Nama Lengkap *</label>
+                  <input type="text" required className="input-dark text-sm" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
                 </div>
                 <div>
-                  <label className="block text-sm text-surface-300 mb-1">Job Role</label>
-                  <AppSelect
-                    value={form.jobRoleCode}
-                    onChange={value => setForm({...form, jobRoleCode: value})}
-                    options={[['', '- Pilih -'], ...jobRoles.filter(j => j.isActive).map(j => [j.code, `${j.code} - ${j.name}`])]}
-                  />
+                  <label className="block text-sm text-surface-300 mb-1">Email *</label>
+                  <input type="email" required className="input-dark text-sm" value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
                 </div>
+                <div>
+                  <label className="block text-sm text-surface-300 mb-1">Password *</label>
+                  <input type="password" className="input-dark text-sm" required value={form.password} onChange={e => setForm({...form, password: e.target.value})} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm text-surface-300 mb-1">Role Sistem</label>
+                    <AppSelect value={form.role} onChange={value => setForm({...form, role: value})} options={[['MEMBER', 'Member'], ['ADMIN', 'Admin']]} />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-surface-300 mb-1">Job Role</label>
+                    <AppSelect
+                      value={form.jobRoleCode}
+                      onChange={value => setForm({...form, jobRoleCode: value})}
+                      options={[['', '- Pilih -'], ...jobRoles.filter(j => j.isActive).map(j => [j.code, `${j.code} - ${j.name}`])]}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button type="button" onClick={() => setShowModal(false)} className="flex-1 btn-ghost text-sm text-center">Batal</button>
+                  <button type="submit" disabled={actionLoading} className="flex-1 btn-primary text-sm">Buat User</button>
+                </div>
+              </form>
+            ) : detailLoading ? (
+              <div className="py-16 flex justify-center"><Loader2 size={24} className="animate-spin text-brand-400" /></div>
+            ) : detailUser ? (
+              <div className="space-y-5">
+                <div className="flex items-center gap-4">
+                  <UserAvatar name={detailUser.name} photo={detailUser.profilePhoto} className="w-16 h-16 text-xl" />
+                  <div>
+                    <h4 className="text-white font-semibold">{detailUser.name}</h4>
+                    <p className="text-sm text-surface-400">{detailUser.email}</p>
+                    <div className="flex gap-2 mt-2">
+                      <span className={detailUser.role === 'ADMIN' ? 'badge-info' : 'badge-success'}>{detailUser.role}</span>
+                      {detailUser.jobRoleCode && <span className="badge-info">{detailUser.jobRoleCode}</span>}
+                    </div>
+                  </div>
+                </div>
+
+                <DetailSection icon={Shield} title="Data Sistem & Akun">
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm text-surface-300 mb-1">Nama Lengkap *</label>
+                        <input type="text" required className="input-dark text-sm" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-surface-300 mb-1">Email *</label>
+                        <input type="email" required className="input-dark text-sm" value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-surface-300 mb-1">Password (kosongkan jika tidak diubah)</label>
+                        <input type="password" className="input-dark text-sm" value={form.password} onChange={e => setForm({...form, password: e.target.value})} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm text-surface-300 mb-1">Role Sistem</label>
+                          <AppSelect value={form.role} onChange={value => setForm({...form, role: value})} options={[['MEMBER', 'Member'], ['ADMIN', 'Admin']]} />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-surface-300 mb-1">Job Role</label>
+                          <AppSelect
+                            value={form.jobRoleCode}
+                            onChange={value => setForm({...form, jobRoleCode: value})}
+                            options={[['', '- Pilih -'], ...jobRoles.filter(j => j.isActive).map(j => [j.code, `${j.code} - ${j.name}`])]}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-3 pt-2">
+                      <button type="submit" disabled={actionLoading} className="btn-primary text-sm">Simpan Perubahan Akun</button>
+                    </div>
+                  </form>
+                </DetailSection>
+
+                <DetailSection icon={Shield} title="Biodata dan Identitas">
+                  <DetailGrid items={[
+                    ['Telepon', detailUser.phone],
+                    ['Alamat', detailUser.address],
+                    ['Tempat / Tanggal Lahir', `${detailUser.birthPlace || '-'} / ${formatDate(detailUser.birthDate)}`],
+                    ['Jenis Kelamin', detailUser.gender === 'L' ? 'Laki-laki' : detailUser.gender === 'P' ? 'Perempuan' : detailUser.gender],
+                    ['Agama', displaySystemValue(detailUser.religion, religions)],
+                    ['Status Pernikahan', detailUser.maritalStatus],
+                    ['Pendidikan', detailUser.education],
+                    ['Nomor KTP', detailUser.ktpNumber || detailUser.ktpNumberMasked],
+                    ['Nomor KK', detailUser.kkNumber || detailUser.kkNumberMasked]
+                  ]} />
+                </DetailSection>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <DetailSection icon={UsersRound} title="Data Keluarga">
+                    <DetailGrid items={[
+                      ['Nama Ayah', detailUser.fatherName],
+                      ['Nama Ibu', detailUser.motherName]
+                    ]} />
+                  </DetailSection>
+                  <DetailSection icon={Phone} title="Kontak Darurat">
+                    <DetailGrid items={[
+                      ['Nama', detailUser.emergencyContactName],
+                      ['Nomor', detailUser.emergencyContactPhone]
+                    ]} />
+                  </DetailSection>
+                </div>
+
+                <DetailSection icon={Briefcase} title="Pekerjaan">
+                  <DetailGrid items={[
+                    ['Projects', detailUser.projects?.map(p => p.project?.name).filter(Boolean).join(', ') || '-'],
+                    ['Skill', detailUser.skill]
+                  ]} />
+                  <WorkingExperienceList value={detailUser.workingExperience} />
+                  <div className="pt-3 border-t border-white/[0.06] space-y-3">
+                    <p className="text-xs text-surface-500">Job History</p>
+                    <div className="grid sm:grid-cols-2 gap-2">
+                      <input className="input-dark text-sm" placeholder="Perusahaan *" value={jobHistoryForm.companyName} onChange={e => setJobHistoryForm({...jobHistoryForm, companyName: e.target.value})} />
+                      <input className="input-dark text-sm" placeholder="Jabatan *" value={jobHistoryForm.jobTitle} onChange={e => setJobHistoryForm({...jobHistoryForm, jobTitle: e.target.value})} />
+                      <input type="date" className="input-dark text-sm" value={jobHistoryForm.startDate} onChange={e => setJobHistoryForm({...jobHistoryForm, startDate: e.target.value})} />
+                      <input type="date" disabled={jobHistoryForm.isPresent} className="input-dark text-sm" value={jobHistoryForm.endDate} onChange={e => setJobHistoryForm({...jobHistoryForm, endDate: e.target.value})} />
+                    </div>
+                    <textarea className="input-dark text-sm w-full" placeholder="Deskripsi" value={jobHistoryForm.description} onChange={e => setJobHistoryForm({...jobHistoryForm, description: e.target.value})} />
+                    <label className="text-xs text-surface-400 flex gap-2"><input type="checkbox" checked={jobHistoryForm.isPresent} onChange={e => setJobHistoryForm({...jobHistoryForm, isPresent: e.target.checked})} /> Masih bekerja</label>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={saveJobHistory} className="btn-primary text-xs">{jobHistoryForm.id ? 'Update Pekerjaan' : 'Tambah Pekerjaan'}</button>
+                      {jobHistoryForm.id && (
+                        <button type="button" onClick={() => setJobHistoryForm({ id: '', companyName: '', jobTitle: '', description: '', startDate: '', endDate: '', isPresent: false })} className="btn-ghost text-xs">Batal</button>
+                      )}
+                    </div>
+                    {detailUser.jobHistories?.map(item => (
+                      <div key={item.id} className="flex justify-between border-t border-white/[0.06] pt-2 text-sm">
+                        <span className="text-surface-300">{item.jobTitle} - {item.companyName}</span>
+                        <span><button onClick={() => setJobHistoryForm({ ...item, description: item.description || '', startDate: item.startDate?.split('T')[0] || '', endDate: item.endDate?.split('T')[0] || '' })} className="p-1 text-brand-400"><Pencil size={13}/></button><button onClick={() => deleteDetailRow('job-histories', item.id)} className="p-1 text-rose-400"><Trash2 size={13}/></button></span>
+                      </div>
+                    ))}
+                  </div>
+                </DetailSection>
+
+                <DetailSection icon={FileText} title="Manajemen Kontrak">
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-surface-400 mb-1">Nomor Kontrak</label>
+                        <input readOnly className="input-dark text-sm opacity-80" placeholder="Generate nomor kontrak" value={contractHistoryForm.contractNumber} />
+                      </div>
+                      <div className="flex items-end">
+                        {!contractHistoryForm.id && (
+                          <button type="button" onClick={generateContractNumber} className="btn-ghost text-sm w-full md:w-auto">
+                            Generate Nomor
+                          </button>
+                        )}
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-xs text-surface-400 mb-1">Vendor *</label>
+                        <input className="input-dark text-sm" value={contractHistoryForm.vendor} onChange={e => setContractHistoryForm({...contractHistoryForm, vendor: e.target.value})} />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-surface-400 mb-1">Nilai Kontrak *</label>
+                        <input
+                          type="text"
+                          className="input-dark text-sm"
+                          value={contractHistoryForm.contractValue ? 'Rp. ' + new Intl.NumberFormat('id-ID').format(contractHistoryForm.contractValue) : ''}
+                          onChange={(e) => {
+                            const rawValue = e.target.value.replace(/[^0-9]/g, '');
+                            setContractHistoryForm({
+                              ...contractHistoryForm,
+                              contractValue: rawValue === '' ? '' : parseInt(rawValue, 10),
+                            });
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-surface-400 mb-1">Tanggal Mulai *</label>
+                        <input type="date" className="input-dark text-sm" value={contractHistoryForm.startDate} onChange={e => setContractHistoryForm({...contractHistoryForm, startDate: e.target.value})} />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-surface-400 mb-1">Tanggal Selesai *</label>
+                        <input type="date" className="input-dark text-sm" value={contractHistoryForm.endDate} onChange={e => setContractHistoryForm({...contractHistoryForm, endDate: e.target.value})} />
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={saveContractHistory} className="btn-primary text-sm">{contractHistoryForm.id ? 'Update Kontrak' : 'Tambah Kontrak'}</button>
+                      {contractHistoryForm.id && (
+                        <button type="button" onClick={() => setContractHistoryForm({ id: '', contractNumber: '', vendor: '', startDate: '', endDate: '', contractValue: '' })} className="btn-ghost text-sm">Batal Edit</button>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="overflow-x-auto rounded-xl border border-white/[0.06]">
+                    <table className="w-full text-left">
+                      <thead className="bg-white/[0.03]">
+                        <tr className="text-xs uppercase text-surface-400">
+                          <th className="px-3 py-2">Kontrak</th>
+                          <th className="px-3 py-2 text-right">Nilai</th>
+                          <th className="px-3 py-2 text-right">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/[0.06]">
+                        {detailUser.contracts?.map(item => (
+                          <tr key={item.id} className="text-sm">
+                            <td className="px-3 py-2">
+                              <div className="text-white font-medium">{item.contractNumber}</div>
+                              <div className="text-xs text-surface-400">{item.vendor}</div>
+                              <div className="text-xs text-surface-400">{formatDateLong(item.startDate)} - {formatDateLong(item.endDate)}</div>
+                            </td>
+                            <td className="px-3 py-2 text-white text-right align-top">{formatRupiah(item.contractValue)}</td>
+                            <td className="px-3 py-2 text-right align-top whitespace-nowrap">
+                              <button onClick={() => setContractHistoryForm({ ...item, startDate: item.startDate.split('T')[0], endDate: item.endDate.split('T')[0], contractValue: String(item.contractValue) })} className="p-1.5 text-brand-400" title="Edit"><Pencil size={14}/></button>
+                              <button onClick={() => deleteDetailRow('contracts', item.id)} className="p-1.5 text-rose-400" title="Delete"><Trash2 size={14}/></button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {!detailUser.contracts?.length && <p className="text-sm text-surface-500 text-center py-4">Belum ada kontrak.</p>}
+                  </div>
+                </DetailSection>
+
+                <DetailSection icon={FileText} title="File Ter-upload">
+                  <div className="divide-y divide-white/[0.06]">
+                    {detailUser.documents?.length ? detailUser.documents.map(doc => (
+                      <div key={doc.id} className="py-3 flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm text-white">{doc.label || doc.documentType}</p>
+                          <p className="text-xs text-surface-300">{doc.storedFileName || doc.fileName}</p>
+                          <p className="text-xs text-surface-500">{doc.documentType} - {formatDate(doc.uploadedAt || doc.createdAt)}</p>
+                        </div>
+                        <button type="button" onClick={() => downloadDocument(doc)} className="btn-ghost text-xs flex items-center gap-2">
+                          <Download size={14} /> Download
+                        </button>
+                      </div>
+                    )) : <p className="text-sm text-surface-500 py-3">Belum ada file di database.</p>}
+                  </div>
+                </DetailSection>
               </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="flex-1 btn-ghost text-sm text-center">Batal</button>
-                <button type="submit" className="flex-1 btn-primary text-sm">{editingUser ? 'Simpan' : 'Buat User'}</button>
-              </div>
-            </form>
+            ) : null}
           </div>
         </div>
       )}
@@ -477,73 +742,16 @@ const UserManagement = () => {
                   <WorkingExperienceList value={detailUser.workingExperience} />
                   <div className="pt-3 border-t border-white/[0.06] space-y-3">
                     <p className="text-xs text-surface-500">Job History</p>
-                    {/* <div className="grid sm:grid-cols-2 gap-2">
-                      <input className="input-dark text-sm" placeholder="Perusahaan *" value={jobHistoryForm.companyName} onChange={e => setJobHistoryForm({...jobHistoryForm, companyName: e.target.value})} />
-                      <input className="input-dark text-sm" placeholder="Jabatan *" value={jobHistoryForm.jobTitle} onChange={e => setJobHistoryForm({...jobHistoryForm, jobTitle: e.target.value})} />
-                      <input type="date" className="input-dark text-sm" value={jobHistoryForm.startDate} onChange={e => setJobHistoryForm({...jobHistoryForm, startDate: e.target.value})} />
-                      <input type="date" disabled={jobHistoryForm.isPresent} className="input-dark text-sm" value={jobHistoryForm.endDate} onChange={e => setJobHistoryForm({...jobHistoryForm, endDate: e.target.value})} />
-                    </div> */}
-                    {/* <textarea className="input-dark text-sm" placeholder="Deskripsi" value={jobHistoryForm.description} onChange={e => setJobHistoryForm({...jobHistoryForm, description: e.target.value})} />
-                    <label className="text-xs text-surface-400 flex gap-2"><input type="checkbox" checked={jobHistoryForm.isPresent} onChange={e => setJobHistoryForm({...jobHistoryForm, isPresent: e.target.checked})} /> Masih bekerja</label>
-                    <button type="button" onClick={saveJobHistory} className="btn-primary text-xs">{jobHistoryForm.id ? 'Update Pekerjaan' : 'Tambah Pekerjaan'}</button> */}
                     {detailUser.jobHistories?.map(item => (
                       <div key={item.id} className="flex justify-between border-t border-white/[0.06] pt-2 text-sm">
                         <span className="text-surface-300">{item.jobTitle} - {item.companyName}</span>
-                        <span><button onClick={() => setJobHistoryForm({ ...item, description: item.description || '', startDate: item.startDate?.split('T')[0] || '', endDate: item.endDate?.split('T')[0] || '' })} className="p-1 text-brand-400"><Pencil size={13}/></button><button onClick={() => deleteDetailRow('job-histories', item.id)} className="p-1 text-rose-400"><Trash2 size={13}/></button></span>
                       </div>
                     ))}
+                    {!detailUser.jobHistories?.length && <p className="text-sm text-surface-500 py-1">Belum ada job history.</p>}
                   </div>
                 </DetailSection>
 
                 <DetailSection icon={FileText} title="Contract History">
-                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs text-surface-400 mb-1">Nomor Kontrak</label>
-                        <input readOnly className="input-dark text-sm opacity-80" placeholder="Generate nomor kontrak" value={contractHistoryForm.contractNumber} />
-                      </div>
-                      <div className="flex items-end">
-                        {!contractHistoryForm.id && (
-                          <button type="button" onClick={generateContractNumber} className="btn-ghost text-sm w-full md:w-auto">
-                            Generate Nomor Kontrak
-                          </button>
-                        )}
-                      </div>
-                      <div>
-                        <label className="block text-xs text-surface-400 mb-1">Vendor *</label>
-                        <input className="input-dark text-sm" value={contractHistoryForm.vendor} onChange={e => setContractHistoryForm({...contractHistoryForm, vendor: e.target.value})} />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-surface-400 mb-1">Nilai Kontrak *</label>
-                        <input
-                          type="text"
-                          className="input-dark text-sm"
-                          value={contractHistoryForm.contractValue ? 'Rp. ' + new Intl.NumberFormat('id-ID').format(contractHistoryForm.contractValue) : ''}
-                          onChange={(e) => {
-                            const rawValue = e.target.value.replace(/[^0-9]/g, '');
-                            setContractHistoryForm({
-                              ...contractHistoryForm,
-                              contractValue: rawValue === '' ? '' : parseInt(rawValue, 10),
-                            });
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-surface-400 mb-1">Tanggal Mulai *</label>
-                        <input type="date" className="input-dark text-sm" value={contractHistoryForm.startDate} onChange={e => setContractHistoryForm({...contractHistoryForm, startDate: e.target.value})} />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-surface-400 mb-1">Tanggal Selesai *</label>
-                        <input type="date" className="input-dark text-sm" value={contractHistoryForm.endDate} onChange={e => setContractHistoryForm({...contractHistoryForm, endDate: e.target.value})} />
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={saveContractHistory} className="btn-primary text-sm">{contractHistoryForm.id ? 'Update Kontrak' : 'Tambah Kontrak'}</button>
-                      {contractHistoryForm.id && (
-                        <button type="button" onClick={() => setContractHistoryForm({ id: '', contractNumber: '', vendor: '', startDate: '', endDate: '', contractValue: '' })} className="btn-ghost text-sm">Batal Edit</button>
-                      )}
-                    </div>
-                  </div>
                   <div className="overflow-x-auto rounded-xl border border-white/[0.06]">
                     <table className="w-full min-w-[680px] text-left">
                       <thead className="bg-white/[0.03]">
@@ -552,7 +760,6 @@ const UserManagement = () => {
                           <th className="px-4 py-3">Vendor</th>
                           <th className="px-4 py-3">Periode Kontrak</th>
                           <th className="px-4 py-3 text-right">Nilai Kontrak</th>
-                          <th className="px-4 py-3 text-right">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/[0.06]">
@@ -562,10 +769,6 @@ const UserManagement = () => {
                             <td className="px-4 py-3 text-surface-300">{item.vendor}</td>
                             <td className="px-4 py-3 text-surface-300">{formatDateLong(item.startDate)} - {formatDateLong(item.endDate)}</td>
                             <td className="px-4 py-3 text-white text-right">{formatRupiah(item.contractValue)}</td>
-                            <td className="px-4 py-3 text-right whitespace-nowrap">
-                              <button onClick={() => setContractHistoryForm({ ...item, startDate: item.startDate.split('T')[0], endDate: item.endDate.split('T')[0], contractValue: String(item.contractValue) })} className="p-2 text-brand-400" title="Edit"><Pencil size={14}/></button>
-                              <button onClick={() => deleteDetailRow('contracts', item.id)} className="p-2 text-rose-400" title="Delete"><Trash2 size={14}/></button>
-                            </td>
                           </tr>
                         ))}
                       </tbody>
