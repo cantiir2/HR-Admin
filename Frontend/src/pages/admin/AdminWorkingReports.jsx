@@ -3,11 +3,9 @@ import { Check, Download, Loader2, RefreshCw, Search, X } from 'lucide-react';
 import api from '../../lib/api';
 import AppSelect from '../../components/AppSelect';
 import Pagination from '../../components/Pagination';
+import SortableHeader from '../../components/SortableHeader';
+import useTableSort from '../../hooks/useTableSort';
 
-const months = [
-  ['', 'Semua Bulan'], [1, 'Januari'], [2, 'Februari'], [3, 'Maret'], [4, 'April'], [5, 'Mei'], [6, 'Juni'],
-  [7, 'Juli'], [8, 'Agustus'], [9, 'September'], [10, 'Oktober'], [11, 'November'], [12, 'Desember']
-];
 
 const statuses = [
   ['', 'Semua Status'],
@@ -42,6 +40,9 @@ const AdminWorkingReports = () => {
   const [filters, setFilters] = useState({ search: '', month: '', year: new Date().getFullYear(), status: '' });
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [monthOptions, setMonthOptions] = useState([]);
+
+  const { sortBy, sortOrder, handleSort } = useTableSort('user.name', 'asc');
   const [message, setMessage] = useState('');
 
   const years = useMemo(() => {
@@ -53,7 +54,7 @@ const AdminWorkingReports = () => {
     try {
       setLoading(true);
       const res = await api.get('/api/working-reports', {
-        params: { ...filters, pageNo: page.pageNo, pageSize: page.pageSize }
+        params: { ...filters, pageNo: page.pageNo, pageSize: page.pageSize, sortBy, sortOrder }
       });
       setReports(res.data.data || []);
       setPage(current => ({ ...current, ...(res.data.page || {}) }));
@@ -65,9 +66,31 @@ const AdminWorkingReports = () => {
   };
 
   useEffect(() => {
+    const fetchMonths = async () => {
+      try {
+        const res = await api.get('/api/system?category=MONTH&isActive=true');
+        if (res.data && res.data.length > 0) {
+          const fetchedOptions = [['', 'Semua Bulan']];
+          const sortedMonths = res.data.sort((a, b) => {
+            return parseInt(a.code, 10) - parseInt(b.code, 10);
+          });
+          sortedMonths.forEach(item => {
+            fetchedOptions.push([item.code, item.name || item.code]);
+          });
+          setMonthOptions(fetchedOptions);
+        }
+      } catch (error) {
+        console.error('Failed to fetch months', error);
+      }
+    };
+
+    fetchMonths();
+  }, []);
+
+  useEffect(() => {
     const timer = setTimeout(fetchReports, 300);
     return () => clearTimeout(timer);
-  }, [filters, page.pageNo, page.pageSize]);
+  }, [filters, page.pageNo, page.pageSize, sortBy, sortOrder]);
 
   const updateFilter = (key, value) => {
     setFilters(current => ({ ...current, [key]: value }));
@@ -148,7 +171,7 @@ const AdminWorkingReports = () => {
           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-surface-500" />
           <input value={filters.search} onChange={e => updateFilter('search', e.target.value)} placeholder="Cari nama atau email..." className="input-dark pl-11 text-sm" />
         </div>
-        <AppSelect value={filters.month} onChange={value => updateFilter('month', value)} options={months} />
+        <AppSelect value={filters.month} onChange={value => updateFilter('month', value)} options={monthOptions} />
         <AppSelect value={filters.year} onChange={value => updateFilter('year', value)} options={years} />
         <AppSelect value={filters.status} onChange={value => updateFilter('status', value)} options={statuses} />
       </div>
@@ -158,12 +181,12 @@ const AdminWorkingReports = () => {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-white/[0.06]">
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Karyawan</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Periode</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Deadline</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Status</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Late</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Aksi</th>
+                <SortableHeader label="Karyawan" field="user.name" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
+                <SortableHeader label="Periode" field="month" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
+                <SortableHeader label="Deadline" field="deadlineDate" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
+                <SortableHeader label="Status" field="status" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
+                <SortableHeader label="Late" field="lateDays" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
+                <SortableHeader label="Aksi" />
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.04]">

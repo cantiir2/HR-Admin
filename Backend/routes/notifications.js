@@ -5,14 +5,20 @@ const {
   createBulkNotifications,
   getAdminRecipients
 } = require('../services/notificationService');
+const { buildOrderBy } = require('../utils/sorting');
 
 module.exports = (prisma) => {
   router.get('/', authenticateToken, async (req, res) => {
     try {
       const limit = Math.min(Math.max(Number(req.query.limit) || 30, 1), 100);
+      const { sortBy, sortOrder } = req.query;
+
+      const allowedSortFields = ['type', 'title', 'isRead', 'createdAt'];
+      const orderBy = buildOrderBy(sortBy, sortOrder, allowedSortFields, { sortBy: 'createdAt', sortOrder: 'desc' });
+
       const notifications = await prisma.notification.findMany({
         where: { userId: req.user.id },
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         take: limit
       });
       res.json(notifications);
@@ -67,62 +73,14 @@ module.exports = (prisma) => {
 
   router.post('/generate-contract-expiring', authenticateToken, authenticateAdmin, async (req, res) => {
     try {
-      const today = new Date();
-      today.setUTCHours(0, 0, 0, 0);
-      const thirtyDaysLater = new Date(today);
-      thirtyDaysLater.setUTCDate(thirtyDaysLater.getUTCDate() + 30);
-
-      const [contracts, admins] = await Promise.all([
-        prisma.userContract.findMany({
-          where: {
-            endDate: { gte: today, lte: thirtyDaysLater }
-          },
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                projects: {
-                  include: {
-                    project: {
-                      select: {
-                        id: true,
-                        name: true,
-                        projectManager: { select: { id: true, name: true, email: true, role: true } }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          orderBy: { endDate: 'asc' }
-        }),
-        getAdminRecipients(prisma)
-      ]);
-
-      let created = 0;
-      for (const contract of contracts) {
-        const projectManagers = contract.user.projects
-          .map(item => item.project.projectManager)
-          .filter(Boolean);
-        const recipients = [...admins, ...projectManagers];
-        const endDateText = contract.endDate.toISOString().slice(0, 10);
-
-        const notifications = await createBulkNotifications(prisma, recipients, {
-          type: 'CONTRACT_EXPIRING',
-          title: 'Kontrak Akan Berakhir',
-          message: `Kontrak ${contract.user.name} akan berakhir pada ${endDateText}.`,
-          detail: `Nomor kontrak: ${contract.contractNumber}. Vendor: ${contract.vendor}.`,
-          referenceId: contract.id,
-          referenceType: 'USER_CONTRACT',
-          skipDuplicate: true
-        });
-        created += notifications.length;
-      }
-
-      res.json({ message: 'Generate notifikasi kontrak selesai', contracts: contracts.length, notifications: created });
+      const { generateContractExpiringNotifications } = require('../services/contractNotificationService');
+      const result = await generateContractExpiringNotifications(prisma);
+      
+      res.json({ 
+        message: 'Generate notifikasi kontrak selesai', 
+        contracts: result.contractsChecked, 
+        notifications: result.notificationsCreated 
+      });
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Server error' });

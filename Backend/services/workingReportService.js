@@ -3,6 +3,7 @@ const {
   createNotification,
   getAdminRecipients
 } = require('./notificationService');
+const { validateSortParams, buildOrderBy } = require('../utils/sorting');
 
 const REMINDER_DAYS = [7, 3, 1, 0];
 const MS_PER_DAY = 86400000;
@@ -209,9 +210,12 @@ async function canAccessWorkingReportUser(prisma, currentUser, targetUserId) {
 /** Deskripsi Function: Mengambil working report dan attendance bulanan user **/
 /** Creator by: FID.Iyan **/
 /*****/
-async function getWorkingReportDetail(prisma, userId, month, year) {
+async function getWorkingReportDetail(prisma, userId, month, year, sortBy = 'date', sortOrder = 'asc') {
   const period = validateMonthYear(month, year);
   if (period.error) return { error: period.error };
+
+  const validSort = validateSortParams(sortBy, sortOrder, ['date', 'checkInTime', 'checkOutTime']);
+  const orderBy = buildOrderBy(validSort.sortBy, validSort.sortOrder, ['date', 'checkInTime', 'checkOutTime']);
 
   const [storedReport, attendances] = await Promise.all([
     prisma.workingReport.findUnique({
@@ -223,7 +227,7 @@ async function getWorkingReportDetail(prisma, userId, month, year) {
     }),
     prisma.attendance.findMany({
       where: { userId, date: getMonthRange(period.month, period.year) },
-      orderBy: { date: 'asc' }
+      orderBy
     })
   ]);
 
@@ -339,6 +343,12 @@ async function listWorkingReports(prisma, currentUser, filters = {}) {
 
   const pageNo = Math.max(Number(filters.pageNo) || 1, 1);
   const pageSize = Math.min(Math.max(Number(filters.pageSize) || 10, 1), 50);
+
+  const allowedSortFields = ['user.name', 'month', 'year', 'deadlineDate', 'status', 'lateDays', 'submittedAt', 'approvedAt'];
+  let orderBy = buildOrderBy(filters.sortBy, filters.sortOrder, allowedSortFields, { sortBy: 'year', sortOrder: 'desc' });
+  if (filters.sortBy === undefined || filters.sortBy === null) {
+      orderBy = [{ year: 'desc' }, { month: 'desc' }, { updatedAt: 'desc' }];
+  }
   const where = andWhere.length ? { AND: andWhere } : {};
   const [totalRows, data] = await Promise.all([
     prisma.workingReport.count({ where }),
@@ -349,7 +359,7 @@ async function listWorkingReports(prisma, currentUser, filters = {}) {
         approvedBy: { select: { id: true, name: true } },
         rejectedBy: { select: { id: true, name: true } }
       },
-      orderBy: [{ year: 'desc' }, { month: 'desc' }, { updatedAt: 'desc' }],
+      orderBy,
       skip: (pageNo - 1) * pageSize,
       take: pageSize
     })

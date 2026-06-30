@@ -4,6 +4,8 @@ import api from '../../lib/api';
 import AppSelect from '../../components/AppSelect';
 import AppAlert from '../../components/AppAlert';
 import Pagination from '../../components/Pagination';
+import SortableHeader from '../../components/SortableHeader';
+import useTableSort from '../../hooks/useTableSort';
 
 const AvailableMember = () => {
   const [members, setMembers] = useState([]);
@@ -13,6 +15,8 @@ const AvailableMember = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const pageSizeRef = useRef(10);
+
+  const { sortBy, sortOrder, handleSort } = useTableSort('name', 'asc');
 
   const fetchMembers = useCallback(async (pageNo = 1, pageSize = pageSizeRef.current) => {
     pageSizeRef.current = pageSize;
@@ -25,7 +29,9 @@ const AvailableMember = () => {
         startDate: filters.startDate,
         endDate: filters.endDate,
         skill: filters.skill,
-        search: filters.search
+        search: filters.search,
+        sortBy,
+        sortOrder
       });
       setMembers(res.data.data || []);
       setPage(res.data.page || { pageNo, pageSize, totalRows: 0, totalPages: 1 });
@@ -34,7 +40,7 @@ const AvailableMember = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, sortBy, sortOrder]);
 
   useEffect(() => {
     api.get('/api/system', { params: { category: 'JOB_ROLE', isActive: true } })
@@ -67,17 +73,17 @@ const AvailableMember = () => {
       <AppAlert tone="error" message={error} />
       <div className="glass-card p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="block text-sm text-surface-300">Start Date
-          <input 
-            type="date" 
+          <input
+            type="date"
             className="input-dark text-sm mt-1 [color-scheme:light] dark:[color-scheme:dark]"
-            value={filters.startDate} 
+            value={filters.startDate}
             onChange={e => setFilters({ ...filters, startDate: e.target.value })} />
         </label>
         <label className="block text-sm text-surface-300">End Date
-          <input 
-            type="date" 
+          <input
+            type="date"
             className="input-dark text-sm mt-1 [color-scheme:light] dark:[color-scheme:dark]"
-            value={filters.endDate} 
+            value={filters.endDate}
             onChange={e => setFilters({ ...filters, endDate: e.target.value })} />
         </label>
         <AppSelect label="Job Role / Skill" value={filters.skill} onChange={value => setFilters({ ...filters, skill: value })} options={[['', 'Semua role'], ...jobRoles.map(role => [role.code, role.name])]} />
@@ -92,9 +98,15 @@ const AvailableMember = () => {
       <div className="glass-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead><tr className="border-b border-white/[0.06] text-xs uppercase text-surface-400">
-              <th className="px-4 py-3">Member</th><th className="px-4 py-3">Job / Skill</th><th className="px-4 py-3">Current Project</th><th className="px-4 py-3">Available From</th><th className="px-4 py-3">Status</th>
-            </tr></thead>
+            <thead>
+              <tr className="border-b border-white/[0.06]">
+                <SortableHeader label="Member" field="name" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
+                <SortableHeader label="Job / Skill" field="job_role_code" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
+                <SortableHeader label="Current Project" />
+                <SortableHeader label="Available From" field="available_from" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
+                <SortableHeader label="Status" />
+              </tr>
+            </thead>
             <tbody className="divide-y divide-white/[0.04]">
               {!loading && members.map(member => (
                 <tr key={member.user_id}>

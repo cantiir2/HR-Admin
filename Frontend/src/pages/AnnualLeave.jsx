@@ -3,6 +3,8 @@ import { CalendarDays, Download, Eye, FileImage, Loader2, Send, Upload, X } from
 import { format } from 'date-fns';
 import api from '../lib/api';
 import AppSelect from '../components/AppSelect';
+import SortableHeader from '../components/SortableHeader';
+import useTableSort from '../hooks/useTableSort';
 import {
   downloadBase64File,
   normalizeBase64DataUrl,
@@ -35,6 +37,8 @@ const AnnualLeave = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [evidenceImage, setEvidenceImage] = useState(null);
 
+  const { sortBy, sortOrder, handleSort } = useTableSort('startDate', 'desc');
+
   useEffect(() => {
     const fetchStatuses = async () => {
       try {
@@ -61,7 +65,7 @@ const AnnualLeave = () => {
       setLoading(true);
       const [balanceRes, leavesRes, systemRes] = await Promise.all([
         api.get('/api/leaves/me/balance'),
-        api.get('/api/leaves/me'),
+        api.get('/api/leaves/me', { params: { sortBy, sortOrder } }),
         api.get('/api/system?category=LEAVE_TYPE&isActive=true')
       ]);
       setBalance(balanceRes.data);
@@ -84,7 +88,7 @@ const AnnualLeave = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [sortBy, sortOrder]);
 
   useEffect(() => {
     const timer = setTimeout(fetchData, 0);
@@ -154,8 +158,8 @@ const AnnualLeave = () => {
   const viewEvidence = async (id) => {
     try {
       const evidence = await fetchEvidence(id);
-      const imageUrl = evidence.fileData.startsWith('data:') 
-        ? evidence.fileData 
+      const imageUrl = evidence.fileData.startsWith('data:')
+        ? evidence.fileData
         : `data:${evidence.fileType || 'image/png'};base64,${evidence.fileData}`;
       setEvidenceImage(imageUrl);
       setIsModalOpen(true);
@@ -276,12 +280,12 @@ const AnnualLeave = () => {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-white/[0.06]">
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Periode</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Total</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Status</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Evidence</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Keterangan</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Aksi</th>
+                <SortableHeader label="Periode" field="startDate" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
+                <SortableHeader label="Total" field="totalDays" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
+                <SortableHeader label="Status" field="status" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
+                <SortableHeader label="Evidence" />
+                <SortableHeader label="Keterangan" />
+                <SortableHeader label="Aksi" />
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.04]">

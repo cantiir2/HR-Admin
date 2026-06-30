@@ -4,6 +4,7 @@ const {
   getAdminRecipients,
   getUserRecipient
 } = require('./notificationService');
+const { buildOrderBy } = require('../utils/sorting');
 const { getDataUrlMimeType, validateBase64File } = require('../utils/fileValidation');
 
 const LEAVE_TYPES = ['ANNUAL_LEAVE', 'OTHERS'];
@@ -303,6 +304,10 @@ async function listLeaveRequests(prisma, currentUser, filters = {}) {
 
   const pageNo = Math.max(Number(filters.pageNo) || 1, 1);
   const pageSize = Math.min(Math.max(Number(filters.pageSize) || 10, 1), 50);
+  
+  const allowedSortFields = ['user.name', 'leaveType', 'startDate', 'endDate', 'totalDays', 'status', 'isOverQuota', 'createdAt'];
+  const orderBy = buildOrderBy(filters.sortBy, filters.sortOrder, allowedSortFields, { sortBy: 'createdAt', sortOrder: 'desc' });
+
   const where = andWhere.length ? { AND: andWhere } : {};
   const [totalRows, data] = await Promise.all([
     prisma.leaveRequest.count({ where }),
@@ -315,7 +320,7 @@ async function listLeaveRequests(prisma, currentUser, filters = {}) {
         adminApprover: { select: { id: true, name: true } },
         rejectedBy: { select: { id: true, name: true } }
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy,
       skip: (pageNo - 1) * pageSize,
       take: pageSize
     })

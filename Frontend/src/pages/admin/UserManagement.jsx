@@ -10,6 +10,8 @@ import ConfirmDialog from '../../components/ConfirmDialog';
 import UserAvatar from '../../components/UserAvatar';
 import AppSelect from '../../components/AppSelect';
 import Pagination from '../../components/Pagination';
+import SortableHeader from '../../components/SortableHeader';
+import useTableSort from '../../hooks/useTableSort';
 import { displaySystemValue, formatWorkingPeriod, parseWorkingExperience } from '../../lib/profileFormat';
 
 const UserManagement = () => {
@@ -36,6 +38,8 @@ const UserManagement = () => {
   const [form, setForm] = useState({
     name: '', email: '', password: '', role: 'MEMBER', jobRoleCode: '',
   });
+  
+  const { sortBy, sortOrder, handleSort } = useTableSort('name', 'asc');
 
 useEffect(() => {
     const fetchContractStatuses = async () => {
@@ -74,7 +78,9 @@ useEffect(() => {
         search: filters.search,
         role: filters.role,
         jobRoleCode: filters.jobRoleCode,
-        contractStatus: filters.contractStatus
+        contractStatus: filters.contractStatus,
+        sortBy,
+        sortOrder
       });
       setUsers(res.data.data || []);
       setPage(res.data.page || { pageNo, pageSize, totalRows: 0, totalPages: 1 });
@@ -83,7 +89,7 @@ useEffect(() => {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, sortBy, sortOrder]);
 
   const fetchJobRoles = async () => {
     const res = await api.get('/api/system?category=JOB_ROLE');
@@ -344,13 +350,13 @@ useEffect(() => {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-white/[0.06]">
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Nama</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Email</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Role</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Job</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Identitas</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Kontrak</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Aksi</th>
+                <SortableHeader label="Nama" field="name" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
+                <SortableHeader label="Email" field="email" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
+                <SortableHeader label="Role" field="role" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
+                <SortableHeader label="Job" field="jobRoleCode" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
+                <SortableHeader label="Identitas" />
+                <SortableHeader label="Kontrak" />
+                <SortableHeader label="Aksi" align="center" />
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.04]">

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken, authenticateAdmin } = require('../middleware/auth');
+const { buildOrderBy } = require('../utils/sorting');
 
 module.exports = (prisma) => {
   // ═══════════════════════════════════════════════════════════════════════════
@@ -21,7 +22,7 @@ module.exports = (prisma) => {
             }
           }
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: buildOrderBy(req.query.sortBy, req.query.sortOrder, ['name', 'customer', 'customerName', 'woNumber', 'contractStart', 'contractEnd', 'status', 'createdAt'], { sortBy: 'createdAt', sortOrder: 'desc' })
       });
       res.json(projects);
     } catch (error) {
@@ -41,8 +42,13 @@ module.exports = (prisma) => {
         projectManagerId = '',
         customer = '',
         dateFrom = '',
-        dateTo = ''
+        dateTo = '',
+        sortBy,
+        sortOrder
       } = req.body || {};
+
+      const allowedSortFields = ['name', 'customer', 'customerName', 'woNumber', 'contractStart', 'contractEnd', 'status', 'createdAt'];
+      const orderBy = buildOrderBy(sortBy, sortOrder, allowedSortFields, { sortBy: 'createdAt', sortOrder: 'desc' });
 
       const pageNo = Math.max(parseInt(pageNoBody, 10) || 1, 1);
       const pageSize = Math.min(Math.max(parseInt(pageSizeBody, 10) || 5, 1), 50);
@@ -107,7 +113,7 @@ module.exports = (prisma) => {
         prisma.project.findMany({
           where,
           include,
-          orderBy: { createdAt: 'desc' },
+          orderBy,
           skip,
           take: pageSize
         })

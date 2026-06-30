@@ -3,6 +3,8 @@ import api from '../../lib/api';
 import { Search } from 'lucide-react';
 import { format } from 'date-fns';
 import Pagination from '../../components/Pagination';
+import SortableHeader from '../../components/SortableHeader';
+import useTableSort from '../../hooks/useTableSort';
 
 const jakartaToday = () => new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit'
@@ -18,10 +20,12 @@ const AdminAttendanceList = () => {
   const [endDate, setEndDate] = useState(jakartaToday);
   const [showAll, setShowAll] = useState(false);
 
+  const { sortBy, sortOrder, handleSort } = useTableSort('date', 'desc');
+
   useEffect(() => {
     const fetchAttendances = async () => {
       try {
-        const params = { page: pageNo, limit: pageSize, search };
+        const params = { page: pageNo, limit: pageSize, search, sortBy, sortOrder };
         if (showAll) {
           params.all = true;
         } else {
@@ -43,7 +47,7 @@ const AdminAttendanceList = () => {
     };
     const timer = setTimeout(fetchAttendances, 300);
     return () => clearTimeout(timer);
-  }, [pageNo, pageSize, search, startDate, endDate, showAll]);
+  }, [pageNo, pageSize, search, startDate, endDate, showAll, sortBy, sortOrder]);
 
   const totalPages = Math.ceil(totalRecords / pageSize);
 
@@ -75,13 +79,12 @@ const AdminAttendanceList = () => {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-white/[0.06]">
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Karyawan</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Tanggal</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Check-In</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Check-Out</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Catatan In</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Catatan Out</th>
-                {/* <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Foto</th> */}
+                <SortableHeader label="Karyawan" field="user.name" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPageNo(1))} />
+                <SortableHeader label="Tanggal" field="date" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPageNo(1))} />
+                <SortableHeader label="Check-In" field="checkInTime" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPageNo(1))} />
+                <SortableHeader label="Check-Out" field="checkOutTime" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPageNo(1))} />
+                <SortableHeader label="Catatan In" />
+                <SortableHeader label="Catatan Out" />
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.04]">

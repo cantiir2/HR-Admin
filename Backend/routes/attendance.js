@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken, authenticateAdmin } = require('../middleware/auth');
+const { buildOrderBy } = require('../utils/sorting');
 
 module.exports = (prisma) => {
   // ─── POST Check-In ──────────────────────────────────────────────────────
@@ -101,8 +102,11 @@ module.exports = (prisma) => {
   // ─── GET My Attendances ─────────────────────────────────────────────────
   router.get('/me', authenticateToken, async (req, res) => {
     try {
-      const { month, year } = req.query;
+      const { month, year, sortBy, sortOrder } = req.query;
       let whereClause = { userId: req.user.id };
+
+      const allowedSortFields = ['date', 'checkInTime', 'checkOutTime', 'createdAt'];
+      const orderBy = buildOrderBy(sortBy, sortOrder, allowedSortFields, { sortBy: 'date', sortOrder: 'desc' });
 
       if (month && year) {
         const m = parseInt(month, 10);
@@ -117,7 +121,7 @@ module.exports = (prisma) => {
 
       const attendances = await prisma.attendance.findMany({
         where: whereClause,
-        orderBy: { date: 'desc' },
+        orderBy,
         ...(month && year ? {} : { take: 30 })
       });
       res.json(attendances);
@@ -130,8 +134,11 @@ module.exports = (prisma) => {
   // ─── GET All Attendances (Admin) ────────────────────────────────────────
   router.get('/', authenticateToken, authenticateAdmin, async (req, res) => {
     try {
-      const { page, limit, search, date, startDate, endDate, all, projectManagerId } = req.query;
+      const { page, limit, search, date, startDate, endDate, all, projectManagerId, sortBy, sortOrder } = req.query;
       
+      const allowedSortFields = ['date', 'user.name', 'checkInTime', 'checkOutTime', 'createdAt'];
+      const orderBy = buildOrderBy(sortBy, sortOrder, allowedSortFields, { sortBy: 'date', sortOrder: 'desc' });
+
       let whereClause = {};
       if (date && !isValidDateInput(date)) {
         return res.status(400).json({ error: 'Format tanggal harus YYYY-MM-DD' });
@@ -183,7 +190,7 @@ module.exports = (prisma) => {
             include: {
               user: { select: { name: true, email: true, jobRoleCode: true } }
             },
-            orderBy: { date: 'desc' },
+            orderBy,
             skip,
             take: limitNumber
           }),
@@ -204,7 +211,7 @@ module.exports = (prisma) => {
         include: {
           user: { select: { name: true, email: true, jobRoleCode: true } }
         },
-        orderBy: { date: 'desc' }
+        orderBy
       });
       res.json(attendances);
     } catch (error) {

@@ -57,4 +57,8 @@ app.get('/api/health', (req, res) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
+
+  // Start cron jobs
+  const { startContractNotificationJob } = require('./jobs/contractNotificationJob');
+  startContractNotificationJob();
 });

@@ -12,6 +12,7 @@ const {
   approveLeaveByAdmin,
   rejectLeaveRequest
 } = require('../services/leaveService');
+const { buildOrderBy } = require('../utils/sorting');
 
 module.exports = (prisma) => {
   router.get('/me/balance', authenticateToken, async (req, res) => {
@@ -34,7 +35,7 @@ module.exports = (prisma) => {
           adminApprover: { select: { id: true, name: true } },
           rejectedBy: { select: { id: true, name: true } }
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: buildOrderBy(req.query.sortBy, req.query.sortOrder, ['leaveType', 'startDate', 'endDate', 'totalDays', 'status', 'isOverQuota', 'createdAt'], { sortBy: 'createdAt', sortOrder: 'desc' })
       });
       res.json(leaves.map(toLeaveResponse));
     } catch (error) {

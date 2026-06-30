@@ -3,6 +3,8 @@ import { Download, FileText, Loader2, Send } from 'lucide-react';
 import { format } from 'date-fns';
 import api from '../lib/api';
 import AppSelect from '../components/AppSelect';
+import SortableHeader from '../components/SortableHeader';
+import useTableSort from '../hooks/useTableSort';
 import { useAuth } from '../context/AuthContext';
 
 const months = [
@@ -51,6 +53,8 @@ const WorkingReport = () => {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  
+  const { sortBy, sortOrder, handleSort } = useTableSort('date', 'asc');
 
   const years = useMemo(() => {
     const current = new Date().getFullYear();
@@ -60,7 +64,7 @@ const WorkingReport = () => {
   const fetchDetail = async () => {
     try {
       setLoading(true);
-      const res = await api.get(`/api/working-reports/me/${month}/${year}`);
+      const res = await api.get(`/api/working-reports/me/${month}/${year}`, { params: { sortBy, sortOrder } });
       setDetail(res.data);
     } catch {
       setDetail({ report: null, attendances: [] });
@@ -71,7 +75,7 @@ const WorkingReport = () => {
 
   useEffect(() => {
     fetchDetail();
-  }, [month, year]);
+  }, [month, year, sortBy, sortOrder]);
 
   const submitReport = async () => {
     try {
@@ -178,10 +182,10 @@ const WorkingReport = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-white/[0.06]">
-                  <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Tanggal</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Check-In</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Check-Out</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Catatan</th>
+                  <SortableHeader label="Tanggal" field="date" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Check-In" field="checkInTime" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Check-Out" field="checkOutTime" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
+                  <SortableHeader label="Catatan" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.04]">

@@ -4,6 +4,8 @@ import { format } from 'date-fns';
 import api from '../lib/api';
 import AppSelect from '../components/AppSelect';
 import Pagination from '../components/Pagination';
+import SortableHeader from '../components/SortableHeader';
+import useTableSort from '../hooks/useTableSort';
 import { useAuth } from '../context/AuthContext';
 import { downloadBase64File, viewBase64File } from '../lib/fileValidation';
 
@@ -44,11 +46,13 @@ const LeaveManagement = () => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
+  const { sortBy, sortOrder, handleSort } = useTableSort('startDate', 'desc');
+
   const fetchLeaves = useCallback(async () => {
     try {
       setLoading(true);
       const res = await api.get('/api/leaves', {
-        params: { ...filters, pageNo: page.pageNo, pageSize: page.pageSize }
+        params: { ...filters, pageNo: page.pageNo, pageSize: page.pageSize, sortBy, sortOrder }
       });
       setLeaves(res.data.data || []);
       setPage(current => ({ ...current, ...(res.data.page || {}) }));
@@ -57,7 +61,7 @@ const LeaveManagement = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters, page.pageNo, page.pageSize]);
+  }, [filters, page.pageNo, page.pageSize, sortBy, sortOrder]);
 
   useEffect(() => {
     const timer = setTimeout(fetchLeaves, 300);
@@ -134,13 +138,13 @@ const LeaveManagement = () => {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-white/[0.06]">
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Karyawan</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Periode</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Total</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Status</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Evidence</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Info</th>
-                <th className="px-4 py-3 text-xs font-semibold text-surface-400 uppercase">Aksi</th>
+                <SortableHeader label="Karyawan" field="user.name" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
+                <SortableHeader label="Periode" field="startDate" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
+                <SortableHeader label="Total" field="totalDays" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
+                <SortableHeader label="Status" field="status" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
+                <SortableHeader label="Evidence" />
+                <SortableHeader label="Info" />
+                <SortableHeader label="Aksi" />
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.04]">
