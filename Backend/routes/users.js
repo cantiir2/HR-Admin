@@ -23,7 +23,47 @@ const PROFILE_FIELDS = [
   'motherName'
 ];
 
+async function changeUserPassword(prisma, userId, currentPassword, newPassword, confirmPassword) {
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    throw new Error('Semua field password wajib diisi');
+  }
 
+  if (newPassword.length < 8) {
+    throw new Error('Password baru minimal 8 karakter');
+  }
+
+  if (newPassword !== confirmPassword) {
+    throw new Error('Konfirmasi password baru tidak sesuai');
+  }
+
+  if (newPassword === currentPassword) {
+    throw new Error('Password baru tidak boleh sama dengan password lama');
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { passwordHash: true }
+  });
+
+  if (!user) {
+    throw new Error('User tidak ditemukan');
+  }
+
+  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!valid) {
+    throw new Error('Password lama tidak sesuai');
+  }
+
+  const salt = await bcrypt.genSalt(10);
+  const newPasswordHash = await bcrypt.hash(newPassword, salt);
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash: newPasswordHash }
+  });
+
+  return { message: 'Password berhasil diubah' };
+}
 
 module.exports = (prisma) => {
   // ═══════════════════════════════════════════════════════════════════════════
@@ -537,6 +577,8 @@ router.post('/available-members/search', authenticateToken, authenticateAdmin, a
   }
 });
 
+
+
   router.post('/contract-number', authenticateToken, authenticateAdmin, async (req, res) => {
     try {
       const contractNumber = await generateContractNumber(prisma);
@@ -768,8 +810,11 @@ router.post('/available-members/search', authenticateToken, authenticateAdmin, a
 
       const ktpNumber = decryptSafe(user?.ktpNumberEncrypted);
       const kkNumber = decryptSafe(user?.kkNumberEncrypted);
+      const contractInfo = await getCurrentUserContract(prisma, req.user.id);
+      
       res.json({
         ...user,
+        ...contractInfo,
         ktpNumberEncrypted: undefined,
         kkNumberEncrypted: undefined,
         ktpNumberMasked: maskSensitiveNumber(ktpNumber),
@@ -808,6 +853,29 @@ router.post('/available-members/search', authenticateToken, authenticateAdmin, a
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Server error' });
+    }
+  });
+
+  // PUT change password
+  router.put('/me/change-password', authenticateToken, async (req, res) => {
+    try {
+      const { currentPassword, newPassword, confirmPassword } = req.body;
+      const result = await changeUserPassword(prisma, req.user.id, currentPassword, newPassword, confirmPassword);
+      res.json(result);
+    } catch (error) {
+      if (error.message === 'User tidak ditemukan') {
+         res.status(404).json({ error: error.message });
+      } else if (
+         error.message.includes('wajib diisi') ||
+         error.message.includes('minimal 8 karakter') ||
+         error.message.includes('tidak sesuai') ||
+         error.message.includes('tidak boleh sama')
+      ) {
+         res.status(400).json({ error: error.message });
+      } else {
+         console.error(error);
+         res.status(500).json({ error: 'Server error' });
+      }
     }
   });
 
@@ -1226,4 +1294,164 @@ async function deleteHistory(model, userId, id, res) {
     console.error(error);
     res.status(500).json({ error: 'Server error' });
   }
+}
+
+/*****/
+/** Nama Function: calculateContractStatus **/
+/** Deskripsi Function: Menghitung status kontrak berdasarkan periode kontrak dan tanggal hari ini **/
+/** Creator by: FID.Iyan **/
+/*****/
+function calculateContractStatus(contractStart, contractEnd) {
+  if (!contractStart || !contractEnd) {
+    return {
+      contractStatus: 'NO_CONTRACT',
+      isExpired: false,
+      isExpiringSoon: false,
+      remainingDays: null
+    };
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const start = new Date(contractStart);
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(contractEnd);
+  end.setHours(0, 0, 0, 0);
+
+  let contractStatus = 'NO_CONTRACT';
+  let isExpired = false;
+  let isExpiringSoon = false;
+  let remainingDays = null;
+
+  if (end < today) {
+    contractStatus = 'EXPIRED';
+    isExpired = true;
+  } else if (start <= today && end >= today) {
+    contractStatus = 'ACTIVE';
+  } else if (start > today) {
+    contractStatus = 'UPCOMING';
+  }
+
+  if (end >= today) {
+    const diffTime = end.getTime() - today.getTime();
+    remainingDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (remainingDays <= 30) {
+      isExpiringSoon = true;
+    }
+  }
+
+  return {
+    contractStatus,
+    isExpired,
+    isExpiringSoon,
+    remainingDays
+  };
+}
+/*****/
+/** Nama Function: getCurrentUserContract **/
+/** Deskripsi Function: Mengambil kontrak aktif atau kontrak terakhir milik user login **/
+/** Creator by: FID.Iyan **/
+/*****/
+async function getCurrentUserContract(prisma, userId) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      contracts: {
+        orderBy: {
+          endDate: 'desc'
+        }
+      }
+    }
+  });
+
+  if (!user) return null;
+
+  let activeContract = null;
+  let upcomingContract = null;
+  let expiredContract = null;
+
+  if (user.contracts && user.contracts.length > 0) {
+    const upcomingContracts = [];
+    
+    for (const contract of user.contracts) {
+      const statusObj = calculateContractStatus(contract.startDate, contract.endDate);
+      if (statusObj.contractStatus === 'ACTIVE') {
+        if (!activeContract) activeContract = { ...contract, ...statusObj };
+      } else if (statusObj.contractStatus === 'UPCOMING') {
+        upcomingContracts.push({ ...contract, ...statusObj });
+      } else if (statusObj.contractStatus === 'EXPIRED') {
+        if (!expiredContract) expiredContract = { ...contract, ...statusObj };
+      }
+    }
+
+    if (activeContract) {
+      return {
+        contractNumber: activeContract.contractNumber,
+        vendor: activeContract.vendor,
+        contractStart: activeContract.startDate,
+        contractEnd: activeContract.endDate,
+        contractValue: activeContract.contractValue,
+        contractStatus: activeContract.contractStatus,
+        isExpired: activeContract.isExpired,
+        isExpiringSoon: activeContract.isExpiringSoon,
+        remainingDays: activeContract.remainingDays
+      };
+    }
+    
+    if (upcomingContracts.length > 0) {
+      upcomingContracts.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+      upcomingContract = upcomingContracts[0];
+      return {
+        contractNumber: upcomingContract.contractNumber,
+        vendor: upcomingContract.vendor,
+        contractStart: upcomingContract.startDate,
+        contractEnd: upcomingContract.endDate,
+        contractValue: upcomingContract.contractValue,
+        contractStatus: upcomingContract.contractStatus,
+        isExpired: upcomingContract.isExpired,
+        isExpiringSoon: upcomingContract.isExpiringSoon,
+        remainingDays: upcomingContract.remainingDays
+      };
+    }
+    
+    if (expiredContract) {
+      return {
+        contractNumber: expiredContract.contractNumber,
+        vendor: expiredContract.vendor,
+        contractStart: expiredContract.startDate,
+        contractEnd: expiredContract.endDate,
+        contractValue: expiredContract.contractValue,
+        contractStatus: expiredContract.contractStatus,
+        isExpired: expiredContract.isExpired,
+        isExpiringSoon: expiredContract.isExpiringSoon,
+        remainingDays: expiredContract.remainingDays
+      };
+    }
+  }
+
+  if (user.contractStart && user.contractEnd) {
+    const statusObj = calculateContractStatus(user.contractStart, user.contractEnd);
+    return {
+      contractNumber: '-',
+      vendor: '-',
+      contractStart: user.contractStart,
+      contractEnd: user.contractEnd,
+      contractValue: null,
+      ...statusObj
+    };
+  }
+
+  return {
+    contractStatus: 'NO_CONTRACT',
+    contractStart: null,
+    contractEnd: null,
+    contractNumber: null,
+    vendor: null,
+    contractValue: null,
+    isExpired: false,
+    isExpiringSoon: false,
+    remainingDays: null
+  };
 }

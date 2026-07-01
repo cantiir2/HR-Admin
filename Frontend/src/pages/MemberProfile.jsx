@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import api from '../lib/api';
 import {
-  Download, FileText, IdCard, Image, Loader2,
+  Download, FileText, IdCard, Image, Loader2, Lock,
   Plus, Save, Shield, Trash2, Upload, User, UsersRound, BriefcaseBusiness
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -9,6 +9,7 @@ import AppAlert from '../components/AppAlert';
 import ConfirmDialog from '../components/ConfirmDialog';
 import UserAvatar from '../components/UserAvatar';
 import AppSelect from '../components/AppSelect';
+import PasswordInput from '../components/PasswordInput';
 import { parseWorkingExperience, stringifyWorkingExperience } from '../lib/profileFormat';
 
 const emptyForm = {
@@ -40,6 +41,13 @@ const MemberProfile = () => {
   const [documentType, setDocumentType] = useState('LAINNYA');
   const [documentLabel, setDocumentLabel] = useState('');
   const [confirm, setConfirm] = useState(null);
+
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   const isDirty = useMemo(
     () => JSON.stringify(form) !== JSON.stringify(initialForm) ||
@@ -134,6 +142,32 @@ const MemberProfile = () => {
       confirmLabel: 'Ya, Simpan',
       onConfirm: submitProfile
     });
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setError('Konfirmasi password baru tidak sesuai');
+      return;
+    }
+    if (passwordForm.newPassword.length < 8) {
+      setError('Password baru minimal 8 karakter');
+      return;
+    }
+    
+    setPasswordLoading(true);
+    setError('');
+    setMessage('');
+    try {
+      await api.put('/api/users/me/change-password', passwordForm);
+      setMessage('Password berhasil diubah');
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setTimeout(() => setMessage(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Gagal mengubah password');
+    } finally {
+      setPasswordLoading(false);
+    }
   };
 
   const uploadFile = async (file, type) => {
@@ -269,6 +303,92 @@ const MemberProfile = () => {
           </div>
         </div>
       )}
+
+      {/* Contract Information */}
+      <div className="glass-card p-5 space-y-4">
+        <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+          <FileText size={16} className="text-brand-400" /> Informasi Kontrak
+        </h3>
+        
+        {profile.contractStatus === 'NO_CONTRACT' ? (
+          <p className="text-sm text-surface-400">Belum ada data kontrak.</p>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <p className="text-xs text-surface-400">Status</p>
+                <div className="mt-1">
+                  {profile.contractStatus === 'ACTIVE' && <span className="px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Aktif</span>}
+                  {profile.contractStatus === 'UPCOMING' && <span className="px-2 py-0.5 rounded text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">Akan Berjalan</span>}
+                  {profile.contractStatus === 'EXPIRED' && <span className="px-2 py-0.5 rounded text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20">Expired</span>}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-surface-400">Nomor Kontrak</p>
+                <p className="text-sm text-white mt-1">{profile.contractNumber || '-'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-surface-400">Vendor</p>
+                <p className="text-sm text-white mt-1">{profile.vendor || '-'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-surface-400">Periode Kontrak</p>
+                <p className="text-sm text-white mt-1">
+                  {formatContractDate(profile.contractStart)} - {formatContractDate(profile.contractEnd)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-surface-400">Sisa Hari</p>
+                <p className="text-sm text-white mt-1">
+                  {profile.remainingDays !== null ? `${profile.remainingDays} hari` : '-'}
+                </p>
+              </div>
+            </div>
+
+            {profile.isExpiringSoon && (
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-sm flex items-center gap-2">
+                Kontrak Anda akan berakhir dalam {profile.remainingDays} hari.
+              </div>
+            )}
+            
+            {profile.isExpired && (
+              <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm flex items-center gap-2">
+                Kontrak Anda sudah berakhir.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      
+      {/* Change Password Form */}
+      <form onSubmit={handleChangePassword}>
+        <Section icon={Lock} title="Ganti Password">
+          <div className="grid sm:grid-cols-3 gap-3">
+            <PasswordInput 
+              label="Password Lama" 
+              required 
+              value={passwordForm.currentPassword} 
+              onChange={e => setPasswordForm(prev => ({...prev, currentPassword: e.target.value}))} 
+            />
+            <PasswordInput 
+              label="Password Baru" 
+              required 
+              value={passwordForm.newPassword} 
+              onChange={e => setPasswordForm(prev => ({...prev, newPassword: e.target.value}))} 
+            />
+            <PasswordInput 
+              label="Konfirmasi Password Baru" 
+              required 
+              value={passwordForm.confirmPassword} 
+              onChange={e => setPasswordForm(prev => ({...prev, confirmPassword: e.target.value}))} 
+            />
+          </div>
+          <button type="submit" disabled={passwordLoading} className="btn-primary flex items-center justify-center gap-2 text-sm disabled:opacity-50 mt-4">
+            {passwordLoading ? <Loader2 size={16} className="animate-spin" /> : <><Save size={16} /> Simpan Password</>}
+          </button>
+        </Section>
+      </form>
 
       <form onSubmit={handleSave} className="space-y-5">
         <Section icon={User} title="Data Pribadi">
@@ -428,6 +548,15 @@ function downloadBase64(fileData, fileName) {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+}
+
+function formatContractDate(value) {
+  if (!value) return '-';
+  const d = new Date(value);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
 }
 
 export default MemberProfile;

@@ -37,7 +37,12 @@ const formatDeadlineDate = (deadlineDate) => {
 const AdminWorkingReports = () => {
   const [reports, setReports] = useState([]);
   const [page, setPage] = useState({ pageNo: 1, pageSize: 10, totalPages: 1 });
-  const [filters, setFilters] = useState({ search: '', month: '', year: new Date().getFullYear(), status: '' });
+  const [filters, setFilters] = useState({
+    search: '',
+    month: String(new Date().getMonth() + 1),
+    year: new Date().getFullYear(),
+    status: ''
+  });
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [monthOptions, setMonthOptions] = useState([]);
@@ -70,7 +75,7 @@ const AdminWorkingReports = () => {
       try {
         const res = await api.get('/api/system?category=MONTH&isActive=true');
         if (res.data && res.data.length > 0) {
-          const fetchedOptions = [['', 'Semua Bulan']];
+          const fetchedOptions = [];
           const sortedMonths = res.data.sort((a, b) => {
             return parseInt(a.code, 10) - parseInt(b.code, 10);
           });

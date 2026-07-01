@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { LogIn, Mail, Lock, ArrowRight, Fingerprint } from 'lucide-react';
+import { LogIn, Mail, ArrowRight, Fingerprint } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import PasswordInput from '../components/PasswordInput';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -75,20 +76,10 @@ const Login = () => {
                 />
               </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-surface-300 mb-2">Password</label>
-              <div className="relative">
-                <Lock size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-surface-500" />
-                <input
-                  type="password"
-                  required
-                  className="input-dark pl-11"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-            </div>
+            <PasswordInput
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
 
             <button
               type="submit"

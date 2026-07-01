@@ -214,8 +214,15 @@ async function getWorkingReportDetail(prisma, userId, month, year, sortBy = 'dat
   const period = validateMonthYear(month, year);
   if (period.error) return { error: period.error };
 
-  const validSort = validateSortParams(sortBy, sortOrder, ['date', 'checkInTime', 'checkOutTime']);
-  const orderBy = buildOrderBy(validSort.sortBy, validSort.sortOrder, ['date', 'checkInTime', 'checkOutTime']);
+  const allowedSortFields = ['date', 'checkInTime', 'checkOutTime'];
+  const defaultSort = { sortBy: 'date', sortOrder: 'asc' };
+
+  const orderBy = buildOrderBy(
+    sortBy,
+    sortOrder,
+    allowedSortFields,
+    defaultSort
+  );
 
   const [storedReport, attendances] = await Promise.all([
     prisma.workingReport.findUnique({
@@ -347,7 +354,7 @@ async function listWorkingReports(prisma, currentUser, filters = {}) {
   const allowedSortFields = ['user.name', 'month', 'year', 'deadlineDate', 'status', 'lateDays', 'submittedAt', 'approvedAt'];
   let orderBy = buildOrderBy(filters.sortBy, filters.sortOrder, allowedSortFields, { sortBy: 'year', sortOrder: 'desc' });
   if (filters.sortBy === undefined || filters.sortBy === null) {
-      orderBy = [{ year: 'desc' }, { month: 'desc' }, { updatedAt: 'desc' }];
+    orderBy = [{ year: 'desc' }, { month: 'desc' }, { updatedAt: 'desc' }];
   }
   const where = andWhere.length ? { AND: andWhere } : {};
   const [totalRows, data] = await Promise.all([
