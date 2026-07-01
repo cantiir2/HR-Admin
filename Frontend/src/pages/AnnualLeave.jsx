@@ -60,14 +60,32 @@ const AnnualLeave = () => {
     fetchStatuses();
   }, []);
 
-  const fetchData = useCallback(async () => {
+  const fetchLeaves = useCallback(async (nextSortBy = sortBy, nextSortOrder = sortOrder) => {
+    const leavesRes = await api.get('/api/leaves/me', {
+      params: {
+        sortBy: nextSortBy,
+        sortOrder: nextSortOrder
+      }
+    });
+
+    setLeaves(leavesRes.data || []);
+  }, [sortBy, sortOrder]);
+
+  const fetchInitialData = useCallback(async () => {
     try {
       setLoading(true);
+
       const [balanceRes, leavesRes, systemRes] = await Promise.all([
         api.get('/api/leaves/me/balance'),
-        api.get('/api/leaves/me', { params: { sortBy, sortOrder } }),
+        api.get('/api/leaves/me', {
+          params: {
+            sortBy,
+            sortOrder
+          }
+        }),
         api.get('/api/system?category=LEAVE_TYPE&isActive=true')
       ]);
+
       setBalance(balanceRes.data);
       setLeaves(leavesRes.data || []);
 
@@ -75,6 +93,7 @@ const AnnualLeave = () => {
         value: item.code,
         label: item.name
       }));
+
       setLeaveTypes(dynamicLeaveTypes);
 
       setForm(prev => ({
@@ -88,12 +107,15 @@ const AnnualLeave = () => {
     } finally {
       setLoading(false);
     }
-  }, [sortBy, sortOrder]);
+  }, []);
 
   useEffect(() => {
-    const timer = setTimeout(fetchData, 0);
-    return () => clearTimeout(timer);
-  }, [fetchData]);
+    fetchInitialData();
+  }, [fetchInitialData]);
+
+  useEffect(() => {
+    fetchLeaves();
+  }, [fetchLeaves]);
 
   const submitLeave = async (warningAcknowledged = false) => {
     try {
