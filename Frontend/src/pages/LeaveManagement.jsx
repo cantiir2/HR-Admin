@@ -16,6 +16,8 @@ const LeaveManagement = () => {
   const [statuses, setStatuses] = useState([['', 'Semua Status']]);
   const [statusClass, setStatusClass] = useState({});
   const [filters, setFilters] = useState({ search: '', status: '' });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [evidenceImage, setEvidenceImage] = useState(null);
 
   useEffect(() => {
     const fetchStatuses = async () => {
@@ -47,6 +49,11 @@ const LeaveManagement = () => {
   const [error, setError] = useState('');
 
   const { sortBy, sortOrder, handleSort } = useTableSort('startDate', 'desc');
+
+  const closeEvidenceModal = () => {
+    setIsModalOpen(false);
+    setEvidenceImage(null);
+  };
 
   const fetchLeaves = useCallback(async () => {
     try {
@@ -101,7 +108,11 @@ const LeaveManagement = () => {
   const viewEvidence = async (id) => {
     try {
       const evidence = await fetchEvidence(id);
-      await viewBase64File(evidence.fileData, evidence.fileType);
+      const imageUrl = evidence.fileData.startsWith('data:')
+        ? evidence.fileData
+        : `data:${evidence.fileType || 'image/png'};base64,${evidence.fileData}`;
+      setEvidenceImage(imageUrl);
+      setIsModalOpen(true);
     } catch (err) {
       setError(err.response?.data?.error || 'Gagal membuka evidence photo');
     }
@@ -199,6 +210,36 @@ const LeaveManagement = () => {
           </div>
         )}
       </div>
+
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-3xl rounded-lg bg-white p-4 shadow-xl">
+
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-800">Evidence Photo</h3>
+              <button
+                onClick={closeEvidenceModal}
+                className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex justify-center overflow-hidden rounded bg-gray-50 p-2">
+              {evidenceImage ? (
+                <img
+                  src={evidenceImage}
+                  alt="Evidence"
+                  className="max-h-[75vh] w-auto object-contain"
+                />
+              ) : (
+                <p className="py-10 text-gray-500">Gambar tidak tersedia</p>
+              )}
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 };
