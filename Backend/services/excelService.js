@@ -16,6 +16,19 @@ function parseTimeToMinutes(timeStr) {
   return h * 60 + (m || 0);
 }
 
+function formatTimeJakarta(dateValue) {
+  if (!dateValue) return '';
+
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Jakarta',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  })
+    .format(new Date(dateValue))
+    .replace(':', '.');
+}
+
 function calculateWorkingHours(checkInTime, checkOutTime, breakMinutes) {
   if (!checkInTime || !checkOutTime) return 0;
   const start = new Date(checkInTime);
@@ -35,32 +48,32 @@ async function generateWorkingReport(userId, month, year, prisma) {
   year = parseInt(year, 10);
 
   // Get user profile & active projects
-const user = await prisma.user.findUnique({
-  where: { id: userId },
-  select: {
-    id: true,
-    name: true,
-    jobRoleCode: true,
-    projects: {
-      select: {
-        project: {
-          select: {
-            name: true,
-            customer: true,
-            customerName: true,
-            location: true,
-            woNumber: true,
-            projectManager: {
-              select: {
-                name: true
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      jobRoleCode: true,
+      projects: {
+        select: {
+          project: {
+            select: {
+              name: true,
+              customer: true,
+              customerName: true,
+              location: true,
+              woNumber: true,
+              projectManager: {
+                select: {
+                  name: true
+                }
               }
             }
           }
         }
       }
     }
-  }
-});
+  });
 
   if (!user) throw new Error('User not found');
 
@@ -270,16 +283,14 @@ const user = await prisma.user.findUnique({
     let activityStr = '';
 
     if (att && att.checkInTime) {
-      const inDate = new Date(att.checkInTime);
-      inTime = `${String(inDate.getHours()).padStart(2, '0')}.${String(inDate.getMinutes()).padStart(2, '0')}`;
+      inTime = formatTimeJakarta(att.checkInTime);
       placeStr = location;
 
       let notes = [];
       if (att.checkInNote) notes.push(att.checkInNote);
 
       if (att.checkOutTime) {
-        const outDate = new Date(att.checkOutTime);
-        outTime = `${String(outDate.getHours()).padStart(2, '0')}.${String(outDate.getMinutes()).padStart(2, '0')}`;
+        outTime = formatTimeJakarta(att.checkOutTime);
         if (att.checkOutNote) notes.push(att.checkOutNote);
 
         const totalMins = calculateWorkingHours(att.checkInTime, att.checkOutTime, breakMinutes);

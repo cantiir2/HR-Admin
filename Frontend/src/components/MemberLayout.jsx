@@ -7,12 +7,14 @@ import { useAuth } from '../context/AuthContext';
 import UserAvatar from './UserAvatar';
 import ThemeToggle from './ThemeToggle';
 import NotificationBell from './NotificationBell';
+import packageJson from "../../package.json";
 
 const MemberLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, logout } = useAuth();
   const name = user?.name;
   const jobRole = user?.jobRoleCode || 'Member';
+  const version = `v${packageJson.version}`;
 
   const handleLogout = async () => {
     await logout();
@@ -44,6 +46,7 @@ const MemberLayout = () => {
             <div>
               <h1 className="text-sm font-bold text-white leading-tight">Project Resource Management System</h1>
               <p className="text-[11px] text-surface-400">Employee Portal</p>
+              <p className="text-[11px] text-surface-400">{version}</p>
             </div>
           </div>
           <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-surface-400">
