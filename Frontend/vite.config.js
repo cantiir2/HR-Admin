@@ -31,7 +31,8 @@ export default defineConfig({
   server: {
   host: '0.0.0.0',
   allowedHosts: [
-    'benz-tagged-attitude-police.trycloudflare.com'
+    'prms.fid-app.my.id',
+    'localhost',
   ]
   }
 })
