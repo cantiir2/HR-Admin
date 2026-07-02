@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../../lib/api';
 import { Plus, Pencil, Trash2, X, Settings, Search } from 'lucide-react';
+import { useToast } from '../../context/ToastContext';
 
 const SystemMaster = () => {
   const [items, setItems] = useState([]);
@@ -8,6 +9,7 @@ const SystemMaster = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [search, setSearch] = useState('');
   const [form, setForm] = useState({ category: 'JOB_ROLE', code: '', name: '', description: '' });
+  const { showToast } = useToast();
 
   useEffect(() => { fetchItems(); }, []);
 
@@ -36,22 +38,32 @@ const SystemMaster = () => {
       } else {
         await api.post('/api/system', form);
       }
+      showToast({ type: 'success', title: 'Berhasil', message: 'Data master berhasil disimpan' });
       setShowModal(false);
       fetchItems();
     } catch (err) {
-      alert(err.response?.data?.error || 'Gagal menyimpan');
+      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal menyimpan' });
     }
   };
 
   const handleDelete = async (id) => {
     if (!confirm('Yakin ingin menghapus?')) return;
-    await api.delete(`/api/system/${id}`);
-    fetchItems();
+    try {
+      await api.delete(`/api/system/${id}`);
+      showToast({ type: 'success', title: 'Berhasil', message: 'Data master berhasil dihapus' });
+      fetchItems();
+    } catch (err) {
+      showToast({ type: 'error', title: 'Gagal', message: 'Gagal menghapus data master' });
+    }
   };
 
   const toggleActive = async (item) => {
-    await api.put(`/api/system/${item.id}`, { isActive: !item.isActive });
-    fetchItems();
+    try {
+      await api.put(`/api/system/${item.id}`, { isActive: !item.isActive });
+      fetchItems();
+    } catch (err) {
+      showToast({ type: 'error', title: 'Gagal', message: 'Gagal mengubah status' });
+    }
   };
 
   const filtered = items.filter(i => {

@@ -12,6 +12,7 @@ import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import AppSelect from '../components/AppSelect';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 const MemberDashboard = () => {
   const { user } = useAuth();
@@ -22,8 +23,6 @@ const MemberDashboard = () => {
   const [locationLoading, setLocationLoading] = useState(false);
   const [attendances, setAttendances] = useState([]);
   const [todayRecord, setTodayRecord] = useState(null);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
   const [initialLoading, setInitialLoading] = useState(true);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const webcamRef = useRef(null);
@@ -60,7 +59,6 @@ const MemberDashboard = () => {
     const imageSrc = webcamRef.current.getScreenshot();
     setPhotoBase64(imageSrc);
     setIsCameraOpen(false);
-    setError('');
   }, [webcamRef]);
 
   const retakePhoto = () => {
@@ -82,8 +80,7 @@ const MemberDashboard = () => {
       link.click();
       link.remove();
     } catch (err) {
-      setError('Gagal export data absen');
-      setTimeout(() => setError(''), 4000);
+      showToast({ type: 'error', title: 'Gagal', message: 'Gagal export data absen' });
     } finally {
       setExportLoading(false);
     }
@@ -92,38 +89,37 @@ const MemberDashboard = () => {
   const handlePhotoCapture = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 3 * 1024 * 1024) { setError('Ukuran file maksimal 3MB'); return; }
+    if (file.size > 3 * 1024 * 1024) { showToast({ type: 'error', title: 'Validasi Gagal', message: 'Ukuran file maksimal 3MB' }); return; }
     const reader = new FileReader();
-    reader.onloadend = () => { setPhotoBase64(reader.result); setError(''); };
+    reader.onloadend = () => { setPhotoBase64(reader.result); };
     reader.readAsDataURL(file);
   };
 
   const getLocation = () => {
-    if (!navigator.geolocation) { setError('Geolocation tidak didukung'); return; }
+    if (!navigator.geolocation) { showToast({ type: 'error', title: 'Gagal', message: 'Geolocation tidak didukung' }); return; }
     setLocationLoading(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => { setLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }); setError(''); setLocationLoading(false); },
-      () => { setError('Gagal mendapatkan lokasi'); setLocationLoading(false); },
+      (pos) => { setLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }); setLocationLoading(false); },
+      () => { showToast({ type: 'error', title: 'Gagal', message: 'Gagal mendapatkan lokasi' }); setLocationLoading(false); },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
 
   const handleSubmit = async (type) => {
-    // if (!photoBase64) { setError('Silakan ambil foto'); return; }
-    if (!location) { setError('Silakan dapatkan lokasi'); return; }
-    if (!note.trim()) { setError('Catatan aktivitas wajib diisi'); return; }
-    setLoading(true); setError(''); setMessage('');
+    // if (!photoBase64) { showToast({ type: 'error', title: 'Validasi Gagal', message: 'Silakan ambil foto' }); return; }
+    if (!location) { showToast({ type: 'error', title: 'Validasi Gagal', message: 'Silakan dapatkan lokasi' }); return; }
+    if (!note.trim()) { showToast({ type: 'error', title: 'Validasi Gagal', message: 'Catatan aktivitas wajib diisi' }); return; }
+    setLoading(true);
     try {
       const endpoint = type === 'check-in' ? '/api/attendance/check-in' : '/api/attendance/check-out';
       await api.post(endpoint, {
         photo: photoBase64, latitude: location.latitude, longitude: location.longitude, note
       });
-      setMessage(`${type === 'check-in' ? 'Check-In' : 'Check-Out'} berhasil!`);
+      showToast({ type: 'success', title: 'Berhasil', message: `${type === 'check-in' ? 'Check-In' : 'Check-Out'} berhasil!` });
       setPhotoBase64(null); setLocation(null); setNote('');
       fetchAttendances();
-      setTimeout(() => setMessage(''), 4000);
     } catch (err) {
-      setError(err.response?.data?.error || 'Gagal mengirim absensi');
+      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal mengirim absensi' });
     } finally { setLoading(false); }
   };
 
@@ -176,9 +172,6 @@ const MemberDashboard = () => {
           </p>
         </div>
       </div>
-
-      {message && <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl flex items-center gap-3 animate-slide-down"><CheckCircle size={20} className="flex-shrink-0" /><span className="text-sm font-medium">{message}</span></div>}
-      {error && <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl flex items-center gap-3 animate-slide-down"><AlertCircle size={20} className="flex-shrink-0" /><span className="text-sm font-medium">{error}</span></div>}
 
       {/* Attendance Form */}
       {(canCheckIn || canCheckOut) && (

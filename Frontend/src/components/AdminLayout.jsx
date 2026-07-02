@@ -25,6 +25,7 @@ const AdminLayout = () => {
     { to: '/admin/attendance', icon: List, label: 'Absensi' },
     { to: '/admin/users', icon: Users, label: 'User Management' },
     { to: '/admin/projects', icon: FolderKanban, label: 'Project' },
+    { to: '/admin/project-resources', icon: CalendarCheck, label: 'Project Resource' },
     { to: '/admin/available-members', icon: CalendarCheck, label: 'Available Member' },
     { to: '/admin/working-reports', icon: FileText, label: 'Working Report' },
     { to: '/admin/leaves', icon: CalendarDays, label: 'Annual Leave' },

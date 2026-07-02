@@ -8,9 +8,10 @@ import SortableHeader from '../components/SortableHeader';
 import useTableSort from '../hooks/useTableSort';
 import { useAuth } from '../context/AuthContext';
 import { downloadBase64File, viewBase64File } from '../lib/fileValidation';
-
+import { useToast } from '../context/ToastContext';
 
 const LeaveManagement = () => {
+  const { showToast } = useToast();
   const { user } = useAuth();
   const [leaves, setLeaves] = useState([]);
   const [statuses, setStatuses] = useState([['', 'Semua Status']]);
@@ -45,8 +46,6 @@ const LeaveManagement = () => {
   const [page, setPage] = useState({ pageNo: 1, pageSize: 10, totalPages: 1 });
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
 
   const { sortBy, sortOrder, handleSort } = useTableSort('startDate', 'desc');
 
@@ -83,12 +82,11 @@ const LeaveManagement = () => {
   const runAction = async (handler, successMessage) => {
     try {
       setActionLoading(true);
-      setError('');
       await handler();
-      setMessage(successMessage);
+      showToast({ type: 'success', title: 'Berhasil', message: successMessage });
       fetchLeaves();
     } catch (err) {
-      setError(err.response?.data?.error || 'Aksi gagal diproses');
+      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Aksi gagal diproses' });
     } finally {
       setActionLoading(false);
     }
@@ -114,7 +112,7 @@ const LeaveManagement = () => {
       setEvidenceImage(imageUrl);
       setIsModalOpen(true);
     } catch (err) {
-      setError(err.response?.data?.error || 'Gagal membuka evidence photo');
+      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal membuka evidence photo' });
     }
   };
   const downloadEvidence = async (id) => {
@@ -122,7 +120,7 @@ const LeaveManagement = () => {
       const evidence = await fetchEvidence(id);
       downloadBase64File(evidence.fileData, evidence.fileName, evidence.fileType);
     } catch (err) {
-      setError(err.response?.data?.error || 'Gagal download evidence photo');
+      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal download evidence photo' });
     }
   };
 
@@ -132,9 +130,6 @@ const LeaveManagement = () => {
         <h2 className="text-xl font-bold text-white">Annual Leave Approval</h2>
         <p className="text-sm text-surface-400">Approval cuti tahunan karyawan</p>
       </div>
-
-      {message && <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">{message}</div>}
-      {error && <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm">{error}</div>}
 
       <div className="grid gap-3 md:grid-cols-[1fr_220px] mb-4">
         <div className="relative">

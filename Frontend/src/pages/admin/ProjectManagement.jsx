@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import AppSelect from '../../components/AppSelect';
 import Pagination from '../../components/Pagination';
+import { useToast } from '../../context/ToastContext';
 
 const ProjectManagement = () => {
   const [projects, setProjects] = useState([]);
@@ -25,10 +26,11 @@ const ProjectManagement = () => {
   const [form, setForm] = useState({
     name: '', description: '', location: '', customer: '', customerName: '', woNumber: '', projectManagerId: '', contractStart: '', contractEnd: '', status: 'active'
   });
+  const { showToast } = useToast();
 
   const fetchProjects = useCallback(async (pageNo = 1, pageSize = pageSizeRef.current) => {
     if (filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo) {
-      alert('Tanggal mulai filter tidak boleh lebih besar dari tanggal selesai filter.');
+      showToast({ type: 'error', title: 'Validasi Gagal', message: 'Tanggal mulai filter tidak boleh lebih besar dari tanggal selesai filter.' });
       return;
     }
 
@@ -55,7 +57,7 @@ const ProjectManagement = () => {
         totalPages: 1
       });
     } catch (err) {
-      alert(err.response?.data?.error || 'Gagal mengambil data project');
+      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal mengambil data project' });
     } finally {
       setLoading(false);
     }
@@ -117,7 +119,7 @@ const ProjectManagement = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (form.contractStart > form.contractEnd) {
-      alert('Tanggal mulai project tidak boleh melebihi tanggal selesai.');
+      showToast({ type: 'error', title: 'Validasi Gagal', message: 'Tanggal mulai project tidak boleh melebihi tanggal selesai.' });
       return;
     }
     try {
@@ -126,10 +128,11 @@ const ProjectManagement = () => {
       } else {
         await api.post('/api/projects', form);
       }
+      showToast({ type: 'success', title: 'Berhasil', message: 'Project berhasil disimpan' });
       setShowModal(false);
       fetchProjects(page.pageNo, page.pageSize);
     } catch (err) {
-      alert(err.response?.data?.error || 'Gagal menyimpan');
+      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal menyimpan' });
     }
   };
 
@@ -138,8 +141,13 @@ const ProjectManagement = () => {
     const nextPageNo = projects.length === 1 && page.pageNo > 1
       ? page.pageNo - 1
       : page.pageNo;
-    await api.delete(`/api/projects/${id}`);
-    fetchProjects(nextPageNo, page.pageSize);
+    try {
+      await api.delete(`/api/projects/${id}`);
+      showToast({ type: 'success', title: 'Berhasil', message: 'Project berhasil dihapus' });
+      fetchProjects(nextPageNo, page.pageSize);
+    } catch (err) {
+      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal menghapus project' });
+    }
   };
 
   const openMembers = (project) => {
@@ -157,16 +165,22 @@ const ProjectManagement = () => {
       const updated = await api.get(`/api/projects/${selectedProject.id}`);
       setSelectedProject(updated.data);
       setMemberForm({ userId: '', roleInProject: 'Member', joinedAt: '', leftAt: '' });
+      showToast({ type: 'success', title: 'Berhasil', message: 'Member berhasil ditambahkan' });
     } catch (err) {
-      alert(err.response?.data?.error || 'Gagal menambah member');
+      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal menambah member' });
     }
   };
 
   const removeMember = async (userId) => {
-    await api.delete(`/api/projects/${selectedProject.id}/members/${userId}`);
-    fetchProjects(page.pageNo, page.pageSize);
-    const updated = await api.get(`/api/projects/${selectedProject.id}`);
-    setSelectedProject(updated.data);
+    try {
+      await api.delete(`/api/projects/${selectedProject.id}/members/${userId}`);
+      fetchProjects(page.pageNo, page.pageSize);
+      const updated = await api.get(`/api/projects/${selectedProject.id}`);
+      setSelectedProject(updated.data);
+      showToast({ type: 'success', title: 'Berhasil', message: 'Member berhasil dihapus' });
+    } catch (err) {
+      showToast({ type: 'error', title: 'Gagal', message: 'Gagal menghapus member' });
+    }
   };
 
   const statusColors = {

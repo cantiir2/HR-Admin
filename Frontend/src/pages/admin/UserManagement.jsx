@@ -5,7 +5,6 @@ import {
   FileText, Shield, Phone, UsersRound, Briefcase
 } from 'lucide-react';
 import { format } from 'date-fns';
-import AppAlert from '../../components/AppAlert';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import UserAvatar from '../../components/UserAvatar';
 import AppSelect from '../../components/AppSelect';
@@ -13,6 +12,7 @@ import Pagination from '../../components/Pagination';
 import SortableHeader from '../../components/SortableHeader';
 import useTableSort from '../../hooks/useTableSort';
 import { displaySystemValue, formatWorkingPeriod, parseWorkingExperience } from '../../lib/profileFormat';
+import { useToast } from '../../context/ToastContext';
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
@@ -24,8 +24,7 @@ const UserManagement = () => {
   const [detailUser, setDetailUser] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const { showToast } = useToast();
   const [confirm, setConfirm] = useState(null);
   const [filters, setFilters] = useState({ search: '', role: '', jobRoleCode: '', contractStatus: '' });
   const [page, setPage] = useState({ pageNo: 1, pageSize: 10, totalRows: 0, totalPages: 1 });
@@ -70,7 +69,6 @@ const UserManagement = () => {
   const fetchUsers = useCallback(async (pageNo = 1, pageSize = pageSizeRef.current) => {
     pageSizeRef.current = pageSize;
     setLoading(true);
-    setError('');
     try {
       const res = await api.post('/api/users/search', {
         pageNo,
@@ -85,7 +83,7 @@ const UserManagement = () => {
       setUsers(res.data.data || []);
       setPage(res.data.page || { pageNo, pageSize, totalRows: 0, totalPages: 1 });
     } catch (err) {
-      setError(err.response?.data?.error || 'Gagal mengambil data user');
+      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal mengambil data user' });
     } finally {
       setLoading(false);
     }
@@ -146,7 +144,7 @@ const UserManagement = () => {
       const res = await api.get(`/api/users/${user.id}/detail`);
       setDetailUser(res.data);
     } catch (err) {
-      setError(err.response?.data?.error || 'Gagal mengambil detail user');
+      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal mengambil detail user' });
     } finally {
       setDetailLoading(false);
     }
@@ -154,8 +152,6 @@ const UserManagement = () => {
 
   const submitUser = async () => {
     setActionLoading(true);
-    setError('');
-    setMessage('');
     try {
       if (editingUser) {
         const data = { ...form };
@@ -166,9 +162,9 @@ const UserManagement = () => {
       }
       setShowModal(false);
       await fetchUsers(page.pageNo, page.pageSize);
-      setMessage(editingUser ? 'Data user berhasil diperbarui' : 'User baru berhasil ditambahkan');
+      showToast({ type: 'success', title: 'Berhasil', message: editingUser ? 'Data user berhasil diperbarui' : 'User baru berhasil ditambahkan' });
     } catch (err) {
-      setError(err.response?.data?.error || 'Gagal menyimpan');
+      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal menyimpan' });
     } finally {
       setActionLoading(false);
     }
@@ -192,17 +188,15 @@ const UserManagement = () => {
       tone: 'danger',
       onConfirm: async () => {
         setActionLoading(true);
-        setError('');
-        setMessage('');
         try {
           const nextPageNo = users.length === 1 && page.pageNo > 1
             ? page.pageNo - 1
             : page.pageNo;
           await api.delete(`/api/users/${user.id}`);
           await fetchUsers(nextPageNo, page.pageSize);
-          setMessage('User berhasil dihapus');
+          showToast({ type: 'success', title: 'Berhasil', message: 'User berhasil dihapus' });
         } catch (err) {
-          setError(err.response?.data?.error || 'Gagal menghapus user');
+          showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal menghapus user' });
         } finally {
           setActionLoading(false);
         }
@@ -220,7 +214,7 @@ const UserManagement = () => {
       setJobHistoryForm({ id: '', companyName: '', jobTitle: '', description: '', startDate: '', endDate: '', isPresent: false });
       setContractHistoryForm({ id: '', contractNumber: '', vendor: '', startDate: '', endDate: '', contractValue: '' });
     } catch (err) {
-      setError(err.response?.data?.error || 'Gagal mengambil detail user');
+      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal mengambil detail user' });
       setShowDetail(false);
     } finally {
       setDetailLoading(false);
@@ -238,8 +232,8 @@ const UserManagement = () => {
       await (jobHistoryForm.id ? api.put(path, jobHistoryForm) : api.post(path, jobHistoryForm));
       setJobHistoryForm({ id: '', companyName: '', jobTitle: '', description: '', startDate: '', endDate: '', isPresent: false });
       await refreshDetail();
-      setMessage('Riwayat pekerjaan berhasil disimpan');
-    } catch (err) { setError(err.response?.data?.error || 'Gagal menyimpan riwayat pekerjaan'); }
+      showToast({ type: 'success', title: 'Berhasil', message: 'Riwayat pekerjaan berhasil disimpan' });
+    } catch (err) { showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal menyimpan riwayat pekerjaan' }); }
   };
 
   const saveContractHistory = async () => {
@@ -248,8 +242,8 @@ const UserManagement = () => {
       await (contractHistoryForm.id ? api.put(path, contractHistoryForm) : api.post(path, contractHistoryForm));
       setContractHistoryForm({ id: '', contractNumber: '', vendor: '', startDate: '', endDate: '', contractValue: '' });
       await refreshDetail();
-      setMessage('History kontrak berhasil disimpan');
-    } catch (err) { setError(err.response?.data?.error || 'Gagal menyimpan kontrak'); }
+      showToast({ type: 'success', title: 'Berhasil', message: 'History kontrak berhasil disimpan' });
+    } catch (err) { showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal menyimpan kontrak' }); }
   };
 
   const generateContractNumber = async () => {
@@ -257,7 +251,7 @@ const UserManagement = () => {
       const res = await api.post('/api/users/contract-number');
       setContractHistoryForm(prev => ({ ...prev, contractNumber: res.data.contractNumber }));
     } catch (err) {
-      setError(err.response?.data?.error || 'Gagal membuat nomor kontrak');
+      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal membuat nomor kontrak' });
     }
   };
 
@@ -285,10 +279,6 @@ const UserManagement = () => {
 
   return (
     <div className="animate-fade-in">
-      <div className="mb-4 space-y-3">
-        <AppAlert tone="success" message={message} />
-        <AppAlert tone="error" message={error} />
-      </div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h2 className="text-xl font-bold text-white">User Management</h2>

@@ -13,6 +13,7 @@ import idLocale from 'date-fns/locale/id';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { useAuth } from '../context/AuthContext';
 import AppSelect from '../components/AppSelect';
+import { useToast } from '../context/ToastContext';
 
 const locales = { 'id': idLocale };
 const localizer = dateFnsLocalizer({
@@ -61,6 +62,30 @@ const addDateDays = (value, days) => {
   return result.toISOString().split('T')[0];
 };
 
+const formatMonthYearShort = (date) => {
+  const month = date.toLocaleString('en-US', { month: 'short' });
+  const year = String(date.getFullYear()).slice(-2);
+  return `${month}${year}`;
+};
+
+const formatTwoDigitDay = (date) => {
+  return String(date.getDate()).padStart(2, '0');
+};
+
+const buildMonthGroups = (weeks) => {
+  const groups = [];
+  weeks.forEach((week) => {
+    const label = formatMonthYearShort(week.date);
+    const lastGroup = groups[groups.length - 1];
+    if (lastGroup && lastGroup.label === label) {
+      lastGroup.span += 1;
+    } else {
+      groups.push({ label, span: 1 });
+    }
+  });
+  return groups;
+};
+
 const getTotalWeeks = (projectStartDate, projectEndDate) => {
   const start = new Date(`${toDateInputValue(projectStartDate)}T00:00:00Z`);
   const end = new Date(`${toDateInputValue(projectEndDate)}T00:00:00Z`);
@@ -101,9 +126,9 @@ const ProjectDetail = () => {
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [selectedMilestoneId, setSelectedMilestoneId] = useState(null);
   const [editingTask, setEditingTask] = useState(null);
+  const { showToast } = useToast();
 
   const [milestoneForm, setMilestoneForm] = useState({ name: '', startDate: '', endDate: '', status: 'pending' });
-  const [milestoneError, setMilestoneError] = useState('');
   const [taskForm, setTaskForm] = useState({ title: '', description: '', assignedToId: '', startDate: '', dueDate: '', status: 'TODO' });
 
   const fetchProject = useCallback(async () => {
@@ -189,22 +214,21 @@ const ProjectDetail = () => {
       await api.put(`/api/tasks/${draggableId}`, { status: destStatus, milestoneId: destMilestoneId });
       fetchProject();
     } catch (err) {
-      console.error('Gagal update task', err);
+      showToast({ type: 'error', title: 'Gagal', message: 'Gagal update task' });
       fetchProject(); // revert
     }
   };
 
   const submitMilestone = async (e) => {
     e.preventDefault();
-    setMilestoneError('');
     const projectStart = toDateInputValue(project.contractStart);
     const projectEnd = toDateInputValue(project.contractEnd);
     if (milestoneForm.startDate > milestoneForm.endDate) {
-      setMilestoneError('Tanggal mulai milestone tidak boleh melebihi tanggal selesai.');
+      showToast({ type: 'error', title: 'Validasi Gagal', message: 'Tanggal mulai milestone tidak boleh melebihi tanggal selesai.' });
       return;
     }
     if (!isDateInRange(milestoneForm.startDate, projectStart, projectEnd) || !isDateInRange(milestoneForm.endDate, projectStart, projectEnd)) {
-      setMilestoneError(`Tanggal milestone harus berada dalam periode project (${projectStart} sampai ${projectEnd}).`);
+      showToast({ type: 'error', title: 'Validasi Gagal', message: `Tanggal milestone harus berada dalam periode project (${projectStart} sampai ${projectEnd}).` });
       return;
     }
     try {
@@ -213,13 +237,13 @@ const ProjectDetail = () => {
       } else {
         await api.post(`/api/projects/${id}/milestones`, milestoneForm);
       }
+      showToast({ type: 'success', title: 'Berhasil', message: 'Milestone berhasil disimpan' });
       setShowMilestoneModal(false);
       setEditingMilestone(null);
       setMilestoneForm({ name: '', startDate: '', endDate: '', status: 'pending' });
       fetchProject();
     } catch (err) {
-      console.error('Gagal menyimpan milestone', err);
-      setMilestoneError(err.response?.data?.error || 'Gagal menyimpan milestone');
+      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal menyimpan milestone' });
     }
   };
 
@@ -228,14 +252,12 @@ const ProjectDetail = () => {
     const start = latest?.endDate ? addDateDays(toDateInputValue(latest.endDate), 1) : toDateInputValue(project.contractStart);
     const end = [addDateDays(start, 6), toDateInputValue(project.contractEnd)].sort()[0];
     setEditingMilestone(null);
-    setMilestoneError('');
     setMilestoneForm({ name: '', startDate: start, endDate: end, status: 'pending' });
     setShowMilestoneModal(true);
   };
 
   const openEditMilestone = (milestone) => {
     setEditingMilestone(milestone);
-    setMilestoneError('');
     setMilestoneForm({
       name: milestone.name,
       startDate: toDateInputValue(milestone.startDate),
@@ -249,11 +271,11 @@ const ProjectDetail = () => {
     e.preventDefault();
     const { min, max } = taskDateBounds;
     if (!isDateInRange(taskForm.startDate, min, max) || !isDateInRange(taskForm.dueDate, min, max)) {
-      alert(`Tanggal task harus berada dalam rentang milestone${min ? ` mulai ${format(new Date(min), 'dd MMM yyyy')}` : ''}${max ? ` sampai ${format(new Date(max), 'dd MMM yyyy')}` : ''}.`);
+      showToast({ type: 'error', title: 'Validasi Gagal', message: `Tanggal task harus berada dalam rentang milestone${min ? ` mulai ${format(new Date(min), 'dd MMM yyyy')}` : ''}${max ? ` sampai ${format(new Date(max), 'dd MMM yyyy')}` : ''}.` });
       return;
     }
     if (taskForm.startDate && taskForm.dueDate && taskForm.startDate > taskForm.dueDate) {
-      alert('Tanggal mulai task tidak boleh melebihi batas waktu.');
+      showToast({ type: 'error', title: 'Validasi Gagal', message: 'Tanggal mulai task tidak boleh melebihi batas waktu.' });
       return;
     }
 
@@ -263,13 +285,13 @@ const ProjectDetail = () => {
       } else {
         await api.post(`/api/projects/${id}/milestones/${selectedMilestoneId}/tasks`, taskForm);
       }
+      showToast({ type: 'success', title: 'Berhasil', message: 'Task berhasil disimpan' });
       setShowTaskModal(false);
       setEditingTask(null);
       setTaskForm({ title: '', description: '', assignedToId: '', startDate: '', dueDate: '', status: 'TODO' });
       fetchProject();
     } catch (err) {
-      console.error('Gagal menyimpan task', err);
-      alert('Gagal menyimpan task');
+      showToast({ type: 'error', title: 'Gagal', message: 'Gagal menyimpan task' });
     }
   };
 
@@ -300,10 +322,10 @@ const ProjectDetail = () => {
     if (!confirm('Hapus task ini?')) return;
     try {
       await api.delete(`/api/projects/${id}/tasks/${taskId}`);
+      showToast({ type: 'success', title: 'Berhasil', message: 'Task dihapus' });
       fetchProject();
     } catch (err) {
-      console.error('Gagal menghapus task', err);
-      alert('Gagal menghapus task');
+      showToast({ type: 'error', title: 'Gagal', message: 'Gagal menghapus task' });
     }
   };
 
@@ -342,6 +364,17 @@ const ProjectDetail = () => {
 
   const isAdmin = user?.role === 'ADMIN';
   const totalWeeks = getTotalWeeks(project.contractStart, project.contractEnd);
+  
+  const weeks = Array.from({ length: totalWeeks }, (_, index) => {
+    return {
+      index,
+      weekNumber: index + 1,
+      date: getWeekStartDate(project.contractStart, index),
+      key: index
+    };
+  });
+  const monthGroups = weeks.length > 0 ? buildMonthGroups(weeks) : [];
+
   const today = toDateInputValue(new Date().toISOString());
   const withinProjectToday = isDateInRange(today, toDateInputValue(project.contractStart), toDateInputValue(project.contractEnd));
   const todayWeek = withinProjectToday ? getMilestoneWeekRange(project.contractStart, today, today).startWeek : null;
@@ -447,30 +480,39 @@ const ProjectDetail = () => {
                 <div className="min-w-max p-4 space-y-2">
                   <div className="flex">
                     <div className="w-60 shrink-0 px-3 py-3 text-xs font-semibold uppercase text-surface-400">Milestone</div>
-                      <div className="grid" style={{ gridTemplateColumns: `repeat(${totalWeeks}, minmax(100px, 1fr))` }}>
-                        {Array.from({ length: totalWeeks }, (_, index) => {
-                          const weekDate = getWeekStartDate(project.contractStart, index);
-                          const isTodayWeek = todayWeek === index + 1;
-                          
-                          return (
-                            <div key={index} className={`relative border-l border-white/[0.06] px-2 py-3 text-center text-xs ${isTodayWeek ? 'text-brand-300 bg-brand-500/10' : 'text-surface-400'}`}>
-                              {/* Bulan & Tahun di atas */}
-                              <div className="text-[9px] uppercase font-bold opacity-70 mb-1">
-                                {format(weekDate, 'MMM yyyy', { locale: idLocale })}
-                              </div>
-                              
-                              {/* Label Week */}
-                              <div className="font-semibold">Week {index + 1}</div>
-                              
-                              {/* Tanggal (DD) */}
-                              <div className="text-[10px] mt-1 font-mono">
-                                {format(weekDate, 'dd')}
-                              </div>
-
-                              {isTodayWeek && <span className="block text-[10px] text-brand-400 mt-1 font-bold">Today</span>}
+                      <div>
+                        <div className="grid border-b border-white/[0.06]" style={{ gridTemplateColumns: `repeat(${totalWeeks}, minmax(55px, 1fr))` }}>
+                          {monthGroups.map((group) => (
+                            <div
+                              key={group.label}
+                              className="text-center text-[10px] font-semibold py-1.5 text-surface-300 border-l border-white/[0.06]"
+                              style={{ gridColumn: `span ${group.span}` }}
+                            >
+                              {group.label}
                             </div>
-                          );
-                        })}
+                          ))}
+                        </div>
+                        <div className="grid border-b border-white/[0.06]" style={{ gridTemplateColumns: `repeat(${totalWeeks}, minmax(55px, 1fr))` }}>
+                          {weeks.map((week) => (
+                            <div
+                              key={week.key}
+                              className={`text-center text-[10px] py-1.5 border-l border-white/[0.06] ${todayWeek === week.weekNumber ? 'text-brand-300 bg-brand-500/10' : 'text-surface-400'}`}
+                            >
+                              W{week.weekNumber}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="grid" style={{ gridTemplateColumns: `repeat(${totalWeeks}, minmax(55px, 1fr))` }}>
+                          {weeks.map((week) => (
+                            <div
+                              key={week.key}
+                              className={`text-center text-xs font-bold py-1.5 border-l border-white/[0.06] ${todayWeek === week.weekNumber ? 'text-brand-300 bg-brand-500/10' : 'text-surface-300'}`}
+                            >
+                              {formatTwoDigitDay(week.date)}
+                              {todayWeek === week.weekNumber && <span className="block text-[8px] text-brand-400 mt-0.5 font-normal">Today</span>}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                   </div>
                   {project.milestones?.map(milestone => {
@@ -488,7 +530,7 @@ const ProjectDetail = () => {
                             <p className="text-sm font-medium text-white">{milestone.name}</p>
                             <p className="text-[11px] text-surface-500">{format(new Date(milestone.startDate), 'dd MMM yyyy')} - {format(new Date(milestone.endDate), 'dd MMM yyyy')}</p>
                           </div>
-                          <div className="grid items-center min-h-[54px]" style={{ gridTemplateColumns: `repeat(${totalWeeks}, minmax(100px, 1fr))` }}>
+                          <div className="grid items-center min-h-[54px]" style={{ gridTemplateColumns: `repeat(${totalWeeks}, minmax(55px, 1fr))` }}>
                             <div
                               title={`${milestone.name}: ${format(new Date(milestone.startDate), 'dd MMM yyyy')} - ${format(new Date(milestone.endDate), 'dd MMM yyyy')}`}
                               className={`h-8 rounded-lg mx-2 flex items-center px-3 text-xs font-medium text-white shadow-sm ${barColor}`}
@@ -508,7 +550,7 @@ const ProjectDetail = () => {
                                 <p className="text-xs text-surface-300">{task.title}</p>
                                 <p className="text-[10px] text-surface-500">Task</p>
                               </div>
-                              <div className="grid items-center min-h-[40px]" style={{ gridTemplateColumns: `repeat(${totalWeeks}, minmax(100px, 1fr))` }}>
+                              <div className="grid items-center min-h-[40px]" style={{ gridTemplateColumns: `repeat(${totalWeeks}, minmax(55px, 1fr))` }}>
                                 <div className="h-5 rounded-md mx-3 bg-surface-500/70" style={{ gridColumn: `${range.startWeek} / ${range.endWeek + 1}` }} title={task.title} />
                               </div>
                             </div>
@@ -697,7 +739,6 @@ const ProjectDetail = () => {
               <button onClick={() => setShowMilestoneModal(false)} className="p-1 text-surface-400 hover:text-white"><X size={20} /></button>
             </div>
             <form onSubmit={submitMilestone} className="space-y-4">
-              {milestoneError && <p className="text-sm text-rose-400 rounded-lg bg-rose-500/10 p-3">{milestoneError}</p>}
               <div>
                 <label className="block text-sm text-surface-300 mb-1">Nama Milestone *</label>
                 <input type="text" required className="input-dark text-sm" value={milestoneForm.name} onChange={e => setMilestoneForm({ ...milestoneForm, name: e.target.value })} />
