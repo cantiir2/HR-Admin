@@ -473,13 +473,19 @@ const MemberProfile = () => {
           </div>
           <div className="divide-y divide-white/[0.06]">
             {profile.documents?.length ? profile.documents.map(doc => (
-              <div key={doc.id} className="py-3 flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm text-white">{doc.label || doc.documentType}</p>
-                  <p className="text-xs text-surface-400">{doc.storedFileName || doc.fileName}</p>
-                  <p className="text-xs text-surface-500">{doc.documentType} - {formatDate(doc.uploadedAt || doc.createdAt)}</p>
+              <div key={doc.id} className="py-3 flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0"> {/* flex-1 and min-w-0 are crucial here */}
+                  <p className="text-sm text-white font-medium">{doc.label || doc.documentType}</p>
+                  
+                  <p className="text-xs text-surface-400 break-all">
+                    {doc.storedFileName || doc.fileName}
+                  </p>
+
+                  <p className="text-xs text-surface-500 mt-1">
+                    {doc.documentType} - {formatDate(doc.uploadedAt || doc.createdAt)}
+                  </p>
                 </div>
-                <button type="button" onClick={() => downloadDocument(doc)} className="p-2 rounded-lg hover:bg-white/[0.08] text-surface-400 hover:text-brand-400">
+                <button type="button" onClick={() => downloadDocument(doc)} className="p-2 rounded-lg hover:bg-white/[0.08] text-surface-400 hover:text-brand-400 shrink-0">
                   <Download size={15} />
                 </button>
               </div>
