@@ -278,6 +278,49 @@ async function getUserWorkingReports(prisma, userId) {
 }
 
 /*****/
+/** Nama Function : getActiveUserProjectsInPeriod **/
+/** Author : Iyan.FID **/
+/** Description : Mengambil daftar project aktif user dan PM-nya pada periode tertentu **/
+/*****/
+async function getActiveUserProjectsInPeriod(prisma, userId, month, year) {
+  const periodStart = new Date(Date.UTC(year, month - 1, 1));
+  const periodEnd = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+
+  const memberships = await prisma.projectMember.findMany({
+    where: {
+      userId,
+      project: {
+        contractStart: { lte: periodEnd },
+        contractEnd: { gte: periodStart }
+      }
+    },
+    include: {
+      project: {
+        include: {
+          projectManager: { select: { id: true, name: true, email: true } }
+        }
+      }
+    }
+  });
+
+  const pmMap = new Map();
+  for (const member of memberships) {
+    const project = member.project;
+    if (!project.projectManagerId || project.projectManagerId === userId) continue;
+
+    if (!pmMap.has(project.projectManagerId)) {
+      pmMap.set(project.projectManagerId, {
+        pm: project.projectManager,
+        projects: []
+      });
+    }
+    pmMap.get(project.projectManagerId).projects.push(project.name);
+  }
+
+  return pmMap;
+}
+
+/*****/
 /** Nama Function: submitWorkingReport **/
 /** Deskripsi Function: Submit working report member untuk periode bulanan **/
 /** Creator by: FID.Iyan **/
@@ -290,6 +333,8 @@ async function submitWorkingReport(prisma, userId, month, year) {
     where: { userId_month_year: { userId, month: period.month, year: period.year } }
   });
   if (existing?.status === 'APPROVED') return { error: 'Working Report yang sudah approved tidak dapat disubmit ulang' };
+
+  const shouldNotifyPM = !existing || ['DRAFT', 'REJECTED', 'LATE'].includes(existing.status);
 
   const submittedAt = new Date();
   const deadlineDate = getWorkingReportDeadline(period.month, period.year);
@@ -317,6 +362,30 @@ async function submitWorkingReport(prisma, userId, month, year) {
       lateDays
     }
   });
+
+  if (shouldNotifyPM) {
+    try {
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
+      const pmMap = await getActiveUserProjectsInPeriod(prisma, userId, period.month, period.year);
+      
+      for (const [pmId, pmData] of pmMap.entries()) {
+        const projectNames = pmData.projects.join(', ');
+        await createNotification(prisma, {
+          userId: pmId,
+          recipient: pmData.pm,
+          type: 'WR_SUBMITTED',
+          title: 'Pengajuan Working Report Baru',
+          message: `${user?.name || 'Member'} telah submit Working Report periode ${period.month}/${period.year} untuk project: ${projectNames}.`,
+          referenceId: `WR_SUB-${userId}-${period.month}-${period.year}-${pmId}`,
+          referenceType: 'WORKING_REPORT',
+          channel: 'BOTH',
+          skipDuplicate: true
+        });
+      }
+    } catch (error) {
+      // ignore
+    }
+  }
 
   return { report, deadlineDate };
 }
@@ -396,19 +465,34 @@ async function approveWorkingReport(prisma, reportId, approverId) {
     return { error: 'Working Report belum dalam status yang bisa diapprove' };
   }
 
-  return {
-    report: await prisma.workingReport.update({
-      where: { id: reportId },
-      data: {
-        status: 'APPROVED',
-        approvedAt: new Date(),
-        approvedById: approverId,
-        rejectedAt: null,
-        rejectedById: null,
-        rejectionReason: null
-      }
-    })
-  };
+  const updatedReport = await prisma.workingReport.update({
+    where: { id: reportId },
+    data: {
+      status: 'APPROVED',
+      approvedAt: new Date(),
+      approvedById: approverId,
+      rejectedAt: null,
+      rejectedById: null,
+      rejectionReason: null
+    }
+  });
+
+  try {
+    await createNotification(prisma, {
+      userId: updatedReport.userId,
+      type: 'WR_APPROVED',
+      title: 'Working Report Disetujui',
+      message: `Working Report Anda periode ${updatedReport.month}/${updatedReport.year} telah disetujui.`,
+      referenceId: `WR_APP-${updatedReport.id}`,
+      referenceType: 'WORKING_REPORT',
+      channel: 'BOTH',
+      skipDuplicate: true
+    });
+  } catch (error) {
+    // ignore
+  }
+
+  return { report: updatedReport };
 }
 
 /*****/
@@ -424,19 +508,35 @@ async function rejectWorkingReport(prisma, reportId, rejectedById, rejectionReas
     return { error: 'Working Report belum dalam status yang bisa direject' };
   }
 
-  return {
-    report: await prisma.workingReport.update({
-      where: { id: reportId },
-      data: {
-        status: 'REJECTED',
-        rejectedAt: new Date(),
-        rejectedById,
-        rejectionReason: String(rejectionReason).trim(),
-        approvedAt: null,
-        approvedById: null
-      }
-    })
-  };
+  const updatedReport = await prisma.workingReport.update({
+    where: { id: reportId },
+    data: {
+      status: 'REJECTED',
+      rejectedAt: new Date(),
+      rejectedById,
+      rejectionReason: String(rejectionReason).trim(),
+      approvedAt: null,
+      approvedById: null
+    }
+  });
+
+  try {
+    await createNotification(prisma, {
+      userId: updatedReport.userId,
+      type: 'WR_REJECTED',
+      title: 'Working Report Ditolak',
+      message: `Working Report Anda periode ${updatedReport.month}/${updatedReport.year} ditolak.`,
+      detail: `Alasan: ${updatedReport.rejectionReason}`,
+      referenceId: `WR_REJ-${updatedReport.id}`,
+      referenceType: 'WORKING_REPORT',
+      channel: 'BOTH',
+      skipDuplicate: true
+    });
+  } catch (error) {
+    // ignore
+  }
+
+  return { report: updatedReport };
 }
 
 /*****/

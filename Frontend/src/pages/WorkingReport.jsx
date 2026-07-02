@@ -168,6 +168,24 @@ const WorkingReport = () => {
         </div>
       </div>
 
+      <div className="glass-card-light p-4 mb-4">
+        <div className="text-xs text-surface-400">
+          <p className="font-semibold mb-1">Note:</p>
+          <ul className="space-y-1">
+            <li className="flex gap-1.5 items-start">
+              <span>1.</span>
+              <span>
+                Jika H+3 masih belum mengirimkan Working Report, <span className="text-red-500 font-medium">maka OT flat bulan berikutnya hanya akan dibayarkan SETENGAHnya.</span>
+              </span>
+            </li>
+            <li className="flex gap-1.5 items-start">
+              <span>2.</span>
+              <span>Mass Leave / Cuti Bersama memotong cuti tahunan.</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
       <div className="glass-card overflow-hidden">
         <div className="flex items-center gap-2 p-4 border-b border-white/[0.06]">
           <FileText size={18} className="text-brand-400" />
