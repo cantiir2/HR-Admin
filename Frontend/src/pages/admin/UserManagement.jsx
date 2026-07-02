@@ -38,21 +38,21 @@ const UserManagement = () => {
   const [form, setForm] = useState({
     name: '', email: '', password: '', role: 'MEMBER', jobRoleCode: '',
   });
-  
+
   const { sortBy, sortOrder, handleSort } = useTableSort('name', 'asc');
 
-useEffect(() => {
+  useEffect(() => {
     const fetchContractStatuses = async () => {
       try {
         const res = await api.get('/api/system?category=CONTRACT_STATUS&isActive=true');
-        
+
         if (res.data && res.data.length > 0) {
           const dynamicStatusClass = {};
           const fetchedOptions = [['', 'Semua Kontrak']];
 
           res.data.forEach(item => {
             fetchedOptions.push([item.code, item.name || item.code]);
-            
+
             dynamicStatusClass[item.code] = item.description || 'badge-info';
           });
 
@@ -312,19 +312,19 @@ useEffect(() => {
               className="input-dark pl-11 text-sm w-full"
             />
           </div>
-          <AppSelect 
-            value={filters.role} 
-            onChange={value => setFilters({ ...filters, role: value })} 
-            options={[['', 'Semua Role'], ['ADMIN', 'Admin'], ['MEMBER', 'Member']]} 
+          <AppSelect
+            value={filters.role}
+            onChange={value => setFilters({ ...filters, role: value })}
+            options={[['', 'Semua Role'], ['ADMIN', 'Admin'], ['MEMBER', 'Member']]}
           />
-          <AppSelect 
-            value={filters.jobRoleCode} 
-            onChange={value => setFilters({ ...filters, jobRoleCode: value })} 
-            options={[['', 'Semua Job Role'], ...jobRoles.filter(j => j.isActive).map(j => [j.code, `${j.code} - ${j.name}`])]} 
+          <AppSelect
+            value={filters.jobRoleCode}
+            onChange={value => setFilters({ ...filters, jobRoleCode: value })}
+            options={[['', 'Semua Job Role'], ...jobRoles.filter(j => j.isActive).map(j => [j.code, `${j.code} - ${j.name}`])]}
           />
-          <AppSelect 
-            value={filters.contractStatus} 
-            onChange={value => setFilters({ ...filters, contractStatus: value })} 
+          <AppSelect
+            value={filters.contractStatus}
+            onChange={value => setFilters({ ...filters, contractStatus: value })}
             options={statusOptions}
           />
         </div>
@@ -439,31 +439,31 @@ useEffect(() => {
               <h3 className="text-lg font-semibold text-white">{editingUser ? 'Edit User' : 'Tambah User Baru'}</h3>
               <button onClick={() => setShowModal(false)} className="p-1 text-surface-400 hover:text-white"><X size={20} /></button>
             </div>
-            
+
             {!editingUser ? (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm text-surface-300 mb-1">Nama Lengkap *</label>
-                  <input type="text" required className="input-dark text-sm" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+                  <input type="text" required className="input-dark text-sm" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
                 </div>
                 <div>
                   <label className="block text-sm text-surface-300 mb-1">Email *</label>
-                  <input type="email" required className="input-dark text-sm" value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
+                  <input type="email" required className="input-dark text-sm" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
                 </div>
                 <div>
                   <label className="block text-sm text-surface-300 mb-1">Password *</label>
-                  <input type="password" className="input-dark text-sm" required value={form.password} onChange={e => setForm({...form, password: e.target.value})} />
+                  <input type="password" className="input-dark text-sm" required value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm text-surface-300 mb-1">Role Sistem</label>
-                    <AppSelect value={form.role} onChange={value => setForm({...form, role: value})} options={[['MEMBER', 'Member'], ['ADMIN', 'Admin']]} />
+                    <AppSelect value={form.role} onChange={value => setForm({ ...form, role: value })} options={[['MEMBER', 'Member'], ['ADMIN', 'Admin']]} />
                   </div>
                   <div>
                     <label className="block text-sm text-surface-300 mb-1">Job Role</label>
                     <AppSelect
                       value={form.jobRoleCode}
-                      onChange={value => setForm({...form, jobRoleCode: value})}
+                      onChange={value => setForm({ ...form, jobRoleCode: value })}
                       options={[['', '- Pilih -'], ...jobRoles.filter(j => j.isActive).map(j => [j.code, `${j.code} - ${j.name}`])]}
                     />
                   </div>
@@ -494,26 +494,26 @@ useEffect(() => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm text-surface-300 mb-1">Nama Lengkap *</label>
-                        <input type="text" required className="input-dark text-sm" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+                        <input type="text" required className="input-dark text-sm" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
                       </div>
                       <div>
                         <label className="block text-sm text-surface-300 mb-1">Email *</label>
-                        <input type="email" required className="input-dark text-sm" value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
+                        <input type="email" required className="input-dark text-sm" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
                       </div>
                       <div>
                         <label className="block text-sm text-surface-300 mb-1">Password (kosongkan jika tidak diubah)</label>
-                        <input type="password" className="input-dark text-sm" value={form.password} onChange={e => setForm({...form, password: e.target.value})} />
+                        <input type="password" className="input-dark text-sm" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="block text-sm text-surface-300 mb-1">Role Sistem</label>
-                          <AppSelect value={form.role} onChange={value => setForm({...form, role: value})} options={[['MEMBER', 'Member'], ['ADMIN', 'Admin']]} />
+                          <AppSelect value={form.role} onChange={value => setForm({ ...form, role: value })} options={[['MEMBER', 'Member'], ['ADMIN', 'Admin']]} />
                         </div>
                         <div>
                           <label className="block text-sm text-surface-300 mb-1">Job Role</label>
                           <AppSelect
                             value={form.jobRoleCode}
-                            onChange={value => setForm({...form, jobRoleCode: value})}
+                            onChange={value => setForm({ ...form, jobRoleCode: value })}
                             options={[['', '- Pilih -'], ...jobRoles.filter(j => j.isActive).map(j => [j.code, `${j.code} - ${j.name}`])]}
                           />
                         </div>
@@ -563,13 +563,13 @@ useEffect(() => {
                   <div className="pt-3 border-t border-white/[0.06] space-y-3">
                     <p className="text-xs text-surface-500">Job History</p>
                     <div className="grid sm:grid-cols-2 gap-2">
-                      <input className="input-dark text-sm" placeholder="Perusahaan *" value={jobHistoryForm.companyName} onChange={e => setJobHistoryForm({...jobHistoryForm, companyName: e.target.value})} />
-                      <input className="input-dark text-sm" placeholder="Jabatan *" value={jobHistoryForm.jobTitle} onChange={e => setJobHistoryForm({...jobHistoryForm, jobTitle: e.target.value})} />
-                      <input type="date" className="input-dark text-sm" value={jobHistoryForm.startDate} onChange={e => setJobHistoryForm({...jobHistoryForm, startDate: e.target.value})} />
-                      <input type="date" disabled={jobHistoryForm.isPresent} className="input-dark text-sm" value={jobHistoryForm.endDate} onChange={e => setJobHistoryForm({...jobHistoryForm, endDate: e.target.value})} />
+                      <input className="input-dark text-sm" placeholder="Perusahaan *" value={jobHistoryForm.companyName} onChange={e => setJobHistoryForm({ ...jobHistoryForm, companyName: e.target.value })} />
+                      <input className="input-dark text-sm" placeholder="Jabatan *" value={jobHistoryForm.jobTitle} onChange={e => setJobHistoryForm({ ...jobHistoryForm, jobTitle: e.target.value })} />
+                      <input type="date" className="input-dark text-sm" value={jobHistoryForm.startDate} onChange={e => setJobHistoryForm({ ...jobHistoryForm, startDate: e.target.value })} />
+                      <input type="date" disabled={jobHistoryForm.isPresent} className="input-dark text-sm" value={jobHistoryForm.endDate} onChange={e => setJobHistoryForm({ ...jobHistoryForm, endDate: e.target.value })} />
                     </div>
-                    <textarea className="input-dark text-sm w-full" placeholder="Deskripsi" value={jobHistoryForm.description} onChange={e => setJobHistoryForm({...jobHistoryForm, description: e.target.value})} />
-                    <label className="text-xs text-surface-400 flex gap-2"><input type="checkbox" checked={jobHistoryForm.isPresent} onChange={e => setJobHistoryForm({...jobHistoryForm, isPresent: e.target.checked})} /> Masih bekerja</label>
+                    <textarea className="input-dark text-sm w-full" placeholder="Deskripsi" value={jobHistoryForm.description} onChange={e => setJobHistoryForm({ ...jobHistoryForm, description: e.target.value })} />
+                    <label className="text-xs text-surface-400 flex gap-2"><input type="checkbox" checked={jobHistoryForm.isPresent} onChange={e => setJobHistoryForm({ ...jobHistoryForm, isPresent: e.target.checked })} /> Masih bekerja</label>
                     <div className="flex gap-2">
                       <button type="button" onClick={saveJobHistory} className="btn-primary text-xs">{jobHistoryForm.id ? 'Update Pekerjaan' : 'Tambah Pekerjaan'}</button>
                       {jobHistoryForm.id && (
@@ -579,7 +579,7 @@ useEffect(() => {
                     {detailUser.jobHistories?.map(item => (
                       <div key={item.id} className="flex justify-between border-t border-white/[0.06] pt-2 text-sm">
                         <span className="text-surface-300">{item.jobTitle} - {item.companyName}</span>
-                        <span><button onClick={() => setJobHistoryForm({ ...item, description: item.description || '', startDate: item.startDate?.split('T')[0] || '', endDate: item.endDate?.split('T')[0] || '' })} className="p-1 text-brand-400"><Pencil size={13}/></button><button onClick={() => deleteDetailRow('job-histories', item.id)} className="p-1 text-rose-400"><Trash2 size={13}/></button></span>
+                        <span><button onClick={() => setJobHistoryForm({ ...item, description: item.description || '', startDate: item.startDate?.split('T')[0] || '', endDate: item.endDate?.split('T')[0] || '' })} className="p-1 text-brand-400"><Pencil size={13} /></button><button onClick={() => deleteDetailRow('job-histories', item.id)} className="p-1 text-rose-400"><Trash2 size={13} /></button></span>
                       </div>
                     ))}
                   </div>
@@ -601,14 +601,18 @@ useEffect(() => {
                       </div>
                       <div className="md:col-span-2">
                         <label className="block text-xs text-surface-400 mb-1">Vendor *</label>
-                        <input className="input-dark text-sm" value={contractHistoryForm.vendor} onChange={e => setContractHistoryForm({...contractHistoryForm, vendor: e.target.value})} />
+                        <input className="input-dark text-sm" value={contractHistoryForm.vendor} onChange={e => setContractHistoryForm({ ...contractHistoryForm, vendor: e.target.value })} />
                       </div>
                       <div>
                         <label className="block text-xs text-surface-400 mb-1">Nilai Kontrak *</label>
                         <input
                           type="text"
                           className="input-dark text-sm"
-                          value={contractHistoryForm.contractValue ? 'Rp. ' + new Intl.NumberFormat('id-ID').format(contractHistoryForm.contractValue) : ''}
+                          value={
+                            typeof contractHistoryForm.contractValue === 'number'
+                              ? 'Rp. ' + new Intl.NumberFormat('id-ID').format(contractHistoryForm.contractValue)
+                              : ''
+                          }
                           onChange={(e) => {
                             const rawValue = e.target.value.replace(/[^0-9]/g, '');
                             setContractHistoryForm({
@@ -620,11 +624,11 @@ useEffect(() => {
                       </div>
                       <div>
                         <label className="block text-xs text-surface-400 mb-1">Tanggal Mulai *</label>
-                        <input type="date" className="input-dark text-sm" value={contractHistoryForm.startDate} onChange={e => setContractHistoryForm({...contractHistoryForm, startDate: e.target.value})} />
+                        <input type="date" className="input-dark text-sm" value={contractHistoryForm.startDate} onChange={e => setContractHistoryForm({ ...contractHistoryForm, startDate: e.target.value })} />
                       </div>
                       <div>
                         <label className="block text-xs text-surface-400 mb-1">Tanggal Selesai *</label>
-                        <input type="date" className="input-dark text-sm" value={contractHistoryForm.endDate} onChange={e => setContractHistoryForm({...contractHistoryForm, endDate: e.target.value})} />
+                        <input type="date" className="input-dark text-sm" value={contractHistoryForm.endDate} onChange={e => setContractHistoryForm({ ...contractHistoryForm, endDate: e.target.value })} />
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -634,7 +638,7 @@ useEffect(() => {
                       )}
                     </div>
                   </div>
-                  
+
                   <div className="overflow-x-auto rounded-xl border border-white/[0.06]">
                     <table className="w-full text-left">
                       <thead className="bg-white/[0.03]">
@@ -654,8 +658,8 @@ useEffect(() => {
                             </td>
                             <td className="px-3 py-2 text-white text-right align-top">{formatRupiah(item.contractValue)}</td>
                             <td className="px-3 py-2 text-right align-top whitespace-nowrap">
-                              <button onClick={() => setContractHistoryForm({ ...item, startDate: item.startDate.split('T')[0], endDate: item.endDate.split('T')[0], contractValue: String(item.contractValue) })} className="p-1.5 text-brand-400" title="Edit"><Pencil size={14}/></button>
-                              <button onClick={() => deleteDetailRow('contracts', item.id)} className="p-1.5 text-rose-400" title="Delete"><Trash2 size={14}/></button>
+                              <button onClick={() => setContractHistoryForm({ ...item, startDate: item.startDate.split('T')[0], endDate: item.endDate.split('T')[0], contractValue: String(item.contractValue) })} className="p-1.5 text-brand-400" title="Edit"><Pencil size={14} /></button>
+                              <button onClick={() => deleteDetailRow('contracts', item.id)} className="p-1.5 text-rose-400" title="Delete"><Trash2 size={14} /></button>
                             </td>
                           </tr>
                         ))}
