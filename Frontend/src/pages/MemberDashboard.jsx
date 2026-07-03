@@ -118,13 +118,17 @@ const MemberDashboard = () => {
   const handleSubmit = async (type) => {
     // if (!photoBase64) { showToast({ type: 'error', title: 'Validasi Gagal', message: 'Silakan ambil foto' }); return; }
     if (!location) { showToast({ type: 'error', title: 'Validasi Gagal', message: 'Silakan dapatkan lokasi' }); return; }
-    if (!note.trim()) { showToast({ type: 'error', title: 'Validasi Gagal', message: 'Catatan aktivitas wajib diisi' }); return; }
+    if (type === 'check-out' && !note.trim()) { showToast({ type: 'error', title: 'Validasi Gagal', message: 'Catatan aktivitas wajib diisi' }); return; }
     setLoading(true);
     try {
       const endpoint = type === 'check-in' ? '/api/attendance/check-in' : '/api/attendance/check-out';
-      const response = await api.post(endpoint, {
-        photo: photoBase64, latitude: location.latitude, longitude: location.longitude, note
-      });
+      const payload = {
+        photo: photoBase64,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        ...(type === 'check-out' ? { note } : {})
+      };
+      const response = await api.post(endpoint, payload);
       if (response.data.attendance) {
         setTodayRecord(response.data.attendance);
       }
@@ -241,10 +245,12 @@ const MemberDashboard = () => {
               {locationLoading ? 'Mendapatkan lokasi...' : location ? `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}` : 'Dapatkan Lokasi'}
             </button>
 
-            <div className="relative">
-              <FileText size={16} className="absolute left-3.5 top-3 text-surface-500" />
-              <textarea className="input-dark pl-10 resize-none text-sm" placeholder="Catatan aktivitas (wajib diisi)..." rows="2" value={note} onChange={e => setNote(e.target.value)} />
-            </div>
+            {canCheckOut && (
+              <div className="relative">
+                <FileText size={16} className="absolute left-3.5 top-3 text-surface-500" />
+                <textarea className="input-dark pl-10 resize-none text-sm" placeholder="Catatan aktivitas (wajib diisi)..." rows="2" value={note} onChange={e => setNote(e.target.value)} />
+              </div>
+            )}
 
             <button onClick={() => handleSubmit(canCheckIn ? 'check-in' : 'check-out')} disabled={loading}
               className={`w-full py-3.5 font-semibold rounded-xl transition-all shadow-lg hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 flex items-center justify-center gap-2 ${canCheckIn
