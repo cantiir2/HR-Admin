@@ -102,7 +102,7 @@ const MemberLayout = () => {
         </div>
 
         {/* Top Bar for Mobile */}
-        <header className="lg:hidden glass-card rounded-none border-x-0 border-t-0 px-4 py-3 flex items-center justify-between gap-4 flex-shrink-0">
+        <header className="lg:hidden glass-card rounded-none border-x-0 border-t-0 px-4 py-3 flex items-center justify-between gap-4 flex-shrink-0 z-50">
           <div className="flex items-center gap-3">
             <div className="flex-shrink-0 w-8 h-8 rounded-lg gradient-brand flex items-center justify-center shadow-lg shadow-brand-500/20">
               <Fingerprint size={16} />

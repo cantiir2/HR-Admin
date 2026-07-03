@@ -6,6 +6,7 @@ import AppSelect from '../components/AppSelect';
 import SortableHeader from '../components/SortableHeader';
 import useTableSort from '../hooks/useTableSort';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 const months = [
   [1, 'Januari'], [2, 'Februari'], [3, 'Maret'], [4, 'April'], [5, 'Mei'], [6, 'Juni'],
@@ -46,13 +47,12 @@ const isDeadlinePassed = (deadlineDate) => {
 
 const WorkingReport = () => {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
   const [detail, setDetail] = useState({ report: null, attendances: [] });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
   
   const { sortBy, sortOrder, handleSort } = useTableSort('date', 'asc');
 
@@ -80,15 +80,13 @@ const WorkingReport = () => {
   const submitReport = async () => {
     try {
       setSaving(true);
-      setError('');
       await api.post('/api/working-reports/submit', { month, year });
-      setMessage('Working Report berhasil disubmit');
+      showToast({ type: 'success', title: 'Berhasil', message: 'Working Report berhasil disubmit' });
       fetchDetail();
     } catch (err) {
-      setError(err.response?.data?.error || 'Gagal submit Working Report');
+      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal submit Working Report' });
     } finally {
       setSaving(false);
-      setTimeout(() => setMessage(''), 3500);
     }
   };
 
@@ -108,7 +106,7 @@ const WorkingReport = () => {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch {
-      setError('Gagal export Working Report');
+      showToast({ type: 'error', title: 'Gagal', message: 'Gagal export Working Report' });
     } finally {
       setSaving(false);
     }
@@ -141,8 +139,6 @@ const WorkingReport = () => {
         </div>
       </div>
 
-      {message && <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">{message}</div>}
-      {error && <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm">{error}</div>}
       {deadlinePassed && reportStatus !== 'APPROVED' && (
         <div className="mb-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-sm">
           Deadline Working Report {deadlineText} sudah terlewati.

@@ -12,6 +12,7 @@ import {
   validateEvidencePhotoFile,
   viewBase64File
 } from '../lib/fileValidation';
+import { useToast } from '../context/ToastContext';
 
 const initialForm = {
   leaveType: '',
@@ -24,6 +25,7 @@ const initialForm = {
 };
 
 const AnnualLeave = () => {
+  const { showToast } = useToast();
   const [balance, setBalance] = useState(null);
   const [leaves, setLeaves] = useState([]);
   const [leaveTypes, setLeaveTypes] = useState([]);
@@ -31,8 +33,6 @@ const AnnualLeave = () => {
   const [warning, setWarning] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
   const [statusClass, setStatusClass] = useState({});
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [evidenceImage, setEvidenceImage] = useState(null);
@@ -120,9 +120,8 @@ const AnnualLeave = () => {
   const submitLeave = async (warningAcknowledged = false) => {
     try {
       setSaving(true);
-      setError('');
       const res = await api.post('/api/leaves', { ...form, warningAcknowledged });
-      setMessage(res.data.message || 'Pengajuan cuti berhasil dibuat');
+      showToast({ type: 'success', title: 'Berhasil', message: res.data.message || 'Pengajuan cuti berhasil dibuat' });
       setForm({ ...initialForm, leaveType: leaveTypes.length > 0 ? leaveTypes[0].value : '' });
       setWarning(null);
       fetchData();
@@ -130,11 +129,10 @@ const AnnualLeave = () => {
       if (err.response?.status === 409 && err.response?.data?.requiresWarning) {
         setWarning(err.response.data.balance);
       } else {
-        setError(err.response?.data?.error || 'Gagal membuat pengajuan cuti');
+        showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal membuat pengajuan cuti' });
       }
     } finally {
       setSaving(false);
-      setTimeout(() => setMessage(''), 3500);
     }
   };
 
@@ -146,7 +144,6 @@ const AnnualLeave = () => {
       evidencePhotoName: '',
       evidencePhotoMimeType: ''
     }));
-    setError('');
   };
 
   const handleEvidenceChange = async (file) => {
@@ -157,13 +154,12 @@ const AnnualLeave = () => {
 
     const validationError = validateEvidencePhotoFile(file);
     if (validationError) {
-      setError(validationError);
+      showToast({ type: 'error', title: 'Validasi Gagal', message: validationError });
       setForm(current => ({ ...current, evidencePhoto: '', evidencePhotoName: '', evidencePhotoMimeType: '' }));
       return;
     }
 
     const fileData = await readFileAsDataUrl(file);
-    setError('');
     setForm(current => ({
       ...current,
       evidencePhoto: fileData,
@@ -186,7 +182,7 @@ const AnnualLeave = () => {
       setEvidenceImage(imageUrl);
       setIsModalOpen(true);
     } catch (err) {
-      setError(err.response?.data?.error || 'Gagal membuka evidence photo');
+      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal membuka evidence photo' });
     }
   };
 
@@ -200,7 +196,7 @@ const AnnualLeave = () => {
       const evidence = await fetchEvidence(id);
       downloadBase64File(evidence.fileData, evidence.fileName, evidence.fileType);
     } catch (err) {
-      setError(err.response?.data?.error || 'Gagal download evidence photo');
+      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal download evidence photo' });
     }
   };
 
@@ -208,10 +204,10 @@ const AnnualLeave = () => {
     try {
       setSaving(true);
       await api.put(`/api/leaves/${id}/cancel`);
-      setMessage('Pengajuan cuti berhasil dibatalkan');
+      showToast({ type: 'success', title: 'Berhasil', message: 'Pengajuan cuti berhasil dibatalkan' });
       fetchData();
     } catch (err) {
-      setError(err.response?.data?.error || 'Gagal membatalkan cuti');
+      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal membatalkan cuti' });
     } finally {
       setSaving(false);
     }
@@ -246,9 +242,6 @@ const AnnualLeave = () => {
           <p className="text-2xl font-bold text-white">{balance?.remainingLeaveDays || 0}</p>
         </div>
       </div>
-
-      {message && <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">{message}</div>}
-      {error && <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm">{error}</div>}
 
       <div className="glass-card-light p-5 mb-5">
         <div className="grid gap-3 md:grid-cols-2">

@@ -5,7 +5,7 @@ import AppSelect from '../../components/AppSelect';
 import Pagination from '../../components/Pagination';
 import SortableHeader from '../../components/SortableHeader';
 import useTableSort from '../../hooks/useTableSort';
-
+import { useToast } from '../../context/ToastContext';
 
 const statuses = [
   ['', 'Semua Status'],
@@ -46,9 +46,9 @@ const AdminWorkingReports = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [monthOptions, setMonthOptions] = useState([]);
+  const { showToast } = useToast();
 
   const { sortBy, sortOrder, handleSort } = useTableSort('user.name', 'asc');
-  const [message, setMessage] = useState('');
 
   const years = useMemo(() => {
     const current = new Date().getFullYear();
@@ -105,7 +105,7 @@ const AdminWorkingReports = () => {
   const approveReport = async (id) => {
     setActionLoading(true);
     await api.put(`/api/working-reports/${id}/approve`);
-    setMessage('Working Report berhasil diapprove');
+    showToast({ type: 'success', title: 'Berhasil', message: 'Working Report berhasil diapprove' });
     setActionLoading(false);
     fetchReports();
   };
@@ -115,7 +115,7 @@ const AdminWorkingReports = () => {
     if (!rejectionReason) return;
     setActionLoading(true);
     await api.put(`/api/working-reports/${id}/reject`, { rejectionReason });
-    setMessage('Working Report berhasil direject');
+    showToast({ type: 'success', title: 'Berhasil', message: 'Working Report berhasil direject' });
     setActionLoading(false);
     fetchReports();
   };
@@ -138,14 +138,14 @@ const AdminWorkingReports = () => {
   const generateReminder = async () => {
     setActionLoading(true);
     const res = await api.post('/api/working-reports/generate-reminders', {});
-    setMessage(res.data.message || 'Reminder WR selesai dibuat');
+    showToast({ type: 'success', title: 'Berhasil', message: res.data.message || 'Reminder WR selesai dibuat' });
     setActionLoading(false);
   };
 
   const generateLate = async () => {
     setActionLoading(true);
     const res = await api.post('/api/working-reports/generate-late-status', {});
-    setMessage(res.data.message || 'Late status WR selesai dibuat');
+    showToast({ type: 'success', title: 'Berhasil', message: res.data.message || 'Late status WR selesai dibuat' });
     setActionLoading(false);
     fetchReports();
   };
@@ -168,8 +168,6 @@ const AdminWorkingReports = () => {
           </button>
         </div>
       </div>
-
-      {message && <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">{message}</div>}
 
       <div className="grid gap-3 md:grid-cols-[1fr_180px_180px_180px] mb-4">
         <div className="relative">

@@ -42,6 +42,7 @@ app.use('/api/auth', require('./routes/auth')(prisma));
 app.use('/api/users', require('./routes/users')(prisma));
 app.use('/api/system', require('./routes/system')(prisma));
 app.use('/api/projects', require('./routes/projects')(prisma));
+app.use('/api/project-resources', require('./routes/project-resources')(prisma));
 app.use('/api/attendance', require('./routes/attendance')(prisma));
 app.use('/api/tasks', require('./routes/tasks')(prisma));
 app.use('/api/notifications', require('./routes/notifications')(prisma));

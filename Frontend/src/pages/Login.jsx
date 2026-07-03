@@ -3,11 +3,12 @@ import { useNavigate, Link } from 'react-router-dom';
 import { LogIn, Mail, ArrowRight, Fingerprint } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import PasswordInput from '../components/PasswordInput';
+import { useToast } from '../context/ToastContext';
 
 const Login = () => {
+  const { showToast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -15,7 +16,6 @@ const Login = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
 
     try {
       const user = await login(email, password);
@@ -26,7 +26,7 @@ const Login = () => {
         navigate('/member');
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'Gagal login. Periksa koneksi Anda.');
+      showToast({ type: 'error', title: 'Login Gagal', message: err.response?.data?.error || 'Gagal login. Periksa koneksi Anda.' });
     } finally {
       setLoading(false);
     }
@@ -53,13 +53,6 @@ const Login = () => {
         <div className="glass-card p-8">
           <h2 className="text-xl font-semibold text-white mb-1">Selamat Datang</h2>
           <p className="text-surface-400 text-sm mb-6">Masuk ke akun Anda untuk melanjutkan</p>
-
-          {error && (
-            <div className="mb-5 p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-sm flex items-center gap-2 animate-slide-down">
-              <div className="w-1.5 h-1.5 bg-rose-400 rounded-full flex-shrink-0" />
-              {error}
-            </div>
-          )}
 
           <form onSubmit={handleLogin} className="space-y-5">
             <div>

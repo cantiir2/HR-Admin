@@ -5,12 +5,12 @@ import {
   Plus, Save, Shield, Trash2, Upload, User, UsersRound, BriefcaseBusiness
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import AppAlert from '../components/AppAlert';
 import ConfirmDialog from '../components/ConfirmDialog';
 import UserAvatar from '../components/UserAvatar';
 import AppSelect from '../components/AppSelect';
 import PasswordInput from '../components/PasswordInput';
 import { parseWorkingExperience, stringifyWorkingExperience } from '../lib/profileFormat';
+import { useToast } from '../context/ToastContext';
 
 const emptyForm = {
   phone: '', address: '', birthDate: '', birthPlace: '', gender: '',
@@ -33,10 +33,9 @@ const MemberProfile = () => {
   const [initialExperiences, setInitialExperiences] = useState([]);
   const [initialForm, setInitialForm] = useState(emptyForm);
   const [religions, setReligions] = useState([]);
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState('');
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
   const [parsedData, setParsedData] = useState(null);
   const [documentType, setDocumentType] = useState('LAINNYA');
   const [documentLabel, setDocumentLabel] = useState('');
@@ -107,8 +106,6 @@ const MemberProfile = () => {
 
   const submitProfile = async () => {
     setLoading(true);
-    setError('');
-    setMessage('');
     try {
       await api.put('/api/users/me/profile', {
         ...form,
@@ -125,10 +122,9 @@ const MemberProfile = () => {
       }));
       await fetchProfile();
       await refreshUser();
-      setMessage('Data karyawan berhasil diperbarui');
-      setTimeout(() => setMessage(''), 3000);
+      showToast({ type: 'success', title: 'Berhasil', message: 'Data karyawan berhasil diperbarui' });
     } catch (err) {
-      setError(err.response?.data?.error || 'Gagal menyimpan profil');
+      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal menyimpan profil' });
     } finally {
       setLoading(false);
     }
@@ -147,24 +143,21 @@ const MemberProfile = () => {
   const handleChangePassword = async (e) => {
     e.preventDefault();
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setError('Konfirmasi password baru tidak sesuai');
+      showToast({ type: 'error', title: 'Validasi Gagal', message: 'Konfirmasi password baru tidak sesuai' });
       return;
     }
     if (passwordForm.newPassword.length < 8) {
-      setError('Password baru minimal 8 karakter');
+      showToast({ type: 'error', title: 'Validasi Gagal', message: 'Password baru minimal 8 karakter' });
       return;
     }
     
     setPasswordLoading(true);
-    setError('');
-    setMessage('');
     try {
       await api.put('/api/users/me/change-password', passwordForm);
-      setMessage('Password berhasil diubah');
+      showToast({ type: 'success', title: 'Berhasil', message: 'Password berhasil diubah' });
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      setTimeout(() => setMessage(''), 3000);
     } catch (err) {
-      setError(err.response?.data?.error || 'Gagal mengubah password');
+      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal mengubah password' });
     } finally {
       setPasswordLoading(false);
     }
@@ -173,12 +166,11 @@ const MemberProfile = () => {
   const uploadFile = async (file, type) => {
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) {
-      setError('Ukuran file maksimal 10MB');
+      showToast({ type: 'error', title: 'Validasi Gagal', message: 'Ukuran file maksimal 10MB' });
       return;
     }
 
     setUploading(type);
-    setError('');
     const reader = new FileReader();
     reader.onloadend = async () => {
       try {
@@ -202,10 +194,10 @@ const MemberProfile = () => {
         }
         await fetchProfile();
         await refreshUser();
-        setMessage('File berhasil diupload');
+        showToast({ type: 'success', title: 'Berhasil', message: 'File berhasil diupload' });
         setDocumentLabel('');
       } catch (err) {
-        setError(err.response?.data?.error || 'Gagal mengupload file');
+        showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal mengupload file' });
       } finally {
         setUploading('');
       }
@@ -224,7 +216,7 @@ const MemberProfile = () => {
       education: parsedData.education || prev.education
     }));
     setParsedData(null);
-    setMessage('Data dari CV diterapkan. Silakan review lalu simpan.');
+    showToast({ type: 'info', title: 'Info', message: 'Data dari CV diterapkan. Silakan review lalu simpan.' });
   };
 
   const downloadDocument = async (doc) => {
@@ -255,7 +247,7 @@ const MemberProfile = () => {
         const item = experiences[index];
         if (item.id) await api.delete(`/api/users/me/job-histories/${item.id}`);
         setExperiences(prev => prev.filter((_, itemIndex) => itemIndex !== index));
-        setMessage('Riwayat pekerjaan berhasil dihapus');
+        showToast({ type: 'success', title: 'Berhasil', message: 'Riwayat pekerjaan berhasil dihapus' });
       }
     });
   };
@@ -269,9 +261,6 @@ const MemberProfile = () => {
 
   return (
     <div className="max-w-5xl mx-auto space-y-5 pb-8 animate-fade-in">
-      <AppAlert tone="success" message={message} />
-      <AppAlert tone="error" message={error} />
-
       <div className="glass-card p-5 flex flex-col sm:flex-row sm:items-center gap-5">
         <UserAvatar name={profile.name} photo={profile.profilePhoto} size="lg" />
         <div className="flex-1">

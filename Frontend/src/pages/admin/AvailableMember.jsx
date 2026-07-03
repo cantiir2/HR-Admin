@@ -2,10 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CalendarDays, Search, Users } from 'lucide-react';
 import api from '../../lib/api';
 import AppSelect from '../../components/AppSelect';
-import AppAlert from '../../components/AppAlert';
 import Pagination from '../../components/Pagination';
 import SortableHeader from '../../components/SortableHeader';
 import useTableSort from '../../hooks/useTableSort';
+import { useToast } from '../../context/ToastContext';
 
 const AvailableMember = () => {
   const [members, setMembers] = useState([]);
@@ -13,7 +13,7 @@ const AvailableMember = () => {
   const [filters, setFilters] = useState({ startDate: '', endDate: '', skill: '', search: '' });
   const [page, setPage] = useState({ pageNo: 1, pageSize: 10, totalRows: 0, totalPages: 1 });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const { showToast } = useToast();
   const pageSizeRef = useRef(10);
 
   const { sortBy, sortOrder, handleSort } = useTableSort('name', 'asc');
@@ -21,7 +21,6 @@ const AvailableMember = () => {
   const fetchMembers = useCallback(async (pageNo = 1, pageSize = pageSizeRef.current) => {
     pageSizeRef.current = pageSize;
     setLoading(true);
-    setError('');
     try {
       const res = await api.post('/api/users/available-members/search', {
         pageNo,
@@ -36,7 +35,7 @@ const AvailableMember = () => {
       setMembers(res.data.data || []);
       setPage(res.data.page || { pageNo, pageSize, totalRows: 0, totalPages: 1 });
     } catch (err) {
-      setError(err.response?.data?.error || 'Gagal mengambil availability member');
+      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal mengambil availability member' });
     } finally {
       setLoading(false);
     }
@@ -45,7 +44,7 @@ const AvailableMember = () => {
   useEffect(() => {
     api.get('/api/system', { params: { category: 'JOB_ROLE', isActive: true } })
       .then(res => setJobRoles(res.data))
-      .catch(() => setError('Gagal mengambil daftar job role'));
+      .catch(() => showToast({ type: 'error', title: 'Gagal', message: 'Gagal mengambil daftar job role' }));
   }, []);
 
   useEffect(() => {
@@ -70,7 +69,6 @@ const AvailableMember = () => {
         <h2 className="text-xl font-bold text-white flex items-center gap-2"><Users size={20} /> Available Member</h2>
         <p className="text-sm text-surface-400">Urutan otomatis dari member available sekarang ke availability terdekat.</p>
       </div>
-      <AppAlert tone="error" message={error} />
       <div className="glass-card p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="block text-sm text-surface-300">Start Date
           <input

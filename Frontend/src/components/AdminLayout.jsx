@@ -25,6 +25,7 @@ const AdminLayout = () => {
     { to: '/admin/attendance', icon: List, label: 'Absensi' },
     { to: '/admin/users', icon: Users, label: 'User Management' },
     { to: '/admin/projects', icon: FolderKanban, label: 'Project' },
+    { to: '/admin/project-resources', icon: CalendarCheck, label: 'Project Resource' },
     { to: '/admin/available-members', icon: CalendarCheck, label: 'Available Member' },
     { to: '/admin/working-reports', icon: FileText, label: 'Working Report' },
     { to: '/admin/leaves', icon: CalendarDays, label: 'Annual Leave' },
@@ -95,7 +96,7 @@ const AdminLayout = () => {
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Top Bar */}
-        <header className="glass-card rounded-none border-x-0 border-t-0 px-4 lg:px-6 py-3 flex items-center justify-between gap-4 flex-shrink-0">
+        <header className="glass-card rounded-none border-x-0 border-t-0 px-4 lg:px-6 py-3 flex items-center justify-between gap-4 flex-shrink-0 z-50">
           <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-lg bg-white/[0.06] text-surface-400">
             <Menu size={18} />
           </button>

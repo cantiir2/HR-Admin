@@ -35,7 +35,7 @@ module.exports = (prisma) => {
             checkInNote: note
           }
         });
-        return res.status(200).json({ message: 'Check-in berhasil', attendanceId: updated.id });
+        return res.status(200).json({ message: 'Check-in berhasil', attendance: updated });
       }
 
       // Create new attendance record for today
@@ -51,7 +51,7 @@ module.exports = (prisma) => {
         }
       });
 
-      res.status(201).json({ message: 'Check-in berhasil', attendanceId: attendance.id });
+      res.status(201).json({ message: 'Check-in berhasil', attendance });
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Server error' });
@@ -92,7 +92,7 @@ module.exports = (prisma) => {
         }
       });
 
-      res.json({ message: 'Check-out berhasil', attendanceId: updated.id });
+      res.json({ message: 'Check-out berhasil', attendance: updated });
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Server error' });

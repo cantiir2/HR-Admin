@@ -12,9 +12,24 @@ import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import AppSelect from '../components/AppSelect';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+
+function formatDateJakarta(dateValue) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date(dateValue));
+}
+
+function isTodayJakarta(dateValue) {
+  return formatDateJakarta(dateValue) === formatDateJakarta(new Date());
+}
 
 const MemberDashboard = () => {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [photoBase64, setPhotoBase64] = useState(null);
   const [location, setLocation] = useState(null);
   const [note, setNote] = useState('');
@@ -22,8 +37,6 @@ const MemberDashboard = () => {
   const [locationLoading, setLocationLoading] = useState(false);
   const [attendances, setAttendances] = useState([]);
   const [todayRecord, setTodayRecord] = useState(null);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
   const [initialLoading, setInitialLoading] = useState(true);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const webcamRef = useRef(null);
@@ -38,15 +51,11 @@ const MemberDashboard = () => {
 
   const fetchAttendances = async () => {
     try {
-      const res = await api.get(`/api/attendance/me?month=${filterMonth}&year=${filterYear}`);
+      const res = await api.get(`/api/attendance/me?month=${filterMonth}&year=${filterYear}&_t=${Date.now()}`);
       setAttendances(res.data);
-      const today = new Date();
       const todayRec = res.data.find(a => {
-        if (!a.checkInTime) return false;
-        const checkInDate = new Date(a.checkInTime);
-        return checkInDate.getDate() === today.getDate() &&
-          checkInDate.getMonth() === today.getMonth() &&
-          checkInDate.getFullYear() === today.getFullYear();
+        const dateValue = a.date || a.checkInTime;
+        return dateValue && isTodayJakarta(dateValue);
       });
       setTodayRecord(todayRec || null);
     } catch (err) {
@@ -60,7 +69,6 @@ const MemberDashboard = () => {
     const imageSrc = webcamRef.current.getScreenshot();
     setPhotoBase64(imageSrc);
     setIsCameraOpen(false);
-    setError('');
   }, [webcamRef]);
 
   const retakePhoto = () => {
@@ -82,8 +90,7 @@ const MemberDashboard = () => {
       link.click();
       link.remove();
     } catch (err) {
-      setError('Gagal export data absen');
-      setTimeout(() => setError(''), 4000);
+      showToast({ type: 'error', title: 'Gagal', message: 'Gagal export data absen' });
     } finally {
       setExportLoading(false);
     }
@@ -92,38 +99,44 @@ const MemberDashboard = () => {
   const handlePhotoCapture = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 3 * 1024 * 1024) { setError('Ukuran file maksimal 3MB'); return; }
+    if (file.size > 3 * 1024 * 1024) { showToast({ type: 'error', title: 'Validasi Gagal', message: 'Ukuran file maksimal 3MB' }); return; }
     const reader = new FileReader();
-    reader.onloadend = () => { setPhotoBase64(reader.result); setError(''); };
+    reader.onloadend = () => { setPhotoBase64(reader.result); };
     reader.readAsDataURL(file);
   };
 
   const getLocation = () => {
-    if (!navigator.geolocation) { setError('Geolocation tidak didukung'); return; }
+    if (!navigator.geolocation) { showToast({ type: 'error', title: 'Gagal', message: 'Geolocation tidak didukung' }); return; }
     setLocationLoading(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => { setLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }); setError(''); setLocationLoading(false); },
-      () => { setError('Gagal mendapatkan lokasi'); setLocationLoading(false); },
+      (pos) => { setLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }); setLocationLoading(false); },
+      () => { showToast({ type: 'error', title: 'Gagal', message: 'Gagal mendapatkan lokasi' }); setLocationLoading(false); },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
 
   const handleSubmit = async (type) => {
-    // if (!photoBase64) { setError('Silakan ambil foto'); return; }
-    if (!location) { setError('Silakan dapatkan lokasi'); return; }
-    if (!note.trim()) { setError('Catatan aktivitas wajib diisi'); return; }
-    setLoading(true); setError(''); setMessage('');
+    // if (!photoBase64) { showToast({ type: 'error', title: 'Validasi Gagal', message: 'Silakan ambil foto' }); return; }
+    if (!location) { showToast({ type: 'error', title: 'Validasi Gagal', message: 'Silakan dapatkan lokasi' }); return; }
+    if (type === 'check-out' && !note.trim()) { showToast({ type: 'error', title: 'Validasi Gagal', message: 'Catatan aktivitas wajib diisi' }); return; }
+    setLoading(true);
     try {
       const endpoint = type === 'check-in' ? '/api/attendance/check-in' : '/api/attendance/check-out';
-      await api.post(endpoint, {
-        photo: photoBase64, latitude: location.latitude, longitude: location.longitude, note
-      });
-      setMessage(`${type === 'check-in' ? 'Check-In' : 'Check-Out'} berhasil!`);
+      const payload = {
+        photo: photoBase64,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        ...(type === 'check-out' ? { note } : {})
+      };
+      const response = await api.post(endpoint, payload);
+      if (response.data.attendance) {
+        setTodayRecord(response.data.attendance);
+      }
+      await fetchAttendances();
+      showToast({ type: 'success', title: 'Berhasil', message: `${type === 'check-in' ? 'Check-In' : 'Check-Out'} berhasil!` });
       setPhotoBase64(null); setLocation(null); setNote('');
-      fetchAttendances();
-      setTimeout(() => setMessage(''), 4000);
     } catch (err) {
-      setError(err.response?.data?.error || 'Gagal mengirim absensi');
+      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal mengirim absensi' });
     } finally { setLoading(false); }
   };
 
@@ -176,9 +189,6 @@ const MemberDashboard = () => {
           </p>
         </div>
       </div>
-
-      {message && <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl flex items-center gap-3 animate-slide-down"><CheckCircle size={20} className="flex-shrink-0" /><span className="text-sm font-medium">{message}</span></div>}
-      {error && <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl flex items-center gap-3 animate-slide-down"><AlertCircle size={20} className="flex-shrink-0" /><span className="text-sm font-medium">{error}</span></div>}
 
       {/* Attendance Form */}
       {(canCheckIn || canCheckOut) && (
@@ -235,10 +245,12 @@ const MemberDashboard = () => {
               {locationLoading ? 'Mendapatkan lokasi...' : location ? `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}` : 'Dapatkan Lokasi'}
             </button>
 
-            <div className="relative">
-              <FileText size={16} className="absolute left-3.5 top-3 text-surface-500" />
-              <textarea className="input-dark pl-10 resize-none text-sm" placeholder="Catatan aktivitas (wajib diisi)..." rows="2" value={note} onChange={e => setNote(e.target.value)} />
-            </div>
+            {canCheckOut && (
+              <div className="relative">
+                <FileText size={16} className="absolute left-3.5 top-3 text-surface-500" />
+                <textarea className="input-dark pl-10 resize-none text-sm" placeholder="Catatan aktivitas (wajib diisi)..." rows="2" value={note} onChange={e => setNote(e.target.value)} />
+              </div>
+            )}
 
             <button onClick={() => handleSubmit(canCheckIn ? 'check-in' : 'check-out')} disabled={loading}
               className={`w-full py-3.5 font-semibold rounded-xl transition-all shadow-lg hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 flex items-center justify-center gap-2 ${canCheckIn
