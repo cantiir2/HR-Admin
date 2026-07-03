@@ -26,6 +26,7 @@ prisma.$on('query', (e) => {
 });
 
 const cookieParser = require('cookie-parser');
+const { metricsMiddleware, metricsHandler } = require('./middleware/metrics');
 
 // Middleware
 app.set('trust proxy', 1);
@@ -36,6 +37,9 @@ app.use(cors({
 }));
 app.use(cookieParser());
 app.use(express.json({ limit: '15mb' }));
+
+app.use(metricsMiddleware);
+app.get('/metrics', metricsHandler);
 
 // Routes
 app.use('/api/auth', require('./routes/auth')(prisma));
