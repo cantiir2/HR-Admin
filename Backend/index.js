@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const dotenv = require('dotenv');
+const promClient = require('prom-client');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 
@@ -37,6 +38,35 @@ app.use(cors({
 app.use(cookieParser());
 app.use(express.json({ limit: '15mb' }));
 
+// Prometheus metrics setup
+const register = promClient.register;
+promClient.collectDefaultMetrics({ register });
+
+const httpRequestsTotal = new promClient.Counter({
+  name: 'http_requests_total',
+  help: 'Total number of HTTP requests',
+  labelNames: ['method', 'route', 'status_code'],
+});
+
+const httpRequestDurationSeconds = new promClient.Histogram({
+  name: 'http_request_duration_seconds',
+  help: 'Duration of HTTP requests in seconds',
+  labelNames: ['method', 'route', 'status_code'],
+  buckets: [0.005, 0.01, 0.05, 0.1, 0.3, 0.5, 1, 1.5, 2, 5]
+});
+
+// Metrics middleware (must be registered before application routes)
+app.use((req, res, next) => {
+  const end = httpRequestDurationSeconds.startTimer();
+  res.on('finish', () => {
+    const route = (req.route && req.route.path) ? req.route.path : req.originalUrl || req.url;
+    const labels = { method: req.method, route, status_code: res.statusCode };
+    httpRequestsTotal.inc(labels);
+    end(labels);
+  });
+  next();
+});
+
 // Routes
 app.use('/api/auth', require('./routes/auth')(prisma));
 app.use('/api/users', require('./routes/users')(prisma));
@@ -52,6 +82,16 @@ app.use('/api/leaves', require('./routes/leaves')(prisma));
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Prometheus metrics endpoint
+app.get('/metrics', async (req, res) => {
+  try {
+    res.set('Content-Type', register.contentType);
+    res.end(await register.metrics());
+  } catch (err) {
+    res.status(500).end(err.message);
+  }
 });
 
 // Start server
