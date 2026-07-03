@@ -63,7 +63,7 @@ const NotificationBell = ({ pagePath }) => {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] glass-card p-3 z-50 animate-slide-down max-h-96 overflow-y-auto">
+        <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] glass-card dark:bg-surface-900 p-3 z-[99] animate-slide-down max-h-96 overflow-y-auto">
           <div className="flex items-center justify-between gap-3 px-2 mb-2">
             <p className="text-xs font-semibold text-surface-400 uppercase">Notifikasi</p>
             <button type="button" onClick={markAllRead} className="text-xs text-brand-400 hover:text-brand-300 inline-flex items-center gap-1">
