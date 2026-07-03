@@ -4,6 +4,17 @@ function uniqueRecipients(recipients = []) {
   return [...new Map(recipients.filter(Boolean).map(user => [user.id, user])).values()];
 }
 
+function buildEmailPayload(notification, data, recipient) {
+  return {
+    to: recipient?.email,
+    recipientName: recipient?.name,
+    type: data.type,
+    subject: data.subject || SUBJECT_BY_TYPE[data.type],
+    message: data.emailMessage || data.message,
+    detail: data.emailDetail || data.detail
+  };
+}
+
 /*****/
 /** Nama Function: getAdminRecipients **/
 /** Deskripsi Function: Mengambil daftar email admin dari tb_m_user **/
@@ -70,6 +81,50 @@ async function markEmailAsFailed(prisma, notificationId, errorMessage) {
 }
 
 /*****/
+/** Nama Function: sendNotificationEmail **/
+/** Deskripsi Function: Mengirim email notifikasi **/
+/** Creator by: FID.Iyan **/
+/*****/
+async function sendNotificationEmail(prisma, item) {
+  if (!item || !item.notification || !item.emailPayload || item.skipped) return item;
+
+  try {
+    const result = await sendEmailNotification(item.emailPayload);
+    if (result.sent) {
+      item.notification = await markEmailAsSent(prisma, item.notification.id);
+      return item;
+    }
+    if (result.reason || result.error) {
+      item.notification = await markEmailAsFailed(prisma, item.notification.id, result.reason || result.error);
+      return item;
+    }
+  } catch (error) {
+    console.error('Notification email handling failed:', error.message);
+    try {
+      item.notification = await markEmailAsFailed(prisma, item.notification.id, error.message);
+      return item;
+    } catch {
+      return item;
+    }
+  }
+  return item;
+}
+
+/*****/
+/** Nama Function: sendNotificationEmails **/
+/** Deskripsi Function: Mengirim banyak email notifikasi **/
+/** Creator by: FID.Iyan **/
+/*****/
+async function sendNotificationEmails(prisma, items) {
+  if (!Array.isArray(items)) return [];
+  const results = [];
+  for (const item of items) {
+    results.push(await sendNotificationEmail(prisma, item));
+  }
+  return results;
+}
+
+/*****/
 /** Nama Function: createNotification **/
 /** Deskripsi Function: Membuat notifikasi in-app dan mengirim email jika aktif **/
 /** Creator by: FID.Iyan **/
@@ -88,7 +143,7 @@ async function createNotification(prisma, data = {}) {
         referenceType: data.referenceType || null
       }
     });
-    if (existing) return existing;
+    if (existing) return { notification: existing, emailPayload: null, skipped: true };
   }
 
   const notification = await prisma.notification.create({
@@ -103,36 +158,14 @@ async function createNotification(prisma, data = {}) {
     }
   });
 
-  if (notification.channel === 'IN_APP') return notification;
+  const sendEmail = data.sendEmail !== false;
+  const recipient = data.recipient || await getUserRecipient(prisma, data.userId);
+  const emailPayload = notification.channel !== 'IN_APP' ? buildEmailPayload(notification, data, recipient) : null;
+  const resultObj = { notification, emailPayload, skipped: false };
 
-  try {
-    const recipient = data.recipient || await getUserRecipient(prisma, data.userId);
-    const result = await sendEmailNotification({
-      to: recipient?.email,
-      recipientName: recipient?.name,
-      type: data.type,
-      subject: data.subject || SUBJECT_BY_TYPE[data.type],
-      message: data.emailMessage || data.message,
-      detail: data.emailDetail || data.detail
-    });
+  if (notification.channel === 'IN_APP' || !sendEmail) return resultObj;
 
-    if (result.sent) {
-      return markEmailAsSent(prisma, notification.id);
-    }
-
-    if (result.reason || result.error) {
-      return markEmailAsFailed(prisma, notification.id, result.reason || result.error);
-    }
-  } catch (error) {
-    console.error('Notification email handling failed:', error.message);
-    try {
-      return await markEmailAsFailed(prisma, notification.id, error.message);
-    } catch {
-      return notification;
-    }
-  }
-
-  return notification;
+  return sendNotificationEmail(prisma, resultObj);
 }
 
 /*****/
@@ -162,5 +195,8 @@ module.exports = {
   getProjectManagerRecipient,
   getUserRecipient,
   markEmailAsSent,
-  markEmailAsFailed
+  markEmailAsFailed,
+  buildEmailPayload,
+  sendNotificationEmail,
+  sendNotificationEmails
 };

@@ -117,6 +117,24 @@ const AnnualLeave = () => {
     fetchLeaves();
   }, [fetchLeaves]);
 
+  const fetchData = useCallback(async () => {
+    try {
+      const [balanceRes, leavesRes] = await Promise.all([
+        api.get('/api/leaves/me/balance'),
+        api.get('/api/leaves/me', {
+          params: {
+            sortBy,
+            sortOrder
+          }
+        })
+      ]);
+      setBalance(balanceRes.data);
+      setLeaves(leavesRes.data || []);
+    } catch (err) {
+      console.error('Failed to fetch leave data', err);
+    }
+  }, [sortBy, sortOrder]);
+
   const submitLeave = async (warningAcknowledged = false) => {
     try {
       setSaving(true);
@@ -126,6 +144,8 @@ const AnnualLeave = () => {
       setWarning(null);
       fetchData();
     } catch (err) {
+      console.log(err);
+
       if (err.response?.status === 409 && err.response?.data?.requiresWarning) {
         setWarning(err.response.data.balance);
       } else {

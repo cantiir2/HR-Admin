@@ -2,7 +2,8 @@ const {
   createBulkNotifications,
   createNotification,
   getAdminRecipients,
-  getUserRecipient
+  getUserRecipient,
+  sendNotificationEmails
 } = require('./notificationService');
 const { buildOrderBy } = require('../utils/sorting');
 const { getDataUrlMimeType, validateBase64File } = require('../utils/fileValidation');
@@ -223,7 +224,8 @@ async function createLeaveRequest(prisma, userId, data = {}) {
   }
 
   const requester = await getUserRecipient(prisma, userId);
-  return prisma.$transaction(async (tx) => {
+
+  const transactionResult = await prisma.$transaction(async (tx) => {
     const leave = await tx.leaveRequest.create({
       data: {
         userId,
@@ -246,38 +248,62 @@ async function createLeaveRequest(prisma, userId, data = {}) {
       }
     });
 
-    const [admins, pms] = await Promise.all([
-      getAdminRecipients(tx),
-      getProjectManagerRecipientsForUser(tx, userId)
-    ]);
+    const pms = await getProjectManagerRecipientsForUser(tx, userId);
+    const uniquePms = uniqueRecipients(pms);
+
     const hasEvidencePhoto = Boolean(evidenceData.evidencePhoto);
     const detail = `${requester?.name || 'Karyawan'} mengajukan cuti ${totalDays} hari (${data.startDate} s/d ${data.endDate}). ${evidenceAvailabilityText(hasEvidencePhoto)}.`;
 
-    await createBulkNotifications(tx, [...admins, ...pms], {
-      type: 'LEAVE_REQUEST',
-      title: 'Pengajuan Cuti Baru',
-      message: detail,
-      detail,
-      emailDetail: detail,
-      referenceId: leave.id,
-      referenceType: 'LEAVE_REQUEST',
-      skipDuplicate: true
-    });
+    const notifications = [];
 
-    if (isOverQuota) {
-      await createBulkNotifications(tx, [...admins, ...pms], {
-        type: 'LEAVE_OVER_QUOTA',
-        title: 'Peringatan Cuti Melebihi Jatah',
-        message: `${requester?.name || 'Karyawan'} mengajukan cuti melebihi jatah sebanyak ${overQuotaDays} hari.`,
-        detail: `Sisa cuti: ${balance.remainingLeaveDays} hari. Diajukan: ${totalDays} hari.`,
+    for (const pm of uniquePms) {
+      const notif = await createNotification(tx, {
+        userId: pm.id,
+        recipient: pm,
+        type: 'LEAVE_REQUEST',
+        title: 'Pengajuan Cuti Baru',
+        message: detail,
+        detail,
+        emailDetail: detail,
         referenceId: leave.id,
         referenceType: 'LEAVE_REQUEST',
-        skipDuplicate: true
+        skipDuplicate: true,
+        sendEmail: false
       });
+      notifications.push(notif);
     }
 
-    return { leave: toLeaveResponse(leave) };
+    if (isOverQuota) {
+      for (const pm of uniquePms) {
+        const overQuotaNotif = await createNotification(tx, {
+          userId: pm.id,
+          recipient: pm,
+          type: 'LEAVE_OVER_QUOTA',
+          title: 'Peringatan Cuti Melebihi Jatah',
+          message: `${requester?.name || 'Karyawan'} mengajukan cuti melebihi jatah sebanyak ${overQuotaDays} hari.`,
+          detail: `Sisa cuti: ${balance.remainingLeaveDays} hari. Diajukan: ${totalDays} hari.`,
+          referenceId: leave.id,
+          referenceType: 'LEAVE_REQUEST',
+          skipDuplicate: true,
+          sendEmail: false
+        });
+        notifications.push(overQuotaNotif);
+      }
+    }
+
+    return {
+      leave: toLeaveResponse(leave),
+      notifications
+    };
+  }, {
+    timeout: 15000
   });
+
+  sendNotificationEmails(prisma, transactionResult.notifications).catch(() => { });
+
+  return {
+    leave: transactionResult.leave
+  };
 }
 
 /*****/
@@ -304,7 +330,7 @@ async function listLeaveRequests(prisma, currentUser, filters = {}) {
 
   const pageNo = Math.max(Number(filters.pageNo) || 1, 1);
   const pageSize = Math.min(Math.max(Number(filters.pageSize) || 10, 1), 50);
-  
+
   const allowedSortFields = ['user.name', 'leaveType', 'startDate', 'endDate', 'totalDays', 'status', 'isOverQuota', 'createdAt'];
   const orderBy = buildOrderBy(filters.sortBy, filters.sortOrder, allowedSortFields, { sortBy: 'createdAt', sortOrder: 'desc' });
 
@@ -398,31 +424,36 @@ async function approveLeaveByPm(prisma, leaveId, approver) {
     return { error: 'Anda tidak memiliki akses approval cuti ini' };
   }
 
-  return prisma.$transaction(async (tx) => {
+  const transactionResult = await prisma.$transaction(async (tx) => {
     const updated = await tx.leaveRequest.update({
       where: { id: leaveId },
       data: { status: 'APPROVED_BY_PM', pmApproverId: approver.id, pmApprovedAt: new Date() }
     });
     const admins = await getAdminRecipients(tx);
-    await createBulkNotifications(tx, admins, {
+    const notifs1 = await createBulkNotifications(tx, admins, {
       type: 'LEAVE_APPROVAL',
       title: 'Pengajuan Cuti Disetujui PM',
       message: `${leave.user.name} sudah disetujui oleh Project Manager dan menunggu approval Admin.`,
       referenceId: leave.id,
       referenceType: 'LEAVE_REQUEST',
-      skipDuplicate: true
+      skipDuplicate: true,
+      sendEmail: false
     });
-    await createNotification(tx, {
+    const notifs2 = await createNotification(tx, {
       userId: leave.userId,
       recipient: leave.user,
       type: 'LEAVE_APPROVAL',
       title: 'Pengajuan Cuti Disetujui PM',
       message: 'Pengajuan cuti Anda sudah disetujui Project Manager dan menunggu approval Admin.',
       referenceId: leave.id,
-      referenceType: 'LEAVE_REQUEST'
+      referenceType: 'LEAVE_REQUEST',
+      sendEmail: false
     });
-    return { leave: updated };
+    return { leave: updated, notifications: [...notifs1, notifs2] };
   });
+
+  sendNotificationEmails(prisma, transactionResult.notifications).catch(() => { });
+  return { leave: transactionResult.leave };
 }
 
 /*****/
@@ -440,31 +471,36 @@ async function approveLeaveByAdmin(prisma, leaveId, adminId) {
     return { error: 'Pengajuan cuti tidak dalam status yang bisa diapprove Admin' };
   }
 
-  return prisma.$transaction(async (tx) => {
+  const transactionResult = await prisma.$transaction(async (tx) => {
     const updated = await tx.leaveRequest.update({
       where: { id: leaveId },
       data: { status: 'APPROVED', adminApproverId: adminId, adminApprovedAt: new Date() }
     });
     const pms = await getProjectManagerRecipientsForUser(tx, leave.userId);
-    await createNotification(tx, {
+    const notifs1 = await createNotification(tx, {
       userId: leave.userId,
       recipient: leave.user,
       type: 'LEAVE_APPROVAL',
       title: 'Pengajuan Cuti Disetujui',
       message: 'Pengajuan cuti Anda sudah disetujui Admin.',
       referenceId: leave.id,
-      referenceType: 'LEAVE_REQUEST'
+      referenceType: 'LEAVE_REQUEST',
+      sendEmail: false
     });
-    await createBulkNotifications(tx, pms, {
+    const notifs2 = await createBulkNotifications(tx, pms, {
       type: 'LEAVE_APPROVAL',
       title: 'Pengajuan Cuti Disetujui Admin',
       message: `Pengajuan cuti ${leave.user.name} sudah disetujui Admin.`,
       referenceId: leave.id,
       referenceType: 'LEAVE_REQUEST',
-      skipDuplicate: true
+      skipDuplicate: true,
+      sendEmail: false
     });
-    return { leave: updated };
+    return { leave: updated, notifications: [notifs1, ...notifs2] };
   });
+
+  sendNotificationEmails(prisma, transactionResult.notifications).catch(() => { });
+  return { leave: transactionResult.leave };
 }
 
 /*****/
@@ -484,7 +520,7 @@ async function rejectLeaveRequest(prisma, leaveId, rejectedBy, rejectionReason) 
     return { error: 'Anda tidak memiliki akses reject cuti ini' };
   }
 
-  return prisma.$transaction(async (tx) => {
+  const transactionResult = await prisma.$transaction(async (tx) => {
     const updated = await tx.leaveRequest.update({
       where: { id: leaveId },
       data: {
@@ -494,17 +530,21 @@ async function rejectLeaveRequest(prisma, leaveId, rejectedBy, rejectionReason) 
         rejectionReason: String(rejectionReason).trim()
       }
     });
-    await createNotification(tx, {
+    const notifs1 = await createNotification(tx, {
       userId: leave.userId,
       recipient: leave.user,
       type: 'LEAVE_REJECTED',
       title: 'Pengajuan Cuti Ditolak',
       message: `Pengajuan cuti Anda ditolak. Alasan: ${String(rejectionReason).trim()}`,
       referenceId: leave.id,
-      referenceType: 'LEAVE_REQUEST'
+      referenceType: 'LEAVE_REQUEST',
+      sendEmail: false
     });
-    return { leave: updated };
+    return { leave: updated, notifications: [notifs1] };
   });
+
+  sendNotificationEmails(prisma, transactionResult.notifications).catch(() => { });
+  return { leave: transactionResult.leave };
 }
 
 module.exports = {

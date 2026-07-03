@@ -117,7 +117,7 @@ module.exports = (prisma) => {
           members: {
             include: {
               user: {
-                select: { id: true, name: true, jobRoleCode: true }
+                select: { id: true, name: true, jobRoleCode: true, contracts: true }
               }
             }
           }
@@ -146,6 +146,23 @@ module.exports = (prisma) => {
             const code = m.user.jobRoleCode || m.roleInProject || '';
             const mappedName = code ? jobRoleMap.get(code) || code : '-';
             
+            let contractStart = null;
+            let contractEnd = null;
+            const contracts = m.user.contracts || [];
+            
+            if (contracts.length > 0) {
+                const sortedContracts = [...contracts].sort((a, b) => b.endDate - a.endDate);
+                const overlapping = sortedContracts.find(c => c.startDate <= mEnd && c.endDate >= mStart);
+                const active = sortedContracts.find(c => {
+                    const now = new Date();
+                    return c.startDate <= now && c.endDate >= now;
+                });
+                
+                const bestContract = overlapping || active || sortedContracts[0];
+                contractStart = bestContract.startDate;
+                contractEnd = bestContract.endDate;
+            }
+
             validMembers.push({
                 id: m.userId,
                 name: m.user.name,
@@ -154,7 +171,9 @@ module.exports = (prisma) => {
                 roleInProject: m.roleInProject,
                 role: m.roleInProject || m.user.jobRoleCode || 'Member',
                 startDate: mStart,
-                endDate: mEnd
+                endDate: mEnd,
+                contractStart: contractStart,
+                contractEnd: contractEnd
             });
           }
         }

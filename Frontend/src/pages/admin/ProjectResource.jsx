@@ -10,25 +10,31 @@ import AppAlert from '../../components/AppAlert';
 import AppSelect from '../../components/AppSelect';
 import { Search, Loader2 } from 'lucide-react';
 
-function generateMonths(startDate, endDate) {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  start.setDate(1); 
-  end.setDate(1); 
-  
-  const months = [];
-  let current = new Date(start);
-  
-  while (current <= end) {
-    months.push({
-      key: `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`,
-      label: current.toLocaleString('default', { month: 'short', year: '2-digit' }),
-      startDate: new Date(current.getFullYear(), current.getMonth(), 1),
-      endDate: new Date(current.getFullYear(), current.getMonth() + 1, 0)
-    });
-    current.setMonth(current.getMonth() + 1);
-  }
-  return months;
+function generateDefaultResourceMonths(referenceDate = new Date()) {
+  const start = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - 6, 1);
+  return Array.from({ length: 12 }, (_, index) => {
+    const date = new Date(start.getFullYear(), start.getMonth() + index, 1);
+    return {
+      key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
+      monthLabel: date.toLocaleString('en-US', { month: 'short' }),
+      yearLabel: String(date.getFullYear()),
+      startDate: new Date(date.getFullYear(), date.getMonth(), 1),
+      endDate: new Date(date.getFullYear(), date.getMonth() + 1, 0)
+    };
+  });
+}
+
+function groupYearHeaders(months) {
+  const groups = [];
+  months.forEach(m => {
+    const last = groups[groups.length - 1];
+    if (last && last.year === m.yearLabel) {
+      last.span += 1;
+    } else {
+      groups.push({ year: m.yearLabel, span: 1 });
+    }
+  });
+  return groups;
 }
 
 function isMonthOverlapping(startDate, endDate, monthStart, monthEnd) {
@@ -52,31 +58,24 @@ export default function ProjectResource() {
   
   const [search, setSearch] = useState('');
   const [activeOnly, setActiveOnly] = useState(true);
-  const [startMonth, setStartMonth] = useState('');
-  const [endMonth, setEndMonth] = useState('');
   const [memberId, setMemberId] = useState('');
+  const [projectManagerId, setProjectManagerId] = useState('');
   
   const [memberOptions, setMemberOptions] = useState([]);
+  const [pmOptions, setPmOptions] = useState([]);
   
   const [appliedFilters, setAppliedFilters] = useState({
-    startMonth: '',
-    endMonth: '',
-    memberId: ''
+    memberId: '',
+    projectManagerId: ''
   });
   
   const fetchData = async (overrideFilters = null) => {
     const currentSearch = overrideFilters?.search !== undefined ? overrideFilters.search : search;
     const currentActiveOnly = overrideFilters?.activeOnly !== undefined ? overrideFilters.activeOnly : activeOnly;
-    const currentStartMonth = overrideFilters?.startMonth !== undefined ? overrideFilters.startMonth : startMonth;
-    const currentEndMonth = overrideFilters?.endMonth !== undefined ? overrideFilters.endMonth : endMonth;
     const currentMemberId = overrideFilters?.memberId !== undefined ? overrideFilters.memberId : memberId;
+    const currentPmId = overrideFilters?.projectManagerId !== undefined ? overrideFilters.projectManagerId : projectManagerId;
 
-    if (currentStartMonth && currentEndMonth && currentStartMonth > currentEndMonth) {
-      showToast({ type: 'error', title: 'Error', message: 'Start Month tidak boleh lebih besar dari End Month' });
-      return;
-    }
-    
-    setAppliedFilters({ startMonth: currentStartMonth, endMonth: currentEndMonth, memberId: currentMemberId });
+    setAppliedFilters({ memberId: currentMemberId, projectManagerId: currentPmId });
 
     try {
       setLoading(true);
@@ -85,14 +84,21 @@ export default function ProjectResource() {
       const response = await api.post('/api/project-resources', {
         search: currentSearch,
         activeOnly: currentActiveOnly ? 'true' : 'false',
-        startMonth: currentStartMonth,
-        endMonth: currentEndMonth,
-        memberId: currentMemberId
+        memberId: currentMemberId,
+        projectManagerId: currentPmId
       });
       
       const pmData = response.data.projectManagers || [];
       setData(pmData);
       
+      if (!currentPmId) {
+        const pmMap = new Map();
+        pmData.forEach(pm => {
+          pmMap.set(pm.id, { value: pm.id, label: pm.name });
+        });
+        setPmOptions([{ value: '', label: 'All Project Managers' }, ...Array.from(pmMap.values()).sort((a, b) => a.label.localeCompare(b.label))]);
+      }
+
       if (!currentMemberId) {
         const memberMap = new Map();
         pmData.forEach(pm => {
@@ -128,46 +134,18 @@ export default function ProjectResource() {
   const handleResetFilter = () => {
     setSearch('');
     setActiveOnly(true);
-    setStartMonth('');
-    setEndMonth('');
     setMemberId('');
-    fetchData({ search: '', activeOnly: true, startMonth: '', endMonth: '', memberId: '' });
+    setProjectManagerId('');
+    fetchData({ search: '', activeOnly: true, memberId: '', projectManagerId: '' });
   };
   
   const months = useMemo(() => {
-    let globalStart = null;
-    let globalEnd = null;
-    
-    if (appliedFilters.startMonth) {
-      globalStart = new Date(`${appliedFilters.startMonth}-01T00:00:00.000Z`);
-    }
-    if (appliedFilters.endMonth) {
-      const [y, m] = appliedFilters.endMonth.split('-');
-      globalEnd = new Date(Date.UTC(parseInt(y), parseInt(m), 0, 23, 59, 59, 999));
-    }
-    
-    if (!appliedFilters.startMonth || !appliedFilters.endMonth) {
-       data.forEach(pm => {
-         pm.projects.forEach(p => {
-           const pStart = new Date(p.contractStart);
-           const pEnd = new Date(p.contractEnd);
-           if (!globalStart || pStart < globalStart) globalStart = pStart;
-           if (!globalEnd || pEnd > globalEnd) globalEnd = pEnd;
-         });
-       });
-    }
+    return generateDefaultResourceMonths();
+  }, []);
 
-    if (!globalStart && globalEnd) {
-       globalStart = new Date(globalEnd.getFullYear() - 1, globalEnd.getMonth(), 1);
-    } else if (globalStart && !globalEnd) {
-       globalEnd = new Date(globalStart.getFullYear() + 1, globalStart.getMonth(), 0);
-    } else if (!globalStart && !globalEnd) {
-       globalStart = new Date(new Date().getFullYear(), 0, 1);
-       globalEnd = new Date(new Date().getFullYear(), 11, 31);
-    }
-    
-    return generateMonths(globalStart, globalEnd);
-  }, [data, appliedFilters]);
+  const yearGroups = useMemo(() => {
+    return groupYearHeaders(months);
+  }, [months]);
 
   return (
     <div className="space-y-6">
@@ -190,30 +168,20 @@ export default function ProjectResource() {
               className="w-full pl-10 pr-4 py-2 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-white/[0.06] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/50"
             />
           </div>
+          <div className="relative flex-1 min-w-[200px] z-30">
+            <AppSelect
+              options={pmOptions}
+              value={projectManagerId}
+              onChange={setProjectManagerId}
+              placeholder="All Project Managers"
+            />
+          </div>
           <div className="relative flex-1 min-w-[200px] z-20">
             <AppSelect
               options={memberOptions}
               value={memberId}
               onChange={setMemberId}
               placeholder="All Members"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-surface-500">Start Month:</span>
-            <input
-              type="month"
-              value={startMonth}
-              onChange={(e) => setStartMonth(e.target.value)}
-              className="px-3 py-2 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-white/[0.06] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/50"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-surface-500">End Month:</span>
-            <input
-              type="month"
-              value={endMonth}
-              onChange={(e) => setEndMonth(e.target.value)}
-              className="px-3 py-2 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-white/[0.06] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/50"
             />
           </div>
         </div>
@@ -264,7 +232,7 @@ export default function ProjectResource() {
               
               <div className="space-y-6 pl-0 lg:pl-4">
                 {pm.projects.map(project => (
-                  <div key={project.id} className="glass-card overflow-hidden">
+                  <div key={project.id} className="glass-card overflow-hidden relative">
                     <div className="p-4 border-b border-surface-200 dark:border-white/[0.06] bg-surface-50/50 dark:bg-surface-800/30">
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
@@ -288,35 +256,67 @@ export default function ProjectResource() {
                       </div>
                     </div>
                     
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm text-left whitespace-nowrap">
+                    <div className="overflow-x-auto relative">
+                      <table className="w-full text-sm text-left whitespace-nowrap table-fixed border-collapse min-w-max">
+                        <colgroup>
+                          <col className="w-[64px]" />
+                          <col className="w-[280px]" />
+                          <col className="w-[140px]" />
+                          <col className="w-[140px]" />
+                          <col className="w-[220px]" />
+                          {months.map(m => (
+                            <col key={m.key} className="w-[88px]" />
+                          ))}
+                        </colgroup>
                         <thead>
                           <tr className="bg-surface-100 dark:bg-surface-900/50 text-surface-600 dark:text-surface-400">
-                            <th className="px-4 py-3 font-medium border-r border-b border-surface-200 dark:border-white/[0.06]">No</th>
-                            <th className="px-4 py-3 font-medium border-r border-b border-surface-200 dark:border-white/[0.06]">Name</th>
-                            <th className="px-4 py-3 font-medium border-r border-b border-surface-200 dark:border-white/[0.06]">Tanggal Mulai</th>
-                            <th className="px-4 py-3 font-medium border-r border-b border-surface-200 dark:border-white/[0.06]">Tanggal Selesai</th>
-                            <th className="px-4 py-3 font-medium border-r border-b border-surface-200 dark:border-white/[0.06]">Job Role</th>
+                            <th rowSpan={2} className="px-4 py-3 font-medium border-r border-b border-surface-200 dark:border-white/[0.06] sticky left-0 z-20 bg-surface-100 dark:bg-surface-900 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)]">No</th>
+                            <th rowSpan={2} className="px-4 py-3 font-medium border-r border-b border-surface-200 dark:border-white/[0.06] sticky left-[64px] z-20 bg-surface-100 dark:bg-surface-900 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)]">Name</th>
+                            <th rowSpan={2} className="px-4 py-3 font-medium border-r border-b border-surface-200 dark:border-white/[0.06]">Start Date</th>
+                            <th rowSpan={2} className="px-4 py-3 font-medium border-r border-b border-surface-200 dark:border-white/[0.06]">End Date</th>
+                            <th rowSpan={2} className="px-4 py-3 font-medium border-r border-b border-surface-200 dark:border-white/[0.06]">Job Role</th>
+                            {yearGroups.map((g, i) => (
+                              <th key={i} colSpan={g.span} className="px-4 py-2 font-medium text-center border-r border-b border-surface-200 dark:border-white/[0.06]">
+                                {g.year}
+                              </th>
+                            ))}
+                          </tr>
+                          <tr className="bg-surface-100 dark:bg-surface-900/50 text-surface-600 dark:text-surface-400">
                             {months.map(m => (
-                              <th key={m.key} className="px-4 py-3 font-medium text-center border-r border-b border-surface-200 dark:border-white/[0.06] min-w-[80px]">
-                                {m.label}
+                              <th key={m.key} className="px-4 py-2 font-medium text-center border-r border-b border-surface-200 dark:border-white/[0.06]">
+                                {m.monthLabel}
                               </th>
                             ))}
                           </tr>
                         </thead>
-                        <tbody className="">
+                        <tbody>
                           {project.members.length === 0 ? (
                             <tr>
-                              <td colSpan={5 + months.length} className="px-4 py-4 text-center text-surface-500">
+                              <td colSpan={5 + months.length} className="px-4 py-4 text-center text-surface-500 sticky left-0 z-10 bg-white dark:bg-surface-800">
                                 Belum ada member di project ini
                               </td>
                             </tr>
                           ) : (
                             project.members.map((member, idx) => (
-                              <tr key={member.id} className="hover:bg-surface-50 dark:hover:bg-surface-800/30 transition-colors">
-                                <td className="px-4 py-3 border-r border-b border-surface-200 dark:border-white/[0.06]">{idx + 1}</td>
-                                <td className="px-4 py-3 font-medium text-surface-900 dark:text-white border-r border-b border-surface-200 dark:border-white/[0.06]">
-                                  {member.name}
+                              <tr key={member.id} className="hover:bg-surface-50 dark:hover:bg-surface-800/30 transition-colors group/row">
+                                <td className="px-4 py-3 border-r border-b border-surface-200 dark:border-white/[0.06] sticky left-0 z-10 bg-white dark:bg-surface-800 group-hover/row:bg-surface-50 dark:group-hover/row:bg-surface-800/30 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)]">{idx + 1}</td>
+                                <td className="px-4 py-3 font-medium text-surface-900 dark:text-white border-r border-b border-surface-200 dark:border-white/[0.06] sticky left-[64px] z-10 bg-white dark:bg-surface-800 group-hover/row:bg-surface-50 dark:group-hover/row:bg-surface-800/30 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] truncate">
+                                  <div className="relative inline-block group w-full">
+                                    <span
+                                      className="cursor-help block w-full truncate"
+                                      title={`Contract Start: ${formatDate(member.contractStart || member.startDate)} | Contract End: ${formatDate(member.contractEnd || member.endDate)}`}
+                                    >
+                                      {member.name}
+                                    </span>
+
+                                    <div className="pointer-events-none absolute left-0 top-full z-[100] mt-2 hidden min-w-[220px] rounded-lg border border-surface-200 dark:border-white/[0.1] bg-white dark:bg-surface-900 px-3 py-2 text-xs shadow-lg group-hover:block">
+                                      <div className="font-semibold text-surface-900 dark:text-white">Contract Information</div>
+                                      <div className="mt-1 text-surface-600 dark:text-surface-300">
+                                        <div>Contract Start: {formatDate(member.contractStart || member.startDate)}</div>
+                                        <div>Contract End: {formatDate(member.contractEnd || member.endDate)}</div>
+                                      </div>
+                                    </div>
+                                  </div>
                                 </td>
                                 <td className="px-4 py-3 border-r border-b border-surface-200 dark:border-white/[0.06]">
                                   {formatDate(member.startDate)}
@@ -324,7 +324,7 @@ export default function ProjectResource() {
                                 <td className="px-4 py-3 border-r border-b border-surface-200 dark:border-white/[0.06]">
                                   {formatDate(member.endDate)}
                                 </td>
-                                <td className="px-4 py-3 border-r border-b border-surface-200 dark:border-white/[0.06]">
+                                <td className="px-4 py-3 border-r border-b border-surface-200 dark:border-white/[0.06] truncate">
                                   {member.jobRoleName || member.jobRoleCode || '-'}
                                 </td>
                                 {months.map(m => {
@@ -333,12 +333,12 @@ export default function ProjectResource() {
                                     <td 
                                       key={m.key} 
                                       className={[
-                                        'px-4 py-3 border-r border-b border-surface-200 dark:border-white/[0.06] transition-colors',
+                                        'border-r border-b border-surface-200 dark:border-white/[0.06] transition-colors',
                                         isActive 
                                           ? 'bg-yellow-300 dark:bg-yellow-500/80 hover:bg-yellow-400 dark:hover:bg-yellow-400/90' 
                                           : 'bg-transparent hover:bg-surface-100/50 dark:hover:bg-surface-800/40'
                                       ].join(' ')}
-                                      title={isActive ? `${member.name} active in ${m.label}` : ''}
+                                      title={isActive ? `${member.name} active in ${m.monthLabel} ${m.yearLabel}` : ''}
                                     >
                                       
                                     </td>
