@@ -14,8 +14,22 @@ import AppSelect from '../components/AppSelect';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
+function formatDateJakarta(dateValue) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date(dateValue));
+}
+
+function isTodayJakarta(dateValue) {
+  return formatDateJakarta(dateValue) === formatDateJakarta(new Date());
+}
+
 const MemberDashboard = () => {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [photoBase64, setPhotoBase64] = useState(null);
   const [location, setLocation] = useState(null);
   const [note, setNote] = useState('');
@@ -37,15 +51,11 @@ const MemberDashboard = () => {
 
   const fetchAttendances = async () => {
     try {
-      const res = await api.get(`/api/attendance/me?month=${filterMonth}&year=${filterYear}`);
+      const res = await api.get(`/api/attendance/me?month=${filterMonth}&year=${filterYear}&_t=${Date.now()}`);
       setAttendances(res.data);
-      const today = new Date();
       const todayRec = res.data.find(a => {
-        if (!a.checkInTime) return false;
-        const checkInDate = new Date(a.checkInTime);
-        return checkInDate.getDate() === today.getDate() &&
-          checkInDate.getMonth() === today.getMonth() &&
-          checkInDate.getFullYear() === today.getFullYear();
+        const dateValue = a.date || a.checkInTime;
+        return dateValue && isTodayJakarta(dateValue);
       });
       setTodayRecord(todayRec || null);
     } catch (err) {
@@ -112,12 +122,15 @@ const MemberDashboard = () => {
     setLoading(true);
     try {
       const endpoint = type === 'check-in' ? '/api/attendance/check-in' : '/api/attendance/check-out';
-      await api.post(endpoint, {
+      const response = await api.post(endpoint, {
         photo: photoBase64, latitude: location.latitude, longitude: location.longitude, note
       });
+      if (response.data.attendance) {
+        setTodayRecord(response.data.attendance);
+      }
+      await fetchAttendances();
       showToast({ type: 'success', title: 'Berhasil', message: `${type === 'check-in' ? 'Check-In' : 'Check-Out'} berhasil!` });
       setPhotoBase64(null); setLocation(null); setNote('');
-      fetchAttendances();
     } catch (err) {
       showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal mengirim absensi' });
     } finally { setLoading(false); }
