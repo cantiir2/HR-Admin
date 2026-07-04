@@ -9,7 +9,7 @@ const { authenticateToken, authenticateAdmin } = require('../middleware/auth');
 module.exports = (prisma) => {
   const handleGetOrPost = async (req, res) => {
     try {
-      const { projectManagerId, projectId, memberId, year, activeOnly, search, startMonth, endMonth } = {
+      const { projectManagerId, projectId, memberId, year, activeOnly, search, month, backMonths, forwardMonths } = {
         ...req.query,
         ...req.body
       };
@@ -33,12 +33,20 @@ module.exports = (prisma) => {
         jobRoleMasters.map((item) => [item.code, item.name])
       );
 
-      if (startMonth) {
-        filterStartDate = new Date(`${startMonth}-01T00:00:00.000Z`);
-      }
-      if (endMonth) {
-        const [y, m] = endMonth.split('-');
-        filterEndDate = new Date(Date.UTC(parseInt(y), parseInt(m), 0, 23, 59, 59, 999));
+      if (month) {
+        const [y, m] = month.split('-').map(Number);
+        const selectedDate = new Date(y, m - 1, 1);
+        
+        const back = backMonths !== undefined ? Number(backMonths) : 6;
+        const forward = forwardMonths !== undefined ? Number(forwardMonths) : 5;
+        
+        // start is selectedMonth - backMonths
+        const startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() - back, 1);
+        filterStartDate = new Date(Date.UTC(startDate.getFullYear(), startDate.getMonth(), 1, 0, 0, 0, 0));
+        
+        // end is selectedMonth + forwardMonths (end of month)
+        const endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + forward + 1, 0);
+        filterEndDate = new Date(Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59, 999));
       }
       
       if (activeOnly === 'true') {

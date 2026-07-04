@@ -10,9 +10,18 @@ import AppAlert from '../../components/AppAlert';
 import AppSelect from '../../components/AppSelect';
 import { Search, Loader2 } from 'lucide-react';
 
-function generateDefaultResourceMonths(referenceDate = new Date()) {
-  const start = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - 6, 1);
-  return Array.from({ length: 12 }, (_, index) => {
+function getCurrentMonthValue() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function generateResourceMonthsByRange(selectedMonthValue, backMonths = 6, forwardMonths = 5) {
+  const [year, month] = selectedMonthValue.split('-').map(Number);
+  const selected = new Date(year, month - 1, 1);
+  const start = new Date(selected.getFullYear(), selected.getMonth() - Number(backMonths), 1);
+  const totalMonths = Number(backMonths) + 1 + Number(forwardMonths);
+
+  return Array.from({ length: totalMonths }, (_, index) => {
     const date = new Date(start.getFullYear(), start.getMonth() + index, 1);
     return {
       key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
@@ -61,12 +70,23 @@ export default function ProjectResource() {
   const [memberId, setMemberId] = useState('');
   const [projectManagerId, setProjectManagerId] = useState('');
   
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthValue());
+  const [backMonths, setBackMonths] = useState(6);
+  const [forwardMonths, setForwardMonths] = useState(5);
+  
+  const [appliedMonth, setAppliedMonth] = useState(getCurrentMonthValue());
+  const [appliedBackMonths, setAppliedBackMonths] = useState(6);
+  const [appliedForwardMonths, setAppliedForwardMonths] = useState(5);
+  
   const [memberOptions, setMemberOptions] = useState([]);
   const [pmOptions, setPmOptions] = useState([]);
   
   const [appliedFilters, setAppliedFilters] = useState({
     memberId: '',
-    projectManagerId: ''
+    projectManagerId: '',
+    month: getCurrentMonthValue(),
+    backMonths: 6,
+    forwardMonths: 5
   });
   
   const fetchData = async (overrideFilters = null) => {
@@ -74,8 +94,17 @@ export default function ProjectResource() {
     const currentActiveOnly = overrideFilters?.activeOnly !== undefined ? overrideFilters.activeOnly : activeOnly;
     const currentMemberId = overrideFilters?.memberId !== undefined ? overrideFilters.memberId : memberId;
     const currentPmId = overrideFilters?.projectManagerId !== undefined ? overrideFilters.projectManagerId : projectManagerId;
+    const currentMonth = overrideFilters?.month !== undefined ? overrideFilters.month : appliedMonth;
+    const currentBack = overrideFilters?.backMonths !== undefined ? overrideFilters.backMonths : appliedBackMonths;
+    const currentForward = overrideFilters?.forwardMonths !== undefined ? overrideFilters.forwardMonths : appliedForwardMonths;
 
-    setAppliedFilters({ memberId: currentMemberId, projectManagerId: currentPmId });
+    setAppliedFilters({ 
+      memberId: currentMemberId, 
+      projectManagerId: currentPmId, 
+      month: currentMonth,
+      backMonths: currentBack,
+      forwardMonths: currentForward
+    });
 
     try {
       setLoading(true);
@@ -85,7 +114,10 @@ export default function ProjectResource() {
         search: currentSearch,
         activeOnly: currentActiveOnly ? 'true' : 'false',
         memberId: currentMemberId,
-        projectManagerId: currentPmId
+        projectManagerId: currentPmId,
+        month: currentMonth,
+        backMonths: currentBack,
+        forwardMonths: currentForward
       });
       
       const pmData = response.data.projectManagers || [];
@@ -128,7 +160,26 @@ export default function ProjectResource() {
   }, []);
 
   const handleApplyFilter = () => {
-    fetchData();
+    if (!selectedMonth) {
+      showToast({ type: 'error', title: 'Invalid Filter', message: 'Month cannot be empty.' });
+      return;
+    }
+    const back = Number(backMonths);
+    const forward = Number(forwardMonths);
+    if (isNaN(back) || back < 0 || isNaN(forward) || forward < 0) {
+      showToast({ type: 'error', title: 'Invalid Filter', message: 'Back and Forward Months must be valid numbers \u2265 0.' });
+      return;
+    }
+    const total = back + 1 + forward;
+    if (total > 24) {
+      showToast({ type: 'error', title: 'Range Limit Exceeded', message: 'Maximum total months allowed is 24.' });
+      return;
+    }
+
+    setAppliedMonth(selectedMonth);
+    setAppliedBackMonths(back);
+    setAppliedForwardMonths(forward);
+    fetchData({ month: selectedMonth, backMonths: back, forwardMonths: forward });
   };
 
   const handleResetFilter = () => {
@@ -136,12 +187,22 @@ export default function ProjectResource() {
     setActiveOnly(true);
     setMemberId('');
     setProjectManagerId('');
-    fetchData({ search: '', activeOnly: true, memberId: '', projectManagerId: '' });
+    
+    const currentMonth = getCurrentMonthValue();
+    setSelectedMonth(currentMonth);
+    setBackMonths(6);
+    setForwardMonths(5);
+    
+    setAppliedMonth(currentMonth);
+    setAppliedBackMonths(6);
+    setAppliedForwardMonths(5);
+    
+    fetchData({ search: '', activeOnly: true, memberId: '', projectManagerId: '', month: currentMonth, backMonths: 6, forwardMonths: 5 });
   };
   
   const months = useMemo(() => {
-    return generateDefaultResourceMonths();
-  }, []);
+    return generateResourceMonthsByRange(appliedMonth, appliedBackMonths, appliedForwardMonths);
+  }, [appliedMonth, appliedBackMonths, appliedForwardMonths]);
 
   const yearGroups = useMemo(() => {
     return groupYearHeaders(months);
@@ -186,15 +247,50 @@ export default function ProjectResource() {
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <label className="flex items-center gap-2 text-sm cursor-pointer text-surface-700 dark:text-surface-300">
-            <input 
-              type="checkbox" 
-              checked={activeOnly} 
-              onChange={(e) => setActiveOnly(e.target.checked)}
-              className="rounded border-surface-300 text-brand-500 focus:ring-brand-500 bg-transparent"
-            />
-            Active Projects Only
-          </label>
+          <div className="flex flex-wrap items-center gap-6">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-surface-700 dark:text-surface-300">Month:</span>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="px-3 py-1.5 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-white/[0.06] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/50 dark:text-white"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-surface-700 dark:text-surface-300" title="Back Months">Back:</span>
+              <select
+                value={backMonths}
+                onChange={(e) => setBackMonths(e.target.value)}
+                className="px-3 py-1.5 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-white/[0.06] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/50 dark:text-white"
+              >
+                {Array.from({ length: 25 }, (_, i) => (
+                  <option key={`back-${i}`} value={i}>{i}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-surface-700 dark:text-surface-300" title="Forward Months">Forward:</span>
+              <select
+                value={forwardMonths}
+                onChange={(e) => setForwardMonths(e.target.value)}
+                className="px-3 py-1.5 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-white/[0.06] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/50 dark:text-white"
+              >
+                {Array.from({ length: 25 }, (_, i) => (
+                  <option key={`fwd-${i}`} value={i}>{i}</option>
+                ))}
+              </select>
+            </div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer text-surface-700 dark:text-surface-300">
+              <input 
+                type="checkbox" 
+                checked={activeOnly} 
+                onChange={(e) => setActiveOnly(e.target.checked)}
+                className="rounded border-surface-300 text-brand-500 focus:ring-brand-500 bg-transparent"
+              />
+              Active Projects Only
+            </label>
+          </div>
           <div className="flex gap-2">
             <button
               onClick={handleResetFilter}
@@ -256,25 +352,25 @@ export default function ProjectResource() {
                       </div>
                     </div>
                     
-                    <div className="overflow-x-auto lg:overflow-x-visible relative">
-                      <table className="w-full text-sm text-left whitespace-nowrap table-fixed border-collapse min-w-[900px] lg:min-w-0">
+                    <div className="overflow-x-auto relative">
+                      <table className="w-full text-sm text-left whitespace-nowrap table-fixed border-collapse" style={{ minWidth: `${676 + months.length * 64}px` }}>
                         <colgroup>
-                          <col className="w-[48px]" />
-                          <col className="w-[220px]" />
-                          <col className="w-[100px]" />
-                          <col className="w-[100px]" />
-                          <col className="w-[150px]" />
+                          <col className="w-[56px] min-w-[56px]" />
+                          <col className="w-[240px] min-w-[240px]" />
+                          <col className="w-[110px] min-w-[110px]" />
+                          <col className="w-[110px] min-w-[110px]" />
+                          <col className="w-[160px] min-w-[160px]" />
                           {months.map(m => (
-                            <col key={m.key} />
+                            <col key={m.key} className="min-w-[64px]" />
                           ))}
                         </colgroup>
                         <thead>
                           <tr className="bg-surface-100 dark:bg-surface-900/50 text-surface-600 dark:text-surface-400">
-                            <th rowSpan={2} className="px-2 py-2 font-medium border-r border-b border-surface-200 dark:border-white/[0.06] sticky left-0 lg:static z-20 bg-surface-100 dark:bg-surface-900 lg:bg-transparent dark:lg:bg-transparent shadow-[1px_0_0_0_#e5e7eb] lg:shadow-none dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] dark:lg:shadow-none">No</th>
-                            <th rowSpan={2} className="px-2 py-2 font-medium border-r border-b border-surface-200 dark:border-white/[0.06] sticky left-[48px] lg:static z-20 bg-surface-100 dark:bg-surface-900 lg:bg-transparent dark:lg:bg-transparent shadow-[1px_0_0_0_#e5e7eb] lg:shadow-none dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] dark:lg:shadow-none truncate">Name</th>
-                            <th rowSpan={2} className="px-2 py-2 font-medium border-r border-b border-surface-200 dark:border-white/[0.06] truncate">Start Date</th>
-                            <th rowSpan={2} className="px-2 py-2 font-medium border-r border-b border-surface-200 dark:border-white/[0.06] truncate">End Date</th>
-                            <th rowSpan={2} className="px-2 py-2 font-medium border-r border-b border-surface-200 dark:border-white/[0.06] truncate">Job Role</th>
+                            <th rowSpan={2} className="w-[56px] min-w-[56px] px-2 py-2 font-medium border-b border-surface-200 dark:border-white/[0.06] sticky left-0 z-40 bg-surface-100 dark:bg-surface-900 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)]">No</th>
+                            <th rowSpan={2} className="w-[240px] min-w-[240px] px-2 py-2 font-medium border-b border-surface-200 dark:border-white/[0.06] sticky left-[56px] z-40 bg-surface-100 dark:bg-surface-900 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] truncate">Name</th>
+                            <th rowSpan={2} className="w-[110px] min-w-[110px] px-2 py-2 font-medium border-b border-surface-200 dark:border-white/[0.06] sticky left-[296px] z-40 bg-surface-100 dark:bg-surface-900 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] truncate">Start Date</th>
+                            <th rowSpan={2} className="w-[110px] min-w-[110px] px-2 py-2 font-medium border-b border-surface-200 dark:border-white/[0.06] sticky left-[406px] z-40 bg-surface-100 dark:bg-surface-900 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] truncate">End Date</th>
+                            <th rowSpan={2} className="w-[160px] min-w-[160px] px-2 py-2 font-medium border-b border-surface-200 dark:border-white/[0.06] sticky left-[516px] z-40 bg-surface-100 dark:bg-surface-900 shadow-[2px_0_0_0_#cbd5e1] dark:shadow-[2px_0_0_0_rgba(255,255,255,0.12)] truncate">Job Role</th>
                             {yearGroups.map((g, i) => (
                               <th key={i} colSpan={g.span} className="px-1 py-1 font-medium text-center border-r border-b border-surface-200 dark:border-white/[0.06] text-xs sm:text-sm">
                                 {g.year}
@@ -292,15 +388,15 @@ export default function ProjectResource() {
                         <tbody>
                           {project.members.length === 0 ? (
                             <tr>
-                              <td colSpan={5 + months.length} className="px-2 py-3 text-center text-surface-500 sticky left-0 lg:static z-10 bg-white dark:bg-surface-800 lg:bg-transparent dark:lg:bg-transparent">
+                              <td colSpan={5 + months.length} className="px-2 py-3 text-center text-surface-500 sticky left-0 z-30 bg-white dark:bg-surface-800">
                                 Belum ada member di project ini
                               </td>
                             </tr>
                           ) : (
                             project.members.map((member, idx) => (
                               <tr key={member.id} className="hover:bg-surface-50 dark:hover:bg-surface-800/30 transition-colors group/row">
-                                <td className="px-2 py-2 border-r border-b border-surface-200 dark:border-white/[0.06] sticky left-0 lg:static z-10 bg-white dark:bg-surface-800 lg:bg-transparent dark:lg:bg-transparent group-hover/row:bg-surface-50 dark:group-hover/row:bg-surface-800/30 lg:group-hover/row:bg-transparent dark:lg:group-hover/row:bg-transparent shadow-[1px_0_0_0_#e5e7eb] lg:shadow-none dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] dark:lg:shadow-none">{idx + 1}</td>
-                                <td className="px-2 py-2 font-medium text-surface-900 dark:text-white border-r border-b border-surface-200 dark:border-white/[0.06] sticky left-[48px] lg:static z-10 bg-white dark:bg-surface-800 lg:bg-transparent dark:lg:bg-transparent group-hover/row:bg-surface-50 dark:group-hover/row:bg-surface-800/30 lg:group-hover/row:bg-transparent dark:lg:group-hover/row:bg-transparent shadow-[1px_0_0_0_#e5e7eb] lg:shadow-none dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] dark:lg:shadow-none truncate">
+                                <td className="w-[56px] min-w-[56px] px-2 py-2 border-b border-surface-200 dark:border-white/[0.06] sticky left-0 z-30 bg-white dark:bg-surface-800 group-hover/row:bg-surface-50 dark:group-hover/row:bg-surface-800/30 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)]">{idx + 1}</td>
+                                <td className="w-[240px] min-w-[240px] px-2 py-2 font-medium text-surface-900 dark:text-white border-b border-surface-200 dark:border-white/[0.06] sticky left-[56px] z-30 bg-white dark:bg-surface-800 group-hover/row:bg-surface-50 dark:group-hover/row:bg-surface-800/30 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] truncate">
                                   <div className="relative inline-block group w-full">
                                     <span
                                       className="cursor-help block w-full truncate"
@@ -318,13 +414,13 @@ export default function ProjectResource() {
                                     </div>
                                   </div>
                                 </td>
-                                <td className="px-2 py-2 border-r border-b border-surface-200 dark:border-white/[0.06] truncate">
+                                <td className="w-[110px] min-w-[110px] px-2 py-2 border-b border-surface-200 dark:border-white/[0.06] sticky left-[296px] z-30 bg-white dark:bg-surface-800 group-hover/row:bg-surface-50 dark:group-hover/row:bg-surface-800/30 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] truncate">
                                   {formatDate(member.startDate)}
                                 </td>
-                                <td className="px-2 py-2 border-r border-b border-surface-200 dark:border-white/[0.06] truncate">
+                                <td className="w-[110px] min-w-[110px] px-2 py-2 border-b border-surface-200 dark:border-white/[0.06] sticky left-[406px] z-30 bg-white dark:bg-surface-800 group-hover/row:bg-surface-50 dark:group-hover/row:bg-surface-800/30 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] truncate">
                                   {formatDate(member.endDate)}
                                 </td>
-                                <td className="px-2 py-2 border-r border-b border-surface-200 dark:border-white/[0.06] truncate" title={member.jobRoleName || member.jobRoleCode || ''}>
+                                <td className="w-[160px] min-w-[160px] px-2 py-2 border-b border-surface-200 dark:border-white/[0.06] sticky left-[516px] z-30 bg-white dark:bg-surface-800 group-hover/row:bg-surface-50 dark:group-hover/row:bg-surface-800/30 shadow-[2px_0_0_0_#cbd5e1] dark:shadow-[2px_0_0_0_rgba(255,255,255,0.12)] truncate" title={member.jobRoleName || member.jobRoleCode || ''}>
                                   {member.jobRoleName || member.jobRoleCode || '-'}
                                 </td>
                                 {months.map(m => {
