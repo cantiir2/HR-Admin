@@ -256,35 +256,35 @@ export default function ProjectResource() {
                       </div>
                     </div>
                     
-                    <div className="overflow-x-auto relative">
-                      <table className="w-full text-sm text-left whitespace-nowrap table-fixed border-collapse min-w-max">
+                    <div className="overflow-x-auto lg:overflow-x-visible relative">
+                      <table className="w-full text-sm text-left whitespace-nowrap table-fixed border-collapse min-w-[900px] lg:min-w-0">
                         <colgroup>
-                          <col className="w-[64px]" />
-                          <col className="w-[280px]" />
-                          <col className="w-[140px]" />
-                          <col className="w-[140px]" />
+                          <col className="w-[48px]" />
                           <col className="w-[220px]" />
+                          <col className="w-[100px]" />
+                          <col className="w-[100px]" />
+                          <col className="w-[150px]" />
                           {months.map(m => (
-                            <col key={m.key} className="w-[88px]" />
+                            <col key={m.key} />
                           ))}
                         </colgroup>
                         <thead>
                           <tr className="bg-surface-100 dark:bg-surface-900/50 text-surface-600 dark:text-surface-400">
-                            <th rowSpan={2} className="px-4 py-3 font-medium border-r border-b border-surface-200 dark:border-white/[0.06] sticky left-0 z-20 bg-surface-100 dark:bg-surface-900 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)]">No</th>
-                            <th rowSpan={2} className="px-4 py-3 font-medium border-r border-b border-surface-200 dark:border-white/[0.06] sticky left-[64px] z-20 bg-surface-100 dark:bg-surface-900 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)]">Name</th>
-                            <th rowSpan={2} className="px-4 py-3 font-medium border-r border-b border-surface-200 dark:border-white/[0.06]">Start Date</th>
-                            <th rowSpan={2} className="px-4 py-3 font-medium border-r border-b border-surface-200 dark:border-white/[0.06]">End Date</th>
-                            <th rowSpan={2} className="px-4 py-3 font-medium border-r border-b border-surface-200 dark:border-white/[0.06]">Job Role</th>
+                            <th rowSpan={2} className="px-2 py-2 font-medium border-r border-b border-surface-200 dark:border-white/[0.06] sticky left-0 lg:static z-20 bg-surface-100 dark:bg-surface-900 lg:bg-transparent dark:lg:bg-transparent shadow-[1px_0_0_0_#e5e7eb] lg:shadow-none dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] dark:lg:shadow-none">No</th>
+                            <th rowSpan={2} className="px-2 py-2 font-medium border-r border-b border-surface-200 dark:border-white/[0.06] sticky left-[48px] lg:static z-20 bg-surface-100 dark:bg-surface-900 lg:bg-transparent dark:lg:bg-transparent shadow-[1px_0_0_0_#e5e7eb] lg:shadow-none dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] dark:lg:shadow-none truncate">Name</th>
+                            <th rowSpan={2} className="px-2 py-2 font-medium border-r border-b border-surface-200 dark:border-white/[0.06] truncate">Start Date</th>
+                            <th rowSpan={2} className="px-2 py-2 font-medium border-r border-b border-surface-200 dark:border-white/[0.06] truncate">End Date</th>
+                            <th rowSpan={2} className="px-2 py-2 font-medium border-r border-b border-surface-200 dark:border-white/[0.06] truncate">Job Role</th>
                             {yearGroups.map((g, i) => (
-                              <th key={i} colSpan={g.span} className="px-4 py-2 font-medium text-center border-r border-b border-surface-200 dark:border-white/[0.06]">
+                              <th key={i} colSpan={g.span} className="px-1 py-1 font-medium text-center border-r border-b border-surface-200 dark:border-white/[0.06] text-xs sm:text-sm">
                                 {g.year}
                               </th>
                             ))}
                           </tr>
                           <tr className="bg-surface-100 dark:bg-surface-900/50 text-surface-600 dark:text-surface-400">
                             {months.map(m => (
-                              <th key={m.key} className="px-4 py-2 font-medium text-center border-r border-b border-surface-200 dark:border-white/[0.06]">
-                                {m.monthLabel}
+                              <th key={m.key} className="px-1 py-2 font-medium text-center border-r border-b border-surface-200 dark:border-white/[0.06] text-xs">
+                                {m.monthLabel.substring(0, 3)}
                               </th>
                             ))}
                           </tr>
@@ -292,15 +292,15 @@ export default function ProjectResource() {
                         <tbody>
                           {project.members.length === 0 ? (
                             <tr>
-                              <td colSpan={5 + months.length} className="px-4 py-4 text-center text-surface-500 sticky left-0 z-10 bg-white dark:bg-surface-800">
+                              <td colSpan={5 + months.length} className="px-2 py-3 text-center text-surface-500 sticky left-0 lg:static z-10 bg-white dark:bg-surface-800 lg:bg-transparent dark:lg:bg-transparent">
                                 Belum ada member di project ini
                               </td>
                             </tr>
                           ) : (
                             project.members.map((member, idx) => (
                               <tr key={member.id} className="hover:bg-surface-50 dark:hover:bg-surface-800/30 transition-colors group/row">
-                                <td className="px-4 py-3 border-r border-b border-surface-200 dark:border-white/[0.06] sticky left-0 z-10 bg-white dark:bg-surface-800 group-hover/row:bg-surface-50 dark:group-hover/row:bg-surface-800/30 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)]">{idx + 1}</td>
-                                <td className="px-4 py-3 font-medium text-surface-900 dark:text-white border-r border-b border-surface-200 dark:border-white/[0.06] sticky left-[64px] z-10 bg-white dark:bg-surface-800 group-hover/row:bg-surface-50 dark:group-hover/row:bg-surface-800/30 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] truncate">
+                                <td className="px-2 py-2 border-r border-b border-surface-200 dark:border-white/[0.06] sticky left-0 lg:static z-10 bg-white dark:bg-surface-800 lg:bg-transparent dark:lg:bg-transparent group-hover/row:bg-surface-50 dark:group-hover/row:bg-surface-800/30 lg:group-hover/row:bg-transparent dark:lg:group-hover/row:bg-transparent shadow-[1px_0_0_0_#e5e7eb] lg:shadow-none dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] dark:lg:shadow-none">{idx + 1}</td>
+                                <td className="px-2 py-2 font-medium text-surface-900 dark:text-white border-r border-b border-surface-200 dark:border-white/[0.06] sticky left-[48px] lg:static z-10 bg-white dark:bg-surface-800 lg:bg-transparent dark:lg:bg-transparent group-hover/row:bg-surface-50 dark:group-hover/row:bg-surface-800/30 lg:group-hover/row:bg-transparent dark:lg:group-hover/row:bg-transparent shadow-[1px_0_0_0_#e5e7eb] lg:shadow-none dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] dark:lg:shadow-none truncate">
                                   <div className="relative inline-block group w-full">
                                     <span
                                       className="cursor-help block w-full truncate"
@@ -318,13 +318,13 @@ export default function ProjectResource() {
                                     </div>
                                   </div>
                                 </td>
-                                <td className="px-4 py-3 border-r border-b border-surface-200 dark:border-white/[0.06]">
+                                <td className="px-2 py-2 border-r border-b border-surface-200 dark:border-white/[0.06] truncate">
                                   {formatDate(member.startDate)}
                                 </td>
-                                <td className="px-4 py-3 border-r border-b border-surface-200 dark:border-white/[0.06]">
+                                <td className="px-2 py-2 border-r border-b border-surface-200 dark:border-white/[0.06] truncate">
                                   {formatDate(member.endDate)}
                                 </td>
-                                <td className="px-4 py-3 border-r border-b border-surface-200 dark:border-white/[0.06] truncate">
+                                <td className="px-2 py-2 border-r border-b border-surface-200 dark:border-white/[0.06] truncate" title={member.jobRoleName || member.jobRoleCode || ''}>
                                   {member.jobRoleName || member.jobRoleCode || '-'}
                                 </td>
                                 {months.map(m => {
