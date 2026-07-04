@@ -124,6 +124,35 @@ async function getProjectManagerRecipientsForUser(prisma, userId) {
   return uniqueRecipients(rows.map(row => row.project.projectManager));
 }
 
+// Name Function : getDeductedLeaveDays
+// Author : Iyan.FID
+// Description : Menghitung jumlah hari yang memotong cuti berdasarkan tipe cuti dan evidence
+function getDeductedLeaveDays(leave) {
+  if (!leave) return 0;
+
+  const totalDays = Number(leave.totalDays) || 0;
+
+  if (leave.leaveType === 'ANNUAL_LEAVE') {
+    return totalDays;
+  }
+
+  if (leave.leaveType === 'OTHERS') {
+    const hasEvidence = Boolean(leave.evidencePhoto) || Boolean(leave.hasEvidencePhoto);
+
+    if (hasEvidence) {
+      return 0;
+    }
+
+    if (totalDays <= 1) {
+      return 0;
+    }
+
+    return totalDays - 1;
+  }
+
+  return totalDays;
+}
+
 /*****/
 /** Nama Function: calculateWorkingDays **/
 /** Deskripsi Function: Menghitung jumlah hari kerja Senin sampai Jumat **/
@@ -161,9 +190,17 @@ async function getLeaveBalance(prisma, userId, contractId) {
   const entitlementDays = calculateContractMonths(contract.startDate, contract.endDate);
   const approvedLeaves = await prisma.leaveRequest.findMany({
     where: { userId, contractId: contract.id, status: 'APPROVED' },
-    select: { totalDays: true }
+    select: { 
+      totalDays: true,
+      leaveType: true,
+      evidencePhoto: true,
+      startDate: true,
+      endDate: true
+    }
   });
-  const usedLeaveDays = approvedLeaves.reduce((total, leave) => total + leave.totalDays, 0);
+  const usedLeaveDays = approvedLeaves.reduce((total, leave) => {
+    return total + getDeductedLeaveDays(leave);
+  }, 0);
 
   return {
     contract,
@@ -208,7 +245,13 @@ async function createLeaveRequest(prisma, userId, data = {}) {
   if (!contract) return { error: 'Kontrak user tidak ditemukan' };
 
   const balance = await getLeaveBalance(prisma, userId, contract.id);
-  const overQuotaDays = Math.max(totalDays - balance.remainingLeaveDays, 0);
+  const requestedDeductDays = getDeductedLeaveDays({
+    leaveType: evidenceData.leaveType,
+    evidencePhoto: evidenceData.evidencePhoto,
+    totalDays
+  });
+
+  const overQuotaDays = Math.max(requestedDeductDays - balance.remainingLeaveDays, 0);
   const isOverQuota = overQuotaDays > 0;
 
   if (isOverQuota && data.warningAcknowledged !== true) {
@@ -218,6 +261,7 @@ async function createLeaveRequest(prisma, userId, data = {}) {
       balance: {
         remainingLeaveDays: balance.remainingLeaveDays,
         totalDays,
+        requestedDeductDays,
         overQuotaDays
       }
     };

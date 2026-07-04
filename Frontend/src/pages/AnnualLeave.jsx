@@ -24,6 +24,24 @@ const initialForm = {
   evidencePhotoMimeType: ''
 };
 
+const calculateWorkingDays = (startDate, endDate) => {
+  if (!startDate || !endDate) return 0;
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  start.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
+  if (start > end) return 0;
+
+  let total = 0;
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    const day = cursor.getDay();
+    if (day !== 0 && day !== 6) total += 1;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return total;
+};
+
 const AnnualLeave = () => {
   const { showToast } = useToast();
   const [balance, setBalance] = useState(null);
@@ -36,6 +54,8 @@ const AnnualLeave = () => {
   const [statusClass, setStatusClass] = useState({});
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [evidenceImage, setEvidenceImage] = useState(null);
+
+  const totalDays = calculateWorkingDays(form.startDate, form.endDate);
 
   const { sortBy, sortOrder, handleSort } = useTableSort('startDate', 'desc');
 
@@ -295,6 +315,23 @@ const AnnualLeave = () => {
                 <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e => handleEvidenceChange(e.target.files?.[0])} />
               </label>
               <p className="mt-1 text-xs text-surface-500">Opsional. Upload foto bukti pendukung jika tersedia.</p>
+              
+              <div className="mt-3 p-3 bg-white/[0.02] border border-white/[0.06] rounded-lg space-y-1">
+                <p className="text-xs text-surface-300">
+                  <span className="font-semibold text-brand-400">Aturan Cuti OTHERS:</span> Sakit 1 hari tidak memotong cuti. Sakit lebih dari 1 hari tanpa surat dokter akan memotong cuti mulai hari ke-2.
+                </p>
+                {form.startDate && form.endDate && totalDays > 0 && (
+                  <div className="mt-2 text-sm font-medium">
+                    {form.evidencePhoto ? (
+                      <p className="text-emerald-400">Dengan evidence/surat dokter, pengajuan ini tidak memotong jatah cuti.</p>
+                    ) : totalDays === 1 ? (
+                      <p className="text-emerald-400">Sakit 1 hari tidak memotong jatah cuti.</p>
+                    ) : (
+                      <p className="text-amber-400">Tanpa surat dokter, pengajuan ini akan mengurangi jatah cuti sebanyak {totalDays - 1} hari.</p>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -396,6 +433,9 @@ const AnnualLeave = () => {
             <div className="space-y-2 text-sm text-surface-300">
               <p>Sisa cuti Anda saat ini adalah {warning.remainingLeaveDays} hari.</p>
               <p>Jumlah cuti yang diajukan adalah {warning.totalDays} hari.</p>
+              {warning.requestedDeductDays !== undefined && warning.requestedDeductDays !== warning.totalDays && (
+                <p>Jumlah cuti yang memotong jatah adalah {warning.requestedDeductDays} hari.</p>
+              )}
               <p>Terdapat kelebihan cuti sebanyak {warning.overQuotaDays} hari.</p>
               <p className="text-amber-300">Kelebihan cuti dapat dikenakan pemotongan gaji sesuai kebijakan perusahaan.</p>
               <p>Apakah Anda tetap ingin mengajukan cuti?</p>
