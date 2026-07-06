@@ -46,7 +46,7 @@ const Login = () => {
             <Fingerprint size={32} className="text-white" />
           </div>
           <h1 className="text-3xl font-bold text-white">Project Resource Management System</h1>
-          <p className="text-surface-400 mt-2">Sistem absensi karyawan berbasis lokasi</p>
+          {/* <p className="text-surface-400 mt-2">Sistem absensi karyawan berbasis lokasi</p> */}
         </div>
 
         {/* Card */}
