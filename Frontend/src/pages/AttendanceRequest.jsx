@@ -249,19 +249,17 @@ export default function AttendanceRequest() {
                 <>
                   <div>
                     <label className="block text-sm font-medium text-surface-300 mb-1.5">Jenis Request</label>
-                    <select
-                      className="input-dark w-full"
+                    <AppSelect
+                      className="w-full"
+                      placeholder="-- Pilih Jenis --"
                       value={requestType}
-                      onChange={(e) => setRequestType(e.target.value)}
+                      onChange={setRequestType}
+                      options={selectedDateObj.suggestedRequestTypes.map(t => ({
+                        value: t,
+                        label: t === 'CHECK_IN' ? 'Check-In Saja' : t === 'CHECK_OUT' ? 'Check-Out Saja' : 'Check-In & Check-Out'
+                      }))}
                       required
-                    >
-                      <option value="">-- Pilih Jenis --</option>
-                      {selectedDateObj.suggestedRequestTypes.map(t => (
-                        <option key={t} value={t}>
-                          {t === 'CHECK_IN' ? 'Check-In Saja' : t === 'CHECK_OUT' ? 'Check-Out Saja' : 'Check-In & Check-Out'}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
