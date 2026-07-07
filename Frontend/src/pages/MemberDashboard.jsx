@@ -39,6 +39,7 @@ const MemberDashboard = () => {
   const [todayRecord, setTodayRecord] = useState(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isOvertimeCheckout, setIsOvertimeCheckout] = useState(false);
   const webcamRef = useRef(null);
 
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
@@ -133,8 +134,9 @@ const MemberDashboard = () => {
         setTodayRecord(response.data.attendance);
       }
       await fetchAttendances();
-      showToast({ type: 'success', title: 'Berhasil', message: `${type === 'check-in' ? 'Check-In' : 'Check-Out'} berhasil!` });
+      showToast({ type: 'success', title: 'Berhasil', message: response.data.message || `${type === 'check-in' ? 'Check-In' : 'Check-Out'} berhasil!` });
       setPhotoBase64(null); setLocation(null); setNote('');
+      setIsOvertimeCheckout(false);
     } catch (err) {
       showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal mengirim absensi' });
     } finally { setLoading(false); }
@@ -142,7 +144,8 @@ const MemberDashboard = () => {
 
   const isCurrentMonth = filterMonth === (new Date().getMonth() + 1) && filterYear === new Date().getFullYear();
   const canCheckIn = isCurrentMonth && (!todayRecord || !todayRecord.checkInTime);
-  const canCheckOut = isCurrentMonth && (todayRecord && todayRecord.checkInTime && !todayRecord.checkOutTime);
+  const canCheckOut = isCurrentMonth && (todayRecord && todayRecord.checkInTime && !todayRecord.checkOutTime) || isOvertimeCheckout;
+  const showOvertimeOption = isCurrentMonth && todayRecord && todayRecord.checkInTime && todayRecord.checkOutTime && !isOvertimeCheckout;
 
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
@@ -193,9 +196,19 @@ const MemberDashboard = () => {
       {/* Attendance Form */}
       {(canCheckIn || canCheckOut) && (
         <div className="glass-card-light p-6 animate-slide-up">
-          <h2 className="text-lg font-semibold text-white mb-1">
-            {canCheckIn ? 'Check-In' : 'Check-Out'}
-          </h2>
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-lg font-semibold text-white">
+              {canCheckIn ? 'Check-In' : isOvertimeCheckout ? 'Update Check-Out Lembur' : 'Check-Out'}
+            </h2>
+            {isOvertimeCheckout && (
+              <button 
+                onClick={() => setIsOvertimeCheckout(false)}
+                className="text-xs text-surface-400 hover:text-white transition-colors"
+              >
+                Batal
+              </button>
+            )}
+          </div>
           <p className="text-sm text-surface-400 mb-5">Ambil lokasi untuk absensi</p>
 
           <div className="space-y-4">
@@ -269,13 +282,20 @@ const MemberDashboard = () => {
           <h3 className="font-semibold text-white mb-1">Mode Riwayat</h3>
           <p className="text-sm text-surface-400">Kembali ke bulan ini untuk melakukan absensi.</p>
         </div>
-      ) : !canCheckIn && !canCheckOut && (
+      ) : showOvertimeOption ? (
         <div className="glass-card p-6 text-center">
           <CheckCircle size={32} className="text-emerald-400 mx-auto mb-3" />
           <h3 className="font-semibold text-white mb-1">Absensi Lengkap</h3>
-          <p className="text-sm text-surface-400">Anda sudah check-in dan check-out hari ini.</p>
+          <p className="text-sm text-surface-400 mb-4">Anda sudah check-in dan check-out hari ini.</p>
+          <button
+            onClick={() => setIsOvertimeCheckout(true)}
+            className="px-4 py-2 text-sm font-medium bg-brand-500/20 text-brand-400 border border-brand-500/30 rounded-lg hover:bg-brand-500/30 transition-colors mx-auto inline-flex items-center gap-2"
+          >
+            <Clock size={16} />
+            Update Check-Out Lembur
+          </button>
         </div>
-      )}
+      ) : null}
 
       {/* History */}
       <div className="glass-card p-6 animate-slide-up">

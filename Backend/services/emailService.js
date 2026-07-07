@@ -10,7 +10,10 @@ const SUBJECT_BY_TYPE = {
   LEAVE_REQUEST: 'Pengajuan Cuti Baru',
   LEAVE_APPROVAL: 'Pengajuan Cuti Disetujui',
   LEAVE_REJECTED: 'Pengajuan Cuti Ditolak',
-  LEAVE_OVER_QUOTA: 'Peringatan Cuti Melebihi Jatah'
+  LEAVE_OVER_QUOTA: 'Peringatan Cuti Melebihi Jatah',
+  ATTENDANCE_REQUEST: 'Attendance Request Baru',
+  ATTENDANCE_REQUEST_APPROVED: 'Attendance Request Disetujui',
+  ATTENDANCE_REQUEST_DECLINED: 'Attendance Request Ditolak'
 };
 
 function isEmailEnabled() {

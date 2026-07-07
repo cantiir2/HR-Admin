@@ -14,6 +14,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { useAuth } from '../context/AuthContext';
 import AppSelect from '../components/AppSelect';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 const locales = { 'id': idLocale };
 const localizer = dateFnsLocalizer({
@@ -127,6 +128,7 @@ const ProjectDetail = () => {
   const [selectedMilestoneId, setSelectedMilestoneId] = useState(null);
   const [editingTask, setEditingTask] = useState(null);
   const { showToast } = useToast();
+  const { confirm } = useConfirm();
 
   const [milestoneForm, setMilestoneForm] = useState({ name: '', startDate: '', endDate: '', status: 'pending' });
   const [taskForm, setTaskForm] = useState({ title: '', description: '', assignedToId: '', startDate: '', dueDate: '', status: 'TODO' });
@@ -319,7 +321,14 @@ const ProjectDetail = () => {
   };
 
   const handleDeleteTask = async (taskId) => {
-    if (!confirm('Hapus task ini?')) return;
+    const confirmed = await confirm({
+      title: 'Hapus Task?',
+      message: 'Apakah Anda yakin ingin menghapus task ini?',
+      confirmText: 'Ya, Hapus',
+      cancelText: 'Batal',
+      variant: 'danger'
+    });
+    if (!confirmed) return;
     try {
       await api.delete(`/api/projects/${id}/tasks/${taskId}`);
       showToast({ type: 'success', title: 'Berhasil', message: 'Task dihapus' });

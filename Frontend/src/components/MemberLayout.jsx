@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
-  Fingerprint, Map as MapIcon, LogOut, Menu, X, User, FileText, CalendarDays, ClipboardCheck, Bell
+  Fingerprint, Map as MapIcon, LogOut, Menu, X, User, FileText, CalendarDays, ClipboardCheck, Bell, History
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import UserAvatar from './UserAvatar';
@@ -22,6 +22,7 @@ const MemberLayout = () => {
 
   const navItems = [
     { to: '/member', icon: MapIcon, label: 'Dashboard Absensi', end: true },
+    { to: '/member/attendance-requests', icon: History, label: 'Attendance Request' },
     { to: '/member/profile', icon: User, label: 'Profil Saya' },
     { to: '/member/working-report', icon: FileText, label: 'Working Report' },
     { to: '/member/annual-leave', icon: CalendarDays, label: 'Annual Leave' },

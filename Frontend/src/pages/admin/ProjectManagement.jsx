@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import AppSelect from '../../components/AppSelect';
 import Pagination from '../../components/Pagination';
 import { useToast } from '../../context/ToastContext';
+import { useConfirm } from '../../context/ConfirmContext';
 
 const ProjectManagement = () => {
   const [projects, setProjects] = useState([]);
@@ -27,6 +28,7 @@ const ProjectManagement = () => {
     name: '', description: '', location: '', customer: '', customerName: '', woNumber: '', projectManagerId: '', contractStart: '', contractEnd: '', status: 'active'
   });
   const { showToast } = useToast();
+  const { confirm } = useConfirm();
 
   const fetchProjects = useCallback(async (pageNo = 1, pageSize = pageSizeRef.current) => {
     if (filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo) {
@@ -137,7 +139,14 @@ const ProjectManagement = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Yakin ingin menghapus project ini?')) return;
+    const confirmed = await confirm({
+      title: 'Hapus Project?',
+      message: 'Apakah Anda yakin ingin menghapus project ini?',
+      confirmText: 'Ya, Hapus',
+      cancelText: 'Batal',
+      variant: 'danger'
+    });
+    if (!confirmed) return;
     const nextPageNo = projects.length === 1 && page.pageNo > 1
       ? page.pageNo - 1
       : page.pageNo;

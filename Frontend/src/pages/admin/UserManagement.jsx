@@ -5,7 +5,7 @@ import {
   FileText, Shield, Phone, UsersRound, Briefcase
 } from 'lucide-react';
 import { format } from 'date-fns';
-import ConfirmDialog from '../../components/ConfirmDialog';
+import { useConfirm } from '../../context/ConfirmContext';
 import UserAvatar from '../../components/UserAvatar';
 import AppSelect from '../../components/AppSelect';
 import Pagination from '../../components/Pagination';
@@ -25,7 +25,7 @@ const UserManagement = () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const { showToast } = useToast();
-  const [confirm, setConfirm] = useState(null);
+  const { confirm } = useConfirm();
   const [filters, setFilters] = useState({ search: '', role: '', jobRoleCode: '', contractStatus: '' });
   const [page, setPage] = useState({ pageNo: 1, pageSize: 10, totalRows: 0, totalPages: 1 });
   const [loading, setLoading] = useState(false);
@@ -170,38 +170,42 @@ const UserManagement = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setConfirm({
+    const confirmed = await confirm({
       title: editingUser ? 'Update User' : 'Tambah User',
       message: editingUser ? 'Simpan perubahan user ini?' : 'Tambahkan user baru dengan data ini?',
-      confirmLabel: editingUser ? 'Ya, Update' : 'Ya, Tambah',
-      onConfirm: submitUser
+      confirmText: editingUser ? 'Ya, Update' : 'Ya, Tambah',
+      cancelText: 'Batal'
     });
+    if (confirmed) {
+      await submitUser();
+    }
   };
 
-  const handleDelete = (user) => {
-    setConfirm({
+  const handleDelete = async (user) => {
+    const confirmed = await confirm({
       title: 'Hapus User',
       message: `Hapus user ${user.name}? Aksi ini tidak bisa dibatalkan.`,
-      confirmLabel: 'Hapus',
-      tone: 'danger',
-      onConfirm: async () => {
-        setActionLoading(true);
-        try {
-          const nextPageNo = users.length === 1 && page.pageNo > 1
-            ? page.pageNo - 1
-            : page.pageNo;
-          await api.delete(`/api/users/${user.id}`);
-          await fetchUsers(nextPageNo, page.pageSize);
-          showToast({ type: 'success', title: 'Berhasil', message: 'User berhasil dihapus' });
-        } catch (err) {
-          showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal menghapus user' });
-        } finally {
-          setActionLoading(false);
-        }
-      }
+      confirmText: 'Hapus',
+      cancelText: 'Batal',
+      variant: 'danger'
     });
+    if (confirmed) {
+      setActionLoading(true);
+      try {
+        const nextPageNo = users.length === 1 && page.pageNo > 1
+          ? page.pageNo - 1
+          : page.pageNo;
+        await api.delete(`/api/users/${user.id}`);
+        await fetchUsers(nextPageNo, page.pageSize);
+        showToast({ type: 'success', title: 'Berhasil', message: 'User berhasil dihapus' });
+      } catch (err) {
+        showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal menghapus user' });
+      } finally {
+        setActionLoading(false);
+      }
+    }
   };
 
   const openDetail = async (user) => {
@@ -798,20 +802,7 @@ const UserManagement = () => {
           </div>
         </div>
       )}
-      <ConfirmDialog
-        open={Boolean(confirm)}
-        title={confirm?.title}
-        message={confirm?.message}
-        confirmLabel={confirm?.confirmLabel}
-        tone={confirm?.tone}
-        loading={actionLoading}
-        onCancel={() => setConfirm(null)}
-        onConfirm={async () => {
-          const action = confirm?.onConfirm;
-          setConfirm(null);
-          await action?.();
-        }}
-      />
+
     </div>
   );
 };

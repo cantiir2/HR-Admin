@@ -188,6 +188,87 @@ async function createBulkNotifications(prisma, recipients = [], data = {}) {
   return created;
 }
 
+/*****/
+/** Nama Function: getPmAdminRecipients **/
+/** Deskripsi Function: Mengambil daftar email admin dengan role PM **/
+/** Creator by: FID.Iyan **/
+/*****/
+async function getPmAdminRecipients(prisma) {
+  return prisma.user.findMany({
+    where: {
+      role: 'ADMIN',
+      jobRoleCode: 'PM'
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      jobRoleCode: true
+    }
+  });
+}
+
+/*****/
+/** Nama Function: getProjectManagerRecipientsForAttendanceRequest **/
+/** Deskripsi Function: Mencari PM project yang relevan berdasarkan assignment member dan tanggal request attendance **/
+/** Creator by: FID.Iyan **/
+/*****/
+async function getProjectManagerRecipientsForAttendanceRequest(prisma, userId, requestDate) {
+  const d = new Date(requestDate);
+
+  const assignments = await prisma.projectMember.findMany({
+    where: {
+      userId,
+      project: { status: 'active' }
+    },
+    include: {
+      project: {
+        include: {
+          projectManager: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+              jobRoleCode: true
+            }
+          }
+        }
+      }
+    }
+  });
+
+  const pmMap = new Map();
+
+  for (const assignment of assignments) {
+    const start = assignment.joinedAt || assignment.project.contractStart;
+    const end = assignment.leftAt || assignment.project.contractEnd;
+
+    if (start && start > d) continue;
+    if (end && end < d) continue;
+
+    const pm = assignment.project.projectManager;
+    if (!pm) continue;
+    if (pm.role !== 'ADMIN') continue;
+    if (pm.jobRoleCode !== 'PM') continue;
+
+    if (!pmMap.has(pm.id)) {
+      pmMap.set(pm.id, {
+        ...pm,
+        projectNames: [assignment.project.name]
+      });
+    } else {
+      const existing = pmMap.get(pm.id);
+      if (!existing.projectNames.includes(assignment.project.name)) {
+        existing.projectNames.push(assignment.project.name);
+      }
+    }
+  }
+
+  return Array.from(pmMap.values());
+}
+
 module.exports = {
   createNotification,
   createBulkNotifications,
@@ -198,5 +279,7 @@ module.exports = {
   markEmailAsFailed,
   buildEmailPayload,
   sendNotificationEmail,
-  sendNotificationEmails
+  sendNotificationEmails,
+  getPmAdminRecipients,
+  getProjectManagerRecipientsForAttendanceRequest
 };

@@ -39,6 +39,9 @@ enum NotificationType {
   LEAVE_APPROVAL
   LEAVE_REJECTED
   LEAVE_OVER_QUOTA
+  ATTENDANCE_REQUEST
+  ATTENDANCE_REQUEST_APPROVED
+  ATTENDANCE_REQUEST_DECLINED
 }
 
 enum NotificationChannel {
@@ -66,6 +69,19 @@ enum LeaveRequestStatus {
 enum LeaveType {
   ANNUAL_LEAVE
   OTHERS
+}
+
+enum AttendanceRequestType {
+  CHECK_IN
+  CHECK_OUT
+  BOTH
+}
+
+enum AttendanceRequestStatus {
+  PENDING
+  APPROVED
+  DECLINED
+  CANCELLED
 }
 
 // ─── User ──────────────────────────────────────────────────────────────────
@@ -118,6 +134,10 @@ model User {
   pmApprovedLeaveRequests    LeaveRequest[]   @relation("LeaveRequestPmApprover")
   adminApprovedLeaveRequests LeaveRequest[]   @relation("LeaveRequestAdminApprover")
   rejectedLeaveRequests      LeaveRequest[]   @relation("LeaveRequestRejectedBy")
+
+  attendanceRequests             AttendanceRequest[] @relation("AttendanceRequestUser")
+  approvedAttendanceRequests     AttendanceRequest[] @relation("AttendanceRequestApprover")
+  declinedAttendanceRequests     AttendanceRequest[] @relation("AttendanceRequestDecliner")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -268,6 +288,8 @@ model Attendance {
   checkOutLng   Float?
   checkOutNote  String?
 
+  attendanceRequests AttendanceRequest[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -371,4 +393,34 @@ model Task {
   updatedAt DateTime @updatedAt
 
   @@map("tb_m_task")
+}
+
+model AttendanceRequest {
+  id                    String                  @id @default(uuid())
+  userId                String
+  user                  User                    @relation("AttendanceRequestUser", fields: [userId], references: [id], onDelete: Cascade)
+  attendanceId          String?
+  attendance            Attendance?             @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+  requestDate           DateTime                @db.Date
+  requestType           AttendanceRequestType
+  requestedCheckInTime  DateTime?
+  requestedCheckOutTime DateTime?
+  reason                String                  @db.Text
+  evidencePhoto         String?                 @db.Text
+  evidencePhotoName     String?
+  evidencePhotoMimeType String?
+  status                AttendanceRequestStatus @default(PENDING)
+  approvedById          String?
+  approvedBy            User?                   @relation("AttendanceRequestApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt            DateTime?
+  declinedById          String?
+  declinedBy            User?                   @relation("AttendanceRequestDecliner", fields: [declinedById], references: [id], onDelete: SetNull)
+  declinedAt            DateTime?
+  declineReason         String?                 @db.Text
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+
+  @@index([userId, status])
+  @@index([requestDate])
+  @@map("tb_t_attendance_request")
 }

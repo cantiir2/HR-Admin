@@ -5,7 +5,7 @@ import {
   Plus, Save, Shield, Trash2, Upload, User, UsersRound, BriefcaseBusiness
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import ConfirmDialog from '../components/ConfirmDialog';
+import { useConfirm } from '../context/ConfirmContext';
 import UserAvatar from '../components/UserAvatar';
 import AppSelect from '../components/AppSelect';
 import PasswordInput from '../components/PasswordInput';
@@ -39,7 +39,7 @@ const MemberProfile = () => {
   const [parsedData, setParsedData] = useState(null);
   const [documentType, setDocumentType] = useState('LAINNYA');
   const [documentLabel, setDocumentLabel] = useState('');
-  const [confirm, setConfirm] = useState(null);
+  const { confirm } = useConfirm();
 
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
@@ -130,14 +130,17 @@ const MemberProfile = () => {
     }
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    setConfirm({
+    const confirmed = await confirm({
       title: 'Update Profil',
       message: 'Simpan perubahan data karyawan ini?',
-      confirmLabel: 'Ya, Simpan',
-      onConfirm: submitProfile
+      confirmText: 'Ya, Simpan',
+      cancelText: 'Batal'
     });
+    if (confirmed) {
+      await submitProfile();
+    }
   };
 
   const handleChangePassword = async (e) => {
@@ -237,19 +240,20 @@ const MemberProfile = () => {
     )));
   };
 
-  const removeExperience = (index) => {
-    setConfirm({
+  const removeExperience = async (index) => {
+    const confirmed = await confirm({
       title: 'Hapus Pengalaman',
       message: 'Hapus section pengalaman kerja ini dari form?',
-      confirmLabel: 'Hapus',
-      tone: 'danger',
-      onConfirm: async () => {
-        const item = experiences[index];
-        if (item.id) await api.delete(`/api/users/me/job-histories/${item.id}`);
-        setExperiences(prev => prev.filter((_, itemIndex) => itemIndex !== index));
-        showToast({ type: 'success', title: 'Berhasil', message: 'Riwayat pekerjaan berhasil dihapus' });
-      }
+      confirmText: 'Hapus',
+      cancelText: 'Batal',
+      variant: 'danger'
     });
+    if (confirmed) {
+      const item = experiences[index];
+      if (item.id) await api.delete(`/api/users/me/job-histories/${item.id}`);
+      setExperiences(prev => prev.filter((_, itemIndex) => itemIndex !== index));
+      showToast({ type: 'success', title: 'Berhasil', message: 'Riwayat pekerjaan berhasil dihapus' });
+    }
   };
 
 
@@ -487,20 +491,7 @@ const MemberProfile = () => {
         </button>
       </form>
 
-      <ConfirmDialog
-        open={Boolean(confirm)}
-        title={confirm?.title}
-        message={confirm?.message}
-        confirmLabel={confirm?.confirmLabel}
-        tone={confirm?.tone}
-        loading={loading}
-        onCancel={() => setConfirm(null)}
-        onConfirm={async () => {
-          const action = confirm?.onConfirm;
-          setConfirm(null);
-          await action?.();
-        }}
-      />
+
     </div>
   );
 };

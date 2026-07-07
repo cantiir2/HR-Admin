@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../../lib/api';
 import { Plus, Pencil, Trash2, X, Settings, Search } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { useConfirm } from '../../context/ConfirmContext';
 
 const SystemMaster = () => {
   const [items, setItems] = useState([]);
@@ -10,6 +11,7 @@ const SystemMaster = () => {
   const [search, setSearch] = useState('');
   const [form, setForm] = useState({ category: 'JOB_ROLE', code: '', name: '', description: '' });
   const { showToast } = useToast();
+  const { confirm } = useConfirm();
 
   useEffect(() => { fetchItems(); }, []);
 
@@ -47,7 +49,14 @@ const SystemMaster = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Yakin ingin menghapus?')) return;
+    const confirmed = await confirm({
+      title: 'Hapus Data Master?',
+      message: 'Apakah Anda yakin ingin menghapus data master ini?',
+      confirmText: 'Ya, Hapus',
+      cancelText: 'Batal',
+      variant: 'danger'
+    });
+    if (!confirmed) return;
     try {
       await api.delete(`/api/system/${id}`);
       showToast({ type: 'success', title: 'Berhasil', message: 'Data master berhasil dihapus' });

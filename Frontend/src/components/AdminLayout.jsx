@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
   Fingerprint, Map as MapIcon, List, Users, FolderKanban,
-  Settings, LogOut, Menu, X, CalendarCheck, FileText, CalendarDays, Bell
+  Settings, LogOut, Menu, X, CalendarCheck, FileText, CalendarDays, Bell, History
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import UserAvatar from './UserAvatar';
@@ -23,6 +23,7 @@ const AdminLayout = () => {
   const navItems = [
     { to: '/admin', icon: MapIcon, label: 'Dashboard', end: true },
     { to: '/admin/attendance', icon: List, label: 'Absensi' },
+    { to: '/admin/attendance-requests', icon: History, label: 'Attendance Requests' },
     { to: '/admin/users', icon: Users, label: 'User Management' },
     { to: '/admin/projects', icon: FolderKanban, label: 'Project' },
     { to: '/admin/project-resources', icon: CalendarCheck, label: 'Project Resource' },

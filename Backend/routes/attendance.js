@@ -78,7 +78,22 @@ module.exports = (prisma) => {
       }
 
       if (existing.checkOutTime) {
-        return res.status(400).json({ error: 'Anda sudah melakukan check-out hari ini' });
+        if (today <= existing.checkOutTime) {
+          return res.status(400).json({ error: 'Waktu check-out baru harus lebih besar dari check-out sebelumnya' });
+        }
+        
+        const updated = await prisma.attendance.update({
+          where: { id: existing.id },
+          data: {
+            checkOutTime: today,
+            checkOutPhoto: photo,
+            checkOutLat: parseFloat(latitude),
+            checkOutLng: parseFloat(longitude),
+            checkOutNote: note
+          }
+        });
+        
+        return res.json({ message: 'Check-out lembur berhasil diperbarui', attendance: updated });
       }
 
       const updated = await prisma.attendance.update({
