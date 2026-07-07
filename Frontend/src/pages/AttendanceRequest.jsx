@@ -370,12 +370,12 @@ export default function AttendanceRequest() {
             <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto_auto]">
               <AppSelect
                 value={filterMonth}
-                onChange={e => setFilterMonth(e.target.value)}
+                onChange={setFilterMonth}
                 options={months.map(m => ({ value: m.value, label: m.label }))}
               />
               <AppSelect
                 value={filterYear}
-                onChange={e => setFilterYear(e.target.value)}
+                onChange={setFilterYear}
                 options={years.map(y => ({ value: y, label: y }))}
               />
             </div>
