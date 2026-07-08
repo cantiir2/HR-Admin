@@ -27,17 +27,34 @@ module.exports = (prisma) => {
 
   router.get('/me', authenticateToken, async (req, res) => {
     try {
-      const leaves = await prisma.leaveRequest.findMany({
-        where: { userId: req.user.id },
-        include: {
-          contract: true,
-          pmApprover: { select: { id: true, name: true } },
-          adminApprover: { select: { id: true, name: true } },
-          rejectedBy: { select: { id: true, name: true } }
-        },
-        orderBy: buildOrderBy(req.query.sortBy, req.query.sortOrder, ['leaveType', 'startDate', 'endDate', 'totalDays', 'status', 'isOverQuota', 'createdAt'], { sortBy: 'createdAt', sortOrder: 'desc' })
+      const pageNo = parseInt(req.query.pageNo) || 1;
+      const pageSize = parseInt(req.query.pageSize) || 10;
+      const skip = (pageNo - 1) * pageSize;
+
+      const where = { userId: req.user.id };
+
+      const [totalRecords, leaves] = await Promise.all([
+        prisma.leaveRequest.count({ where }),
+        prisma.leaveRequest.findMany({
+          where,
+          include: {
+            contract: true,
+            pmApprover: { select: { id: true, name: true } },
+            adminApprover: { select: { id: true, name: true } },
+            rejectedBy: { select: { id: true, name: true } }
+          },
+          orderBy: buildOrderBy(req.query.sortBy, req.query.sortOrder, ['leaveType', 'startDate', 'endDate', 'totalDays', 'status', 'isOverQuota', 'createdAt'], { sortBy: 'createdAt', sortOrder: 'desc' }),
+          skip,
+          take: pageSize
+        })
+      ]);
+
+      res.json({
+        data: leaves.map(toLeaveResponse),
+        totalRecords,
+        pageNo,
+        pageSize
       });
-      res.json(leaves.map(toLeaveResponse));
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Server error' });

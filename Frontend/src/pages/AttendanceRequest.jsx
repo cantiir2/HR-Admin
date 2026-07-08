@@ -6,6 +6,7 @@ import AppSelect from '../components/AppSelect';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { ArrowLeft, FileText, Loader2, CalendarDays, UploadCloud, X, Plus, Clock, FileWarning } from 'lucide-react';
+import Pagination from '../components/Pagination';
 
 const RequestTypeBadge = ({ type }) => {
   const styles = {
@@ -52,6 +53,9 @@ export default function AttendanceRequest() {
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [pageNo, setPageNo] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Form
   const [selectedDateObj, setSelectedDateObj] = useState(null);
@@ -72,15 +76,26 @@ export default function AttendanceRequest() {
   ];
 
   useEffect(() => {
-    fetchRequests();
     fetchEligibleDates();
   }, [filterMonth, filterYear]);
+
+  useEffect(() => {
+    fetchRequests();
+  }, [filterMonth, filterYear, pageNo, pageSize]);
 
   const fetchRequests = async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/api/attendance-requests/me?month=${filterMonth}&year=${filterYear}`);
-      setRequests(res.data.data);
+      const res = await api.get(`/api/attendance-requests/me`, {
+        params: { month: filterMonth, year: filterYear, pageNo, pageSize }
+      });
+      if (res.data && res.data.data !== undefined) {
+        setRequests(res.data.data);
+        setTotalRecords(res.data.total !== undefined ? res.data.total : res.data.data.length);
+      } else {
+        setRequests(res.data || []);
+        setTotalRecords((res.data || []).length);
+      }
     } catch (err) {
       showToast({ type: 'error', title: 'Gagal', message: 'Gagal memuat riwayat request' });
     } finally {
@@ -187,6 +202,8 @@ export default function AttendanceRequest() {
       setRequestType('');
     }
   };
+
+  const totalPages = Math.ceil(totalRecords / pageSize);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in pb-12">
@@ -445,6 +462,14 @@ export default function AttendanceRequest() {
               </tbody>
             </table>
           </div>
+          {requests.length > 0 && (
+            <div className="p-4 border-t border-white/[0.06] flex justify-end">
+              <Pagination
+                page={{ pageNo, pageSize, totalPages }}
+                doSearch={(p, s) => { setPageNo(p); setPageSize(s); }}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -210,12 +210,16 @@ async function canAccessWorkingReportUser(prisma, currentUser, targetUserId) {
 /** Deskripsi Function: Mengambil working report dan attendance bulanan user **/
 /** Creator by: FID.Iyan **/
 /*****/
-async function getWorkingReportDetail(prisma, userId, month, year, sortBy = 'date', sortOrder = 'asc') {
+async function getWorkingReportDetail(prisma, pageNoService, pageSizeService, userId, month, year, sortBy = 'date', sortOrder = 'asc') {
   const period = validateMonthYear(month, year);
   if (period.error) return { error: period.error };
 
   const allowedSortFields = ['date', 'checkInTime', 'checkOutTime'];
+  const pageNo = parseInt(pageNoService) || 1;
+  const pageSize = parseInt(pageSizeService) || 10;
+  const skip = (pageNo - 1) * pageSize;
   const defaultSort = { sortBy: 'date', sortOrder: 'asc' };
+  const where = { userId: userId, date: getMonthRange(period.month, period.year) };
 
   const orderBy = buildOrderBy(
     sortBy,
@@ -224,7 +228,7 @@ async function getWorkingReportDetail(prisma, userId, month, year, sortBy = 'dat
     defaultSort
   );
 
-  const [storedReport, attendances] = await Promise.all([
+  const [storedReport, totalRecords, attendances] = await Promise.all([
     prisma.workingReport.findUnique({
       where: { userId_month_year: { userId, month: period.month, year: period.year } },
       include: {
@@ -232,9 +236,12 @@ async function getWorkingReportDetail(prisma, userId, month, year, sortBy = 'dat
         rejectedBy: { select: { id: true, name: true, email: true } }
       }
     }),
+    prisma.attendance.count({ where }),
     prisma.attendance.findMany({
-      where: { userId, date: getMonthRange(period.month, period.year) },
-      orderBy
+      where,
+      orderBy,
+      skip,
+      take: pageSize
     })
   ]);
 
@@ -250,6 +257,9 @@ async function getWorkingReportDetail(prisma, userId, month, year, sortBy = 'dat
   return {
     report: report ? buildWorkingReportResponse(report) : null,
     attendances,
+    totalRecords,
+    pageNo,
+    pageSize,
     deadlineDate: state.deadlineDate,
     isLate: state.isLate,
     lateDays: state.lateDays,

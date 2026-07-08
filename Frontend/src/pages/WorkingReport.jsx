@@ -7,6 +7,7 @@ import SortableHeader from '../components/SortableHeader';
 import useTableSort from '../hooks/useTableSort';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import Pagination from '../components/Pagination';
 
 const months = [
   [1, 'Januari'], [2, 'Februari'], [3, 'Maret'], [4, 'April'], [5, 'Mei'], [6, 'Juni'],
@@ -53,7 +54,11 @@ const WorkingReport = () => {
   const [detail, setDetail] = useState({ report: null, attendances: [] });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [pageNo, setPageNo] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+
   const { sortBy, sortOrder, handleSort } = useTableSort('date', 'asc');
 
   const years = useMemo(() => {
@@ -64,8 +69,11 @@ const WorkingReport = () => {
   const fetchDetail = async () => {
     try {
       setLoading(true);
-      const res = await api.get(`/api/working-reports/me/${month}/${year}`, { params: { sortBy, sortOrder } });
+      const res = await api.get(`/api/working-reports/me/${month}/${year}`, { params: { sortBy, sortOrder, pageNo, pageSize } });
       setDetail(res.data);
+      if (res.data.totalRecords !== undefined) {
+        setTotalRecords(res.data.totalRecords);
+      }
     } catch {
       setDetail({ report: null, attendances: [] });
     } finally {
@@ -75,7 +83,7 @@ const WorkingReport = () => {
 
   useEffect(() => {
     fetchDetail();
-  }, [month, year, sortBy, sortOrder]);
+  }, [month, year, sortBy, sortOrder, pageNo, pageSize]);
 
   const submitReport = async () => {
     try {
@@ -116,6 +124,7 @@ const WorkingReport = () => {
   const lateDays = detail.lateDays ?? detail.report?.lateDays ?? 0;
   const deadlineText = formatDeadlineDate(detail.deadlineDate);
   const deadlinePassed = isDeadlinePassed(detail.deadlineDate);
+  const totalPages = Math.ceil(totalRecords / pageSize);
 
   return (
     <div className="animate-fade-in max-w-5xl mx-auto">
@@ -214,6 +223,15 @@ const WorkingReport = () => {
               </tbody>
             </table>
             {(detail.attendances || []).length === 0 && <div className="py-12 text-center text-sm text-surface-400">Tidak ada attendance pada periode ini</div>}
+          </div>
+        )}
+
+        {detail.attendances.length > 0 && (
+          <div className="p-4 border-t border-white/[0.06] flex justify-end">
+            <Pagination
+              page={{ pageNo, pageSize, totalPages }}
+              doSearch={(p, s) => { setPageNo(p); setPageSize(s); }}
+            />
           </div>
         )}
       </div>

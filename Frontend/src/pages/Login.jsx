@@ -26,7 +26,7 @@ const Login = () => {
         navigate('/member');
       }
     } catch (err) {
-      showToast({ type: 'error', title: 'Login Gagal', message: err.response?.data?.error || 'Gagal login. Periksa koneksi Anda.' });
+      showToast({ type: 'error', title: 'Login Gagal', message: err.response?.data?.error || err.message || 'Gagal login. Periksa koneksi Anda.' });
     } finally {
       setLoading(false);
     }

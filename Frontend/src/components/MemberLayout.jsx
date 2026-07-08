@@ -1,13 +1,16 @@
 import { useState } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import {
-  Fingerprint, Map as MapIcon, LogOut, Menu, X, User, FileText, CalendarDays, ClipboardCheck, Bell, History
+  Fingerprint, Map as MapIcon, LogOut, Menu, X, User, FileText, CalendarDays, ClipboardCheck, Bell, History, FolderClosed
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import UserAvatar from './UserAvatar';
 import ThemeToggle from './ThemeToggle';
 import NotificationBell from './NotificationBell';
+import NavItem from './NavItem';
 import packageJson from "../../package.json";
+
+
 
 const MemberLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -22,10 +25,16 @@ const MemberLayout = () => {
 
   const navItems = [
     { to: '/member', icon: MapIcon, label: 'Dashboard Absensi', end: true },
-    { to: '/member/attendance-requests', icon: History, label: 'Attendance Request' },
+    {
+      label: 'Time Management',
+      icon: FolderClosed,
+      subItems: [
+        { to: '/member/attendance-requests', icon: History, label: 'Attendance Request' },
+        { to: '/member/working-report', icon: FileText, label: 'Working Report' },
+        { to: '/member/annual-leave', icon: CalendarDays, label: 'Annual Leave' },
+      ]
+    },
     { to: '/member/profile', icon: User, label: 'Profil Saya' },
-    { to: '/member/working-report', icon: FileText, label: 'Working Report' },
-    { to: '/member/annual-leave', icon: CalendarDays, label: 'Annual Leave' },
     ...(user?.jobRoleCode === 'PM' ? [{ to: '/member/leave-approval', icon: ClipboardCheck, label: 'Leave Approval' }] : []),
     { to: '/member/notifications', icon: Bell, label: 'Inbox' },
   ];
@@ -56,22 +65,8 @@ const MemberLayout = () => {
         </div>
 
         <nav className="flex-1 p-3 space-y-1 mt-1 overflow-y-auto">
-          {navItems.map(item => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              onClick={() => setSidebarOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${isActive
-                  ? 'gradient-brand text-white shadow-lg shadow-brand-500/20'
-                  : 'text-surface-400 hover:text-white hover:bg-white/[0.06]'
-                }`
-              }
-            >
-              <item.icon size={18} />
-              {item.label}
-            </NavLink>
+          {navItems.map((item, index) => (
+            <NavItem key={item.label || item.to || index} item={item} setSidebarOpen={setSidebarOpen} />
           ))}
         </nav>
 

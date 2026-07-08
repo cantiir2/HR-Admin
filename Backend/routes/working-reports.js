@@ -28,7 +28,7 @@ module.exports = (prisma) => {
 
   router.get('/me/:month/:year', authenticateToken, async (req, res) => {
     try {
-      const result = await getWorkingReportDetail(prisma, req.user.id, req.params.month, req.params.year, req.query.sortBy, req.query.sortOrder);
+      const result = await getWorkingReportDetail(prisma, req.query.pageNo, req.query.pageSize, req.user.id, req.params.month, req.params.year, req.query.sortBy, req.query.sortOrder);
       if (result.error) return res.status(400).json({ error: result.error });
       res.json(result);
     } catch (error) {

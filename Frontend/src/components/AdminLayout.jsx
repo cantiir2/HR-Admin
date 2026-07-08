@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import {
   Fingerprint, Map as MapIcon, List, Users, FolderKanban,
-  Settings, LogOut, Menu, X, CalendarCheck, FileText, CalendarDays, Bell, History
+  Settings, LogOut, Menu, X, CalendarCheck, FileText, CalendarDays, Bell, History,
+  FolderClosed
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import UserAvatar from './UserAvatar';
 import ThemeToggle from './ThemeToggle';
 import NotificationBell from './NotificationBell';
+import NavItem from './NavItem';
 import packageJson from "../../package.json";
 
 const AdminLayout = () => {
@@ -22,14 +24,26 @@ const AdminLayout = () => {
 
   const navItems = [
     { to: '/admin', icon: MapIcon, label: 'Dashboard', end: true },
-    { to: '/admin/attendance', icon: List, label: 'Absensi' },
-    { to: '/admin/attendance-requests', icon: History, label: 'Attendance Requests' },
     { to: '/admin/users', icon: Users, label: 'User Management' },
-    { to: '/admin/projects', icon: FolderKanban, label: 'Project' },
-    { to: '/admin/project-resources', icon: CalendarCheck, label: 'Project Resource' },
-    { to: '/admin/available-members', icon: CalendarCheck, label: 'Available Member' },
-    { to: '/admin/working-reports', icon: FileText, label: 'Working Report' },
-    { to: '/admin/leaves', icon: CalendarDays, label: 'Annual Leave' },
+    {
+      label: 'Time & Attendance',
+      icon: FolderClosed,
+      subItems: [
+        { to: '/admin/attendance', icon: List, label: 'Absensi' },
+        { to: '/admin/attendance-requests', icon: History, label: 'Attendance Requests' },
+        { to: '/admin/leaves', icon: CalendarDays, label: 'Annual Leave' },
+        { to: '/admin/working-reports', icon: FileText, label: 'Working Report' },
+      ]
+    },
+    {
+      label: 'Project Management',
+      icon: FolderClosed,
+      subItems: [
+        { to: '/admin/projects', icon: FolderKanban, label: 'Project' },
+        { to: '/admin/project-resources', icon: CalendarCheck, label: 'Project Resource' },
+        { to: '/admin/available-members', icon: CalendarCheck, label: 'Available Member' },
+      ]
+    },
     { to: '/admin/notifications', icon: Bell, label: 'Inbox' },
     { to: '/admin/system', icon: Settings, label: 'System Master' },
   ];
@@ -60,22 +74,8 @@ const AdminLayout = () => {
         </div>
 
         <nav className="flex-1 p-3 space-y-1 mt-1 overflow-y-auto">
-          {navItems.map(item => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              onClick={() => setSidebarOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${isActive
-                  ? 'gradient-brand text-white shadow-lg shadow-brand-500/20'
-                  : 'text-surface-400 hover:text-white hover:bg-white/[0.06]'
-                }`
-              }
-            >
-              <item.icon size={18} />
-              {item.label}
-            </NavLink>
+          {navItems.map((item, index) => (
+            <NavItem key={item.label || item.to || index} item={item} setSidebarOpen={setSidebarOpen} />
           ))}
         </nav>
 

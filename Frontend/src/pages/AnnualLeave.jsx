@@ -5,6 +5,7 @@ import api from '../lib/api';
 import AppSelect from '../components/AppSelect';
 import SortableHeader from '../components/SortableHeader';
 import useTableSort from '../hooks/useTableSort';
+import Pagination from '../components/Pagination';
 import {
   downloadBase64File,
   normalizeBase64DataUrl,
@@ -54,6 +55,9 @@ const AnnualLeave = () => {
   const [statusClass, setStatusClass] = useState({});
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [evidenceImage, setEvidenceImage] = useState(null);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [pageNo, setPageNo] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const totalDays = calculateWorkingDays(form.startDate, form.endDate);
 
@@ -80,80 +84,63 @@ const AnnualLeave = () => {
     fetchStatuses();
   }, []);
 
-  const fetchLeaves = useCallback(async (nextSortBy = sortBy, nextSortOrder = sortOrder) => {
-    const leavesRes = await api.get('/api/leaves/me', {
-      params: {
-        sortBy: nextSortBy,
-        sortOrder: nextSortOrder
-      }
-    });
-
-    setLeaves(leavesRes.data || []);
-  }, [sortBy, sortOrder]);
-
-  const fetchInitialData = useCallback(async () => {
+  const fetchData = useCallback(async (isInitial = false) => {
+    if (isInitial) setLoading(true);
     try {
-      setLoading(true);
-
       const [balanceRes, leavesRes, systemRes] = await Promise.all([
         api.get('/api/leaves/me/balance'),
         api.get('/api/leaves/me', {
           params: {
             sortBy,
-            sortOrder
+            sortOrder,
+            pageNo,
+            pageSize
           }
         }),
-        api.get('/api/system?category=LEAVE_TYPE&isActive=true')
+        isInitial ? api.get('/api/system?category=LEAVE_TYPE&isActive=true') : Promise.resolve(null)
       ]);
 
       setBalance(balanceRes.data);
-      setLeaves(leavesRes.data || []);
+      setLeaves(leavesRes.data?.data || leavesRes.data || []);
+      if (leavesRes.data?.totalRecords !== undefined) {
+        setTotalRecords(leavesRes.data.totalRecords);
+      }
 
-      const dynamicLeaveTypes = (systemRes.data || []).map(item => ({
-        value: item.code,
-        label: item.name
-      }));
+      if (systemRes) {
+        const dynamicLeaveTypes = (systemRes.data || []).map(item => ({
+          value: item.code,
+          label: item.name
+        }));
 
-      setLeaveTypes(dynamicLeaveTypes);
+        setLeaveTypes(dynamicLeaveTypes);
 
-      setForm(prev => ({
-        ...prev,
-        leaveType: prev.leaveType || (dynamicLeaveTypes.length > 0 ? dynamicLeaveTypes[0].value : '')
-      }));
-    } catch {
-      setBalance(null);
-      setLeaves([]);
-      setLeaveTypes([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchInitialData();
-  }, [fetchInitialData]);
-
-  useEffect(() => {
-    fetchLeaves();
-  }, [fetchLeaves]);
-
-  const fetchData = useCallback(async () => {
-    try {
-      const [balanceRes, leavesRes] = await Promise.all([
-        api.get('/api/leaves/me/balance'),
-        api.get('/api/leaves/me', {
-          params: {
-            sortBy,
-            sortOrder
-          }
-        })
-      ]);
-      setBalance(balanceRes.data);
-      setLeaves(leavesRes.data || []);
+        setForm(prev => ({
+          ...prev,
+          leaveType: prev.leaveType || (dynamicLeaveTypes.length > 0 ? dynamicLeaveTypes[0].value : '')
+        }));
+      }
     } catch (err) {
       console.error('Failed to fetch leave data', err);
+      if (isInitial) {
+        setBalance(null);
+        setLeaves([]);
+        setLeaveTypes([]);
+      }
+    } finally {
+      if (isInitial) setLoading(false);
     }
-  }, [sortBy, sortOrder]);
+  }, [sortBy, sortOrder, pageNo, pageSize]);
+
+  const initialFetchDone = React.useRef(false);
+
+  useEffect(() => {
+    if (!initialFetchDone.current) {
+      fetchData(true);
+      initialFetchDone.current = true;
+    } else {
+      fetchData(false);
+    }
+  }, [fetchData]);
 
   const submitLeave = async (warningAcknowledged = false) => {
     try {
@@ -252,6 +239,8 @@ const AnnualLeave = () => {
       setSaving(false);
     }
   };
+
+  const totalPages = Math.ceil(totalRecords / pageSize);
 
   if (loading) {
     return (
@@ -394,6 +383,14 @@ const AnnualLeave = () => {
           </table>
           {leaves.length === 0 && <div className="py-12 text-center text-sm text-surface-400">Belum ada pengajuan cuti</div>}
         </div>
+        {leaves.length > 0 && (
+            <div className="p-4 border-t border-white/[0.06] flex justify-end">
+              <Pagination
+                page={{ pageNo, pageSize, totalPages }}
+                doSearch={(p, s) => { setPageNo(p); setPageSize(s); }}
+              />
+            </div>
+          )}
       </div>
 
       {isModalOpen && (
