@@ -29,20 +29,42 @@ function formatTimeJakarta(dateValue) {
     .replace(':', '.');
 }
 
-function calculateWorkingHours(checkInTime, checkOutTime, breakMinutes) {
-  if (!checkInTime || !checkOutTime) return 0;
+// Name Function : calculateWorkingHours
+// Author : Iyan.FID
+// Description : Menghitung total jam kerja efektif setelah dikurangi jam istirahat normal dan istirahat lembur
+function calculateWorkingHours(checkInTime, checkOutTime, breakMinutes, overtimeBreakMinutes = 0, normalWorkingMins = 480) {
+  if (!checkInTime || !checkOutTime) return { totalMins: 0, appliedBreakMins: 0 };
+  
   const start = new Date(checkInTime);
   const end = new Date(checkOutTime);
   let diffMs = end - start;
   let diffMins = Math.floor(diffMs / 60000);
+  
+  let appliedBreakMins = breakMinutes;
   diffMins -= breakMinutes;
-  return Math.max(0, diffMins);
+  
+  if (diffMins > normalWorkingMins) {
+    const excess = diffMins - normalWorkingMins;
+    const actualOvertimeBreak = Math.min(excess, overtimeBreakMinutes);
+    appliedBreakMins += actualOvertimeBreak;
+    
+    const actualOvertime = Math.max(0, excess - overtimeBreakMinutes);
+    diffMins = normalWorkingMins + actualOvertime;
+  }
+  
+  return {
+    totalMins: Math.max(0, diffMins),
+    appliedBreakMins: appliedBreakMins
+  };
 }
 
 function calculateOvertime(totalWorkingMins, normalWorkingMins = 480) {
   return Math.max(0, totalWorkingMins - normalWorkingMins);
 }
 
+// Name Function : generateWorkingReport
+// Author : Iyan.FID
+// Description : Menghasilkan report jam kerja bulanan beserta perhitungan jam lembur karyawan
 async function generateWorkingReport(userId, month, year, prisma) {
   month = parseInt(month, 10);
   year = parseInt(year, 10);
@@ -116,6 +138,13 @@ async function generateWorkingReport(userId, month, year, prisma) {
   });
   const breakStr = breakTimeConfig ? breakTimeConfig.code : '01:00';
   const breakMinutes = parseTimeToMinutes(breakStr);
+
+  // Get Overtime Break Time
+  const otBreakTimeConfig = await prisma.systemMaster.findFirst({
+    where: { category: 'BREAK_TIME_OVERTIME' }
+  });
+  const otBreakStr = otBreakTimeConfig ? otBreakTimeConfig.code : '00:30';
+  const overtimeBreakMinutes = parseTimeToMinutes(otBreakStr);
 
   // Get Attendance Data
   // Convert month/year to local range (since dates are saved as db.Date which might be 00:00 UTC)
@@ -293,10 +322,11 @@ async function generateWorkingReport(userId, month, year, prisma) {
         outTime = formatTimeJakarta(att.checkOutTime);
         if (att.checkOutNote) notes.push(att.checkOutNote);
 
-        const totalMins = calculateWorkingHours(att.checkInTime, att.checkOutTime, breakMinutes);
+        const calcResult = calculateWorkingHours(att.checkInTime, att.checkOutTime, breakMinutes, overtimeBreakMinutes);
+        const totalMins = calcResult.totalMins;
         const overMins = calculateOvertime(totalMins, 480);
 
-        breakStrRow = breakStr.replace(':', '.');
+        breakStrRow = formatDuration(calcResult.appliedBreakMins);
         totalStr = formatDuration(totalMins);
         overStr = formatDuration(overMins);
 
