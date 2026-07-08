@@ -4,8 +4,14 @@ import { useToast } from '../../context/ToastContext';
 import { useConfirm } from '../../context/ConfirmContext';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
-import { FileText, Loader2, CheckCircle, XCircle, Search, Eye, X } from 'lucide-react';
+import { FileText, Loader2, CheckCircle, XCircle, Search, Eye, X, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import Pagination from '../../components/Pagination';
+import AppSelect from '../../components/AppSelect';
+
+const SortIcon = ({ field, currentSort, currentOrder }) => {
+  if (currentSort !== field) return <ArrowUpDown size={14} className="opacity-30 inline-block ml-1" />;
+  return currentOrder === 'asc' ? <ArrowUp size={14} className="text-brand-400 inline-block ml-1" /> : <ArrowDown size={14} className="text-brand-400 inline-block ml-1" />;
+};
 
 const RequestTypeBadge = ({ type }) => {
   const styles = {
@@ -46,8 +52,11 @@ export default function AttendanceRequestManagement() {
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
 
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('PENDING');
+  const [statusFilter, setStatusFilter] = useState('');
   const [statuses, setStatuses] = useState([]);
+
+  const [sortBy, setSortBy] = useState('createdAt');
+  const [sortOrder, setSortOrder] = useState('desc');
 
 
   const [selectedReq, setSelectedReq] = useState(null);
@@ -74,12 +83,12 @@ export default function AttendanceRequestManagement() {
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
-      fetchRequests(1);
+      fetchRequests(1, pagination.limit, sortBy, sortOrder);
     }, 500);
     return () => clearTimeout(delayDebounceFn);
-  }, [search, statusFilter]);
+  }, [search, statusFilter]); // We don't add pagination or sort here to avoid loop, handled in fetchRequests
 
-  const fetchRequests = async (page = pagination.page) => {
+  const fetchRequests = async (page = pagination.page, limit = pagination.limit, sortField = sortBy, sortDir = sortOrder) => {
     setLoading(true);
     try {
       const res = await api.get('/api/attendance-requests', {
@@ -87,21 +96,32 @@ export default function AttendanceRequestManagement() {
           search,
           status: statusFilter,
           pageNo: page,
-          pageSize: pagination.limit
+          pageSize: limit,
+          sortBy: sortField,
+          sortOrder: sortDir
         }
       });
       setRequests(res.data.data);
-      setPagination({
-        ...pagination,
+      setPagination(prev => ({
+        ...prev,
         page: res.data.page,
         total: res.data.total,
-        totalPages: res.data.totalPages
-      });
+        totalPages: res.data.totalPages,
+        limit: limit
+      }));
     } catch (err) {
       showToast({ type: 'error', message: 'Gagal memuat request' });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSort = (field) => {
+    const isAsc = sortBy === field && sortOrder === 'asc';
+    const newOrder = isAsc ? 'desc' : 'asc';
+    setSortBy(field);
+    setSortOrder(newOrder);
+    fetchRequests(pagination.page, pagination.limit, field, newOrder);
   };
 
   const loadEvidence = async (req) => {
@@ -185,15 +205,12 @@ export default function AttendanceRequestManagement() {
           />
         </div>
         <div className="w-full md:w-48">
-          <select
+          <AppSelect
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="input-dark w-full"
-          >
-            {statuses.map((status, index) => (
-              <option key={index} value={status.code}>{status.name}</option>
-            ))}
-          </select>
+            onChange={(val) => setStatusFilter(val)}
+            options={statuses.map(status => ({ value: status.code, label: status.name }))}
+            className="w-full"
+          />
         </div>
       </div>
 
@@ -202,12 +219,41 @@ export default function AttendanceRequestManagement() {
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead>
               <tr className="bg-white/[0.02] text-surface-400 border-b border-white/5">
-                <th className="px-6 py-4 font-medium">Member</th>
-                <th className="px-6 py-4 font-medium">Tanggal Request</th>
-                <th className="px-6 py-4 font-medium">Jenis</th>
-                <th className="px-6 py-4 font-medium">Waktu</th>
-                <th className="px-6 py-4 font-medium">Alasan</th>
-                <th className="px-6 py-4 font-medium">Status</th>
+                <th 
+                  className="px-6 py-4 font-medium cursor-pointer hover:text-white transition-colors select-none" 
+                  onClick={() => handleSort('user.name')}
+                >
+                  Member <SortIcon field="user.name" currentSort={sortBy} currentOrder={sortOrder} />
+                </th>
+                <th 
+                  className="px-6 py-4 font-medium cursor-pointer hover:text-white transition-colors select-none" 
+                  onClick={() => handleSort('requestDate')}
+                >
+                  Tanggal Request <SortIcon field="requestDate" currentSort={sortBy} currentOrder={sortOrder} />
+                </th>
+                <th 
+                  className="px-6 py-4 font-medium cursor-pointer hover:text-white transition-colors select-none" 
+                  onClick={() => handleSort('requestType')}
+                >
+                  Jenis <SortIcon field="requestType" currentSort={sortBy} currentOrder={sortOrder} />
+                </th>
+                <th 
+                  className="px-6 py-4 font-medium hover:text-white transition-colors select-none"
+                >
+                  Waktu
+                </th>
+                <th 
+                  className="px-6 py-4 font-medium cursor-pointer hover:text-white transition-colors select-none" 
+                  onClick={() => handleSort('reason')}
+                >
+                  Alasan <SortIcon field="reason" currentSort={sortBy} currentOrder={sortOrder} />
+                </th>
+                <th 
+                  className="px-6 py-4 font-medium cursor-pointer hover:text-white transition-colors select-none"
+                  onClick={() => handleSort('status')}
+                >
+                  Status <SortIcon field="status" currentSort={sortBy} currentOrder={sortOrder} />
+                </th>
                 <th className="px-6 py-4 font-medium text-right">Aksi</th>
               </tr>
             </thead>
@@ -256,13 +302,12 @@ export default function AttendanceRequestManagement() {
           </table>
         </div>
 
-        {pagination.totalPages > 1 && (
+        {pagination.totalPages > 0 && (
           <div className="p-4 border-t border-white/5">
             <Pagination
               page={{ pageNo: pagination.page, pageSize: pagination.limit, totalPages: pagination.totalPages }}
               doSearch={(pageNo, pageSize) => {
-                setPagination({ ...pagination, page: pageNo, limit: pageSize });
-                fetchRequests(pageNo);
+                fetchRequests(pageNo, pageSize);
               }}
             />
           </div>

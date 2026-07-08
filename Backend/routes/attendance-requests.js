@@ -420,7 +420,7 @@ module.exports = (prisma) => {
         };
       }
 
-      const allowedSortFields = ['requestDate', 'createdAt', 'status'];
+      const allowedSortFields = ['requestDate', 'createdAt', 'status', 'user.name', 'requestType', 'requestedCheckInTime', 'reason'];
       const orderBy = buildOrderBy(sortBy, sortOrder, allowedSortFields, { sortBy: 'createdAt', sortOrder: 'desc' });
       const skip = (parseInt(pageNo) - 1) * parseInt(pageSize);
 
