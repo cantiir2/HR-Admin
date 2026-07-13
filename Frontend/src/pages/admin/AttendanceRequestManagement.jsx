@@ -1,17 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../lib/api';
 import { useToast } from '../../context/ToastContext';
 import { useConfirm } from '../../context/ConfirmContext';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
-import { FileText, Loader2, CheckCircle, XCircle, Search, Eye, X, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { Loader2, Search, Eye, X } from 'lucide-react';
 import Pagination from '../../components/Pagination';
 import AppSelect from '../../components/AppSelect';
-
-const SortIcon = ({ field, currentSort, currentOrder }) => {
-  if (currentSort !== field) return <ArrowUpDown size={14} className="opacity-30 inline-block ml-1" />;
-  return currentOrder === 'asc' ? <ArrowUp size={14} className="text-brand-400 inline-block ml-1" /> : <ArrowDown size={14} className="text-brand-400 inline-block ml-1" />;
-};
+import SortableHeader from '../../components/SortableHeader';
+import useTableSort from '../../hooks/useTableSort';
 
 const RequestTypeBadge = ({ type }) => {
   const styles = {
@@ -55,8 +52,7 @@ export default function AttendanceRequestManagement() {
   const [statusFilter, setStatusFilter] = useState('');
   const [statuses, setStatuses] = useState([]);
 
-  const [sortBy, setSortBy] = useState('createdAt');
-  const [sortOrder, setSortOrder] = useState('desc');
+  const { sortBy, sortOrder, handleSort } = useTableSort('requestDate', 'desc');
 
 
   const [selectedReq, setSelectedReq] = useState(null);
@@ -81,24 +77,17 @@ export default function AttendanceRequestManagement() {
     fetchStatuses();
   }, []);
 
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      fetchRequests(1, pagination.limit, sortBy, sortOrder);
-    }, 500);
-    return () => clearTimeout(delayDebounceFn);
-  }, [search, statusFilter]); // We don't add pagination or sort here to avoid loop, handled in fetchRequests
-
-  const fetchRequests = async (page = pagination.page, limit = pagination.limit, sortField = sortBy, sortDir = sortOrder) => {
+  const fetchRequests = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.get('/api/attendance-requests', {
         params: {
           search,
           status: statusFilter,
-          pageNo: page,
-          pageSize: limit,
-          sortBy: sortField,
-          sortOrder: sortDir
+          pageNo: pagination.page,
+          pageSize: pagination.limit,
+          sortBy,
+          sortOrder
         }
       });
       setRequests(res.data.data);
@@ -106,23 +95,19 @@ export default function AttendanceRequestManagement() {
         ...prev,
         page: res.data.page,
         total: res.data.total,
-        totalPages: res.data.totalPages,
-        limit: limit
+        totalPages: res.data.totalPages
       }));
     } catch (err) {
       showToast({ type: 'error', message: 'Gagal memuat request' });
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, statusFilter, pagination.page, pagination.limit, sortBy, sortOrder, showToast]);
 
-  const handleSort = (field) => {
-    const isAsc = sortBy === field && sortOrder === 'asc';
-    const newOrder = isAsc ? 'desc' : 'asc';
-    setSortBy(field);
-    setSortOrder(newOrder);
-    fetchRequests(pagination.page, pagination.limit, field, newOrder);
-  };
+  useEffect(() => {
+    const timer = setTimeout(fetchRequests, 300);
+    return () => clearTimeout(timer);
+  }, [fetchRequests]);
 
   const loadEvidence = async (req) => {
     setSelectedReq(req);
@@ -219,42 +204,13 @@ export default function AttendanceRequestManagement() {
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead>
               <tr className="bg-white/[0.02] text-surface-400 border-b border-white/5">
-                <th 
-                  className="px-6 py-4 font-medium cursor-pointer hover:text-white transition-colors select-none" 
-                  onClick={() => handleSort('user.name')}
-                >
-                  Member <SortIcon field="user.name" currentSort={sortBy} currentOrder={sortOrder} />
-                </th>
-                <th 
-                  className="px-6 py-4 font-medium cursor-pointer hover:text-white transition-colors select-none" 
-                  onClick={() => handleSort('requestDate')}
-                >
-                  Tanggal Request <SortIcon field="requestDate" currentSort={sortBy} currentOrder={sortOrder} />
-                </th>
-                <th 
-                  className="px-6 py-4 font-medium cursor-pointer hover:text-white transition-colors select-none" 
-                  onClick={() => handleSort('requestType')}
-                >
-                  Jenis <SortIcon field="requestType" currentSort={sortBy} currentOrder={sortOrder} />
-                </th>
-                <th 
-                  className="px-6 py-4 font-medium hover:text-white transition-colors select-none"
-                >
-                  Waktu
-                </th>
-                <th 
-                  className="px-6 py-4 font-medium cursor-pointer hover:text-white transition-colors select-none" 
-                  onClick={() => handleSort('reason')}
-                >
-                  Alasan <SortIcon field="reason" currentSort={sortBy} currentOrder={sortOrder} />
-                </th>
-                <th 
-                  className="px-6 py-4 font-medium cursor-pointer hover:text-white transition-colors select-none"
-                  onClick={() => handleSort('status')}
-                >
-                  Status <SortIcon field="status" currentSort={sortBy} currentOrder={sortOrder} />
-                </th>
-                <th className="px-6 py-4 font-medium text-right">Aksi</th>
+                <SortableHeader label="Member" field="user.name" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPagination(p => ({ ...p, page: 1 })))} />
+                <SortableHeader label="Tanggal Request" field="requestDate" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPagination(p => ({ ...p, page: 1 })))} />
+                <SortableHeader label="Jenis" field="requestType" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPagination(p => ({ ...p, page: 1 })))} />
+                <SortableHeader label="Waktu" />
+                <SortableHeader label="Alasan" field="reason" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPagination(p => ({ ...p, page: 1 })))} />
+                <SortableHeader label="Status" field="status" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPagination(p => ({ ...p, page: 1 })))} />
+                <SortableHeader label="Aksi" align="right" />
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 text-surface-300">
@@ -307,7 +263,7 @@ export default function AttendanceRequestManagement() {
             <Pagination
               page={{ pageNo: pagination.page, pageSize: pagination.limit, totalPages: pagination.totalPages }}
               doSearch={(pageNo, pageSize) => {
-                fetchRequests(pageNo, pageSize);
+                setPagination(prev => ({ ...prev, page: pageNo, limit: pageSize }));
               }}
             />
           </div>
