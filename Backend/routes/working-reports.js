@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const archiver = require('archiver');
 const { authenticateToken, authenticateAdmin } = require('../middleware/auth');
 const excelService = require('../services/excelService');
 const {
@@ -121,6 +122,50 @@ module.exports = (prisma) => {
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Server error' });
+    }
+  });
+
+  router.get('/export-zip', authenticateToken, authenticateAdmin, async (req, res) => {
+    try {
+      const queryParams = { ...req.query, pageNo: 1, pageSize: 10000 };
+      const result = await listWorkingReports(prisma, req.user, queryParams);
+      const reports = result.data || [];
+
+      if (reports.length === 0) {
+        return res.status(404).json({ error: 'Tidak ada data untuk diexport pada filter ini' });
+      }
+
+      const zipFileName = `Working_Reports_${req.query.month}_${req.query.year}.zip`;
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename="${zipFileName}"`);
+
+      const archive = archiver('zip', {
+        zlib: { level: 9 }
+      });
+
+      archive.on('error', (err) => {
+        throw err;
+      });
+      archive.pipe(res);
+
+      for (const report of reports) {
+        if (report.userId) {
+          const buffer = await excelService.generateWorkingReport(report.userId, req.query.month, req.query.year, prisma);
+
+          const safeName = report.user?.name ? report.user.name.replace(/[^a-zA-Z0-9 ]/g, "") : report.userId;
+          const fileName = `Working Report - ${String(req.query.month).padStart(2, '0')}-${req.query.year} ${safeName}.xlsx`;
+
+          archive.append(buffer, { name: fileName });
+        }
+      }
+
+      await archive.finalize();
+
+    } catch (error) {
+      console.error('Export ZIP error:', error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Gagal membuat file ZIP' });
+      }
     }
   });
 

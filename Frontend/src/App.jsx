@@ -18,6 +18,7 @@ import UserManagement from './pages/admin/UserManagement';
 import ProjectManagement from './pages/admin/ProjectManagement';
 import AdminWorkingReports from './pages/admin/AdminWorkingReports';
 import ProjectDetail from './pages/ProjectDetail';
+import MemberProjects from './pages/MemberProjects';
 import SystemMaster from './pages/admin/SystemMaster';
 import AvailableMember from './pages/admin/AvailableMember';
 import ProjectResource from './pages/admin/ProjectResource';
@@ -49,6 +50,7 @@ function App() {
                   <Route path="attendance-requests" element={<AttendanceRequest />} />
                   <Route path="leave-approval" element={<LeaveManagement />} />
                   <Route path="notifications" element={<Notifications />} />
+                  <Route path="projects" element={<MemberProjects />} />
                   <Route path="projects/:id" element={<ProjectDetail />} />
                 </Route>
 

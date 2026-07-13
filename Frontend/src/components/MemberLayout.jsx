@@ -34,6 +34,7 @@ const MemberLayout = () => {
         { to: '/member/annual-leave', icon: CalendarDays, label: 'Annual Leave' },
       ]
     },
+    { to: '/member/projects', icon: FolderClosed, label: 'Project Saya' },
     { to: '/member/profile', icon: User, label: 'Profil Saya' },
     ...(user?.jobRoleCode === 'PM' ? [{ to: '/member/leave-approval', icon: ClipboardCheck, label: 'Leave Approval' }] : []),
     { to: '/member/notifications', icon: Bell, label: 'Inbox' },

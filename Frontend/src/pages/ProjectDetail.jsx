@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { format as formatDate } from 'date-fns';
 import { useParams, Link } from 'react-router-dom';
 import api from '../lib/api';
@@ -300,7 +301,7 @@ const ProjectDetail = () => {
   const openTaskModal = (milestoneId) => {
     setEditingTask(null);
     setSelectedMilestoneId(milestoneId);
-    setTaskForm({ title: '', description: '', assignedToId: '', startDate: '', dueDate: '', status: 'TODO' });
+    setTaskForm({ title: '', description: '', assignedToId: isAdmin ? '' : user?.id, startDate: '', dueDate: '', status: 'TODO' });
     setShowTaskModal(true);
   };
 
@@ -373,7 +374,7 @@ const ProjectDetail = () => {
 
   const isAdmin = user?.role === 'ADMIN';
   const totalWeeks = getTotalWeeks(project.contractStart, project.contractEnd);
-  
+
   const weeks = Array.from({ length: totalWeeks }, (_, index) => {
     return {
       index,
@@ -425,7 +426,7 @@ const ProjectDetail = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 shrink-0">
         <div>
-          <Link to={isAdmin ? "/admin/projects" : "/member"} className="text-sm text-brand-400 hover:text-brand-300 flex items-center gap-1 mb-2">
+          <Link to={isAdmin ? "/admin/projects" : "/member/projects"} className="text-sm text-brand-400 hover:text-brand-300 flex items-center gap-1 mb-2">
             <ArrowLeft size={14} /> Kembali
           </Link>
           <h2 className="text-2xl font-bold text-white">{project.name}</h2>
@@ -489,40 +490,40 @@ const ProjectDetail = () => {
                 <div className="min-w-max p-4 space-y-2">
                   <div className="flex">
                     <div className="w-60 shrink-0 px-3 py-3 text-xs font-semibold uppercase text-surface-400">Milestone</div>
-                      <div>
-                        <div className="grid border-b border-white/[0.06]" style={{ gridTemplateColumns: `repeat(${totalWeeks}, minmax(55px, 1fr))` }}>
-                          {monthGroups.map((group) => (
-                            <div
-                              key={group.label}
-                              className="text-center text-[10px] font-semibold py-1.5 text-surface-300 border-l border-white/[0.06]"
-                              style={{ gridColumn: `span ${group.span}` }}
-                            >
-                              {group.label}
-                            </div>
-                          ))}
-                        </div>
-                        <div className="grid border-b border-white/[0.06]" style={{ gridTemplateColumns: `repeat(${totalWeeks}, minmax(55px, 1fr))` }}>
-                          {weeks.map((week) => (
-                            <div
-                              key={week.key}
-                              className={`text-center text-[10px] py-1.5 border-l border-white/[0.06] ${todayWeek === week.weekNumber ? 'text-brand-300 bg-brand-500/10' : 'text-surface-400'}`}
-                            >
-                              W{week.weekNumber}
-                            </div>
-                          ))}
-                        </div>
-                        <div className="grid" style={{ gridTemplateColumns: `repeat(${totalWeeks}, minmax(55px, 1fr))` }}>
-                          {weeks.map((week) => (
-                            <div
-                              key={week.key}
-                              className={`text-center text-xs font-bold py-1.5 border-l border-white/[0.06] ${todayWeek === week.weekNumber ? 'text-brand-300 bg-brand-500/10' : 'text-surface-300'}`}
-                            >
-                              {formatTwoDigitDay(week.date)}
-                              {todayWeek === week.weekNumber && <span className="block text-[8px] text-brand-400 mt-0.5 font-normal">Today</span>}
-                            </div>
-                          ))}
-                        </div>
+                    <div>
+                      <div className="grid border-b border-white/[0.06]" style={{ gridTemplateColumns: `repeat(${totalWeeks}, minmax(55px, 1fr))` }}>
+                        {monthGroups.map((group) => (
+                          <div
+                            key={group.label}
+                            className="text-center text-[10px] font-semibold py-1.5 text-surface-300 border-l border-white/[0.06]"
+                            style={{ gridColumn: `span ${group.span}` }}
+                          >
+                            {group.label}
+                          </div>
+                        ))}
                       </div>
+                      <div className="grid border-b border-white/[0.06]" style={{ gridTemplateColumns: `repeat(${totalWeeks}, minmax(55px, 1fr))` }}>
+                        {weeks.map((week) => (
+                          <div
+                            key={week.key}
+                            className={`text-center text-[10px] py-1.5 border-l border-white/[0.06] ${todayWeek === week.weekNumber ? 'text-brand-300 bg-brand-500/10' : 'text-surface-400'}`}
+                          >
+                            W{week.weekNumber}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="grid" style={{ gridTemplateColumns: `repeat(${totalWeeks}, minmax(55px, 1fr))` }}>
+                        {weeks.map((week) => (
+                          <div
+                            key={week.key}
+                            className={`text-center text-xs font-bold py-1.5 border-l border-white/[0.06] ${todayWeek === week.weekNumber ? 'text-brand-300 bg-brand-500/10' : 'text-surface-300'}`}
+                          >
+                            {formatTwoDigitDay(week.date)}
+                            {todayWeek === week.weekNumber && <span className="block text-[8px] text-brand-400 mt-0.5 font-normal">Today</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                   {project.milestones?.map(milestone => {
                     if (!milestone.startDate || !milestone.endDate) return null;
@@ -588,14 +589,14 @@ const ProjectDetail = () => {
                         </p>
                       )}
                     </div>
-                    {isAdmin && (
-                      <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2">
+                      {isAdmin && (
                         <button onClick={() => openEditMilestone(milestone)} className="btn-ghost text-xs py-1.5 px-3 flex items-center gap-1"><Pencil size={13} /> Edit</button>
-                        <button onClick={() => openTaskModal(milestone.id)} className="btn-primary text-xs py-1.5 px-3 flex items-center gap-1">
-                          <Plus size={14} /> Task
-                        </button>
-                      </div>
-                    )}
+                      )}
+                      <button onClick={() => openTaskModal(milestone.id)} className="btn-primary text-xs py-1.5 px-3 flex items-center gap-1">
+                        <Plus size={14} /> Task
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -611,38 +612,46 @@ const ProjectDetail = () => {
                             <div className="space-y-2">
                               {milestone.tasks?.filter(t => t.status === col.id).map((task, index) => (
                                 <Draggable key={task.id} draggableId={task.id} index={index}>
-                                  {(provided, snapshot) => (
-                                    <div
-                                      ref={provided.innerRef}
-                                      {...provided.draggableProps}
-                                      {...provided.dragHandleProps}
-                                      className={`p-3 rounded-lg bg-surface-900 border border-white/[0.05] shadow-sm group ${snapshot.isDragging ? 'shadow-brand-500/20 ring-1 ring-brand-500' : 'hover:border-white/[0.1]'} transition-all`}
-                                    >
-                                      <div className="flex justify-between items-start mb-2">
-                                        <p className="text-sm font-medium text-white">{task.title}</p>
-                                        {(isAdmin || user?.id === task.assignedToId) && (
-                                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex">
-                                            <button onClick={() => openEditTask(task)} className="p-1 text-surface-400 hover:text-brand-400">
-                                              <Pencil size={12} />
-                                            </button>
-                                            {isAdmin && (
-                                              <button onClick={() => handleDeleteTask(task.id)} className="p-1 text-surface-400 hover:text-rose-400">
-                                                <Trash2 size={12} />
+                                  {(provided, snapshot) => {
+                                    const child = (
+                                      <div
+                                        ref={provided.innerRef}
+                                        {...provided.draggableProps}
+                                        {...provided.dragHandleProps}
+                                        style={provided.draggableProps.style}
+                                        className={`p-3 rounded-lg bg-surface-900 border border-white/[0.05] shadow-sm group ${snapshot.isDragging ? 'shadow-brand-500/20 ring-1 ring-brand-500 z-[9999]' : 'hover:border-white/[0.1] transition-colors'} relative`}
+                                      >
+                                        <div className="flex justify-between items-start mb-2">
+                                          <p className="text-sm font-medium text-white">{task.title}</p>
+                                          {(isAdmin || user?.id === task.assignedToId) && (
+                                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex">
+                                              <button onClick={() => openEditTask(task)} className="p-1 text-surface-400 hover:text-brand-400">
+                                                <Pencil size={12} />
                                               </button>
-                                            )}
+                                              {isAdmin && (
+                                                <button onClick={() => handleDeleteTask(task.id)} className="p-1 text-surface-400 hover:text-rose-400">
+                                                  <Trash2 size={12} />
+                                                </button>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                        {task.assignedTo && (
+                                          <div className="flex items-center gap-1.5 text-xs text-surface-400">
+                                            <div className="w-5 h-5 rounded-full gradient-brand flex items-center justify-center text-[9px] font-bold text-white">
+                                              {task.assignedTo.name.charAt(0).toUpperCase()}
+                                            </div>
+                                            <span className="truncate">{task.assignedTo.name}</span>
                                           </div>
                                         )}
                                       </div>
-                                      {task.assignedTo && (
-                                        <div className="flex items-center gap-1.5 text-xs text-surface-400">
-                                          <div className="w-5 h-5 rounded-full gradient-brand flex items-center justify-center text-[9px] font-bold text-white">
-                                            {task.assignedTo.name.charAt(0).toUpperCase()}
-                                          </div>
-                                          <span className="truncate">{task.assignedTo.name}</span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
+                                    );
+                                    
+                                    if (snapshot.isDragging) {
+                                      return createPortal(child, document.body);
+                                    }
+                                    return child;
+                                  }}
                                 </Draggable>
                               ))}
                               {provided.placeholder}
@@ -794,7 +803,11 @@ const ProjectDetail = () => {
                 </div>
                 <div>
                   <label className="block text-sm text-surface-300 mb-1">Assign Ke</label>
-                  <AppSelect value={taskForm.assignedToId} onChange={value => setTaskForm({ ...taskForm, assignedToId: value })} options={[['', 'Tidak ada'], ...(project.members?.map(m => [m.userId, m.user.name]) || [])]} />
+                  {isAdmin ? (
+                    <AppSelect value={taskForm.assignedToId} onChange={value => setTaskForm({ ...taskForm, assignedToId: value })} options={[['', 'Tidak ada'], ...(project.members?.map(m => [m.userId, m.user.name]) || [])]} />
+                  ) : (
+                    <AppSelect value={taskForm.assignedToId} onChange={value => setTaskForm({ ...taskForm, assignedToId: value })} options={project.members?.filter(m => m.userId === user?.id).map(m => [m.userId, m.user.name]) || [[user?.id, user?.name]]} />
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">

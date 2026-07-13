@@ -27,13 +27,13 @@ module.exports = (prisma) => {
   router.get('/me', authenticateToken, async (req, res) => {
     try {
       const { status, month, year, pageNo = 1, pageSize = 20 } = req.query;
-      
+
       const whereClause = { userId: req.user.id };
-      
+
       if (status) {
         whereClause.status = status;
       }
-      
+
       if (month && year) {
         const m = parseInt(month, 10);
         const y = parseInt(year, 10);
@@ -46,7 +46,7 @@ module.exports = (prisma) => {
       }
 
       const skip = (parseInt(pageNo) - 1) * parseInt(pageSize);
-      
+
       const [requests, total] = await Promise.all([
         prisma.attendanceRequest.findMany({
           where: whereClause,
@@ -93,13 +93,13 @@ module.exports = (prisma) => {
 
       const m = parseInt(month, 10);
       const y = parseInt(year, 10);
-      
+
       const startDate = new Date(Date.UTC(y, m - 1, 1));
       let maxDate = new Date(Date.UTC(y, m, 1));
       maxDate.setUTCDate(maxDate.getUTCDate() - 1); // Last day of the requested month
-      
+
       const today = jakartaDate();
-      
+
       // End date should not be after today
       if (maxDate > today) {
         maxDate = today;
@@ -126,7 +126,7 @@ module.exports = (prisma) => {
       const eligibleDates = [];
       let currentDate = new Date(startDate);
       const todayStr = today.toISOString().split('T')[0];
-      
+
       while (currentDate <= maxDate) {
         // We include weekends as well unless specified. The prompt says: "Jika weekend juga boleh, jangan filter weekend."
         // Let's include all days up to today.
@@ -138,7 +138,7 @@ module.exports = (prisma) => {
         const att = attendanceMap[dateStr];
         let missingCheckIn = true;
         let missingCheckOut = true;
-        
+
         if (att) {
           missingCheckIn = !att.checkInTime;
           missingCheckOut = !att.checkOutTime;
@@ -181,7 +181,7 @@ module.exports = (prisma) => {
         }
       });
       const pendingDates = new Set(pendingRequests.map(r => r.requestDate.toISOString().split('T')[0]));
-      
+
       const finalEligibleDates = eligibleDates.filter(d => !pendingDates.has(d.date));
 
       res.json(finalEligibleDates.reverse()); // newest first
@@ -194,14 +194,14 @@ module.exports = (prisma) => {
   // POST /api/attendance-requests
   router.post('/', authenticateToken, async (req, res) => {
     try {
-      const { 
-        requestDate, 
-        requestType, 
-        requestedCheckInTime, 
-        requestedCheckOutTime, 
-        reason, 
-        evidencePhoto, 
-        evidencePhotoName 
+      const {
+        requestDate,
+        requestType,
+        requestedCheckInTime,
+        requestedCheckOutTime,
+        reason,
+        evidencePhoto,
+        evidencePhotoName
       } = req.body;
 
       if (!requestDate || !requestType || !reason || !evidencePhoto) {
@@ -210,7 +210,7 @@ module.exports = (prisma) => {
 
       const reqDateObj = jakartaDate(requestDate);
       const today = jakartaDate();
-      
+
       if (reqDateObj > today) {
         return res.status(400).json({ error: 'Hanya bisa mengajukan untuk tanggal yang sudah lewat atau hari ini' });
       }
@@ -233,11 +233,11 @@ module.exports = (prisma) => {
         if (!missingCheckIn && !missingCheckOut) {
           return res.status(400).json({ error: 'Attendance hari ini sudah lengkap, tidak bisa mengajukan request' });
         }
-        
+
         if (requestType === 'BOTH') {
           return res.status(400).json({ error: 'Tidak dapat menggunakan request BOTH untuk hari ini' });
         }
-        
+
         if (requestType === 'CHECK_IN' && !missingCheckIn) {
           return res.status(400).json({ error: 'Check-In hari ini sudah ada' });
         }
@@ -335,14 +335,14 @@ module.exports = (prisma) => {
             skipDuplicate: true,
             sendEmail: false
           });
-          
+
           if (notification) notifications.push(notification);
         }
 
         return { request, notifications };
       });
 
-      notificationService.sendNotificationEmails(prisma, result.notifications).catch(() => {});
+      notificationService.sendNotificationEmails(prisma, result.notifications).catch(() => { });
 
       res.status(201).json({ message: 'Request berhasil dikirim', data: { id: result.request.id } });
     } catch (error) {
@@ -379,7 +379,7 @@ module.exports = (prisma) => {
     try {
       const request = await prisma.attendanceRequest.findUnique({ where: { id: req.params.id } });
       if (!request) return res.status(404).json({ error: 'Not found' });
-      
+
       if (req.user.role !== 'ADMIN' && request.userId !== req.user.id) {
         return res.status(403).json({ error: 'Forbidden' });
       }
@@ -406,7 +406,7 @@ module.exports = (prisma) => {
 
       if (status) whereClause.status = status;
       if (requestType) whereClause.requestType = requestType;
-      
+
       if (startDate && endDate) {
         whereClause.requestDate = {
           gte: jakartaDate(startDate),
@@ -488,12 +488,12 @@ module.exports = (prisma) => {
         const dataUpdate = {};
         if (request.requestType === 'CHECK_IN' || request.requestType === 'BOTH') {
           dataUpdate.checkInTime = request.requestedCheckInTime;
-          dataUpdate.checkInNote = adminNote || request.reason;
+          dataUpdate.checkInNote = request.reason;
           dataUpdate.checkInPhoto = request.evidencePhoto;
         }
         if (request.requestType === 'CHECK_OUT' || request.requestType === 'BOTH') {
           dataUpdate.checkOutTime = request.requestedCheckOutTime;
-          dataUpdate.checkOutNote = adminNote || request.reason;
+          dataUpdate.checkOutNote = request.reason;
           dataUpdate.checkOutPhoto = request.evidencePhoto;
         }
 
@@ -530,7 +530,7 @@ module.exports = (prisma) => {
         return { notification };
       });
 
-      notificationService.sendNotificationEmails(prisma, [result.notification]).catch(() => {});
+      notificationService.sendNotificationEmails(prisma, [result.notification]).catch(() => { });
 
       res.json({ message: 'Request approved' });
     } catch (error) {
@@ -582,7 +582,7 @@ module.exports = (prisma) => {
         return { notification };
       });
 
-      notificationService.sendNotificationEmails(prisma, [result.notification]).catch(() => {});
+      notificationService.sendNotificationEmails(prisma, [result.notification]).catch(() => { });
 
       res.json({ message: 'Request ditolak' });
     } catch (error) {

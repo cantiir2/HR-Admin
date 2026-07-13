@@ -133,6 +133,52 @@ module.exports = (prisma) => {
       res.status(500).json({ error: 'Server error' });
     }
   });
+  // GET my projects
+  router.get('/my-projects', authenticateToken, async (req, res) => {
+    try {
+      const pageNo = Math.max(parseInt(req.query.pageNo, 10) || 1, 1);
+      const pageSize = Math.min(Math.max(parseInt(req.query.pageSize, 10) || 10, 1), 50);
+      const skip = (pageNo - 1) * pageSize;
+
+      const whereCondition = {
+        OR: [
+          { projectManagerId: req.user.id },
+          { members: { some: { userId: req.user.id } } }
+        ]
+      };
+
+      const [projects, totalRows] = await prisma.$transaction([
+        prisma.project.findMany({
+          where: whereCondition,
+          skip,
+          take: pageSize,
+          include: {
+            projectManager: { select: { id: true, name: true, email: true, jobRoleCode: true, profilePhoto: true } },
+            members: {
+              include: {
+                user: { select: { id: true, name: true, email: true, jobRoleCode: true, profilePhoto: true } }
+              }
+            }
+          },
+          orderBy: { createdAt: 'desc' }
+        }),
+        prisma.project.count({ where: whereCondition })
+      ]);
+
+      res.json({
+        data: projects,
+        page: {
+          pageNo,
+          pageSize,
+          totalRows,
+          totalPages: Math.ceil(totalRows / pageSize)
+        }
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
 
   // GET single project
   router.get('/:id', authenticateToken, async (req, res) => {

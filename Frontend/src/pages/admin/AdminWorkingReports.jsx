@@ -150,6 +150,39 @@ const AdminWorkingReports = () => {
     fetchReports();
   };
 
+  const exportZipReports = async () => {
+    try {
+      setActionLoading(true);
+      const res = await api.get('/api/working-reports/export-zip', {
+        params: { ...filters },
+        responseType: 'blob'
+      });
+
+      if (res.data.type === 'application/json') {
+        const textData = await res.data.text();
+        const jsonError = JSON.parse(textData);
+        showToast({ type: 'error', title: 'Gagal', message: jsonError.error || 'Data tidak ditemukan' });
+        return;
+      }
+
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/zip' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Working_Reports_${filters.month}_${filters.year}.zip`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      showToast({ type: 'success', title: 'Berhasil', message: 'File ZIP berhasil diunduh' });
+    } catch (error) {
+      console.error(error);
+      showToast({ type: 'error', title: 'Gagal', message: 'Gagal mengunduh file ZIP' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   return (
     <div className="animate-fade-in">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-6">
@@ -165,6 +198,15 @@ const AdminWorkingReports = () => {
           <button type="button" onClick={generateLate} disabled={actionLoading} className="btn-primary text-sm inline-flex items-center gap-2">
             {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
             Late
+          </button>
+          <button
+            type="button"
+            onClick={exportZipReports}
+            disabled={actionLoading}
+            className="btn-ghost text-sm inline-flex items-center gap-2 text-brand-500 hover:text-brand-400"
+          >
+            {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+            Export ZIP
           </button>
         </div>
       </div>
