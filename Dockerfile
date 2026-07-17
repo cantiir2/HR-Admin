@@ -20,8 +20,10 @@ COPY Backend/ ./
 # Copy frontend build output from stage 1
 COPY --from=frontend-build /build/Backend/public ./public
 
-# Generate Prisma client
+# Generate Prisma client (requires DATABASE_URL env to pass config validation during build)
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
 RUN npx prisma generate
+
 
 EXPOSE 5000
 
