@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const helmet = require('helmet');
 const dotenv = require('dotenv');
 const promClient = require('prom-client');
@@ -31,7 +32,7 @@ const { metricsMiddleware, metricsHandler } = require('./middleware/metrics');
 
 // Middleware
 app.set('trust proxy', 1);
-app.use(helmet());
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({
   origin: true,
   credentials: true
@@ -98,6 +99,19 @@ app.get('/metrics', async (req, res) => {
     res.status(500).end(err.message);
   }
 });
+
+// Serve frontend static files in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, 'public')));
+
+  app.get('/{*path}', (req, res, next) => {
+    // Jangan override API routes dan metrics
+    if (req.path.startsWith('/api') || req.path === '/metrics') {
+      return next();
+    }
+    res.sendFile(path.resolve(__dirname, 'public', 'index.html'));
+  });
+}
 
 // Start server
 const PORT = process.env.PORT || 5000;

@@ -1,0 +1,16 @@
+node_modules
+npm-debug.log*
+.env
+.env.local
+*.rar
+*.zip
+.vscode/
+.idea/
+.git/
+.gitignore
+
+# Frontend build artifacts (rebuilt in Docker)
+Frontend/node_modules
+Backend/node_modules
+Backend/public
+Backend/generated

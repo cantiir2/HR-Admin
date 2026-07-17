@@ -1,0 +1,48 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-fid123!!}
+      POSTGRES_DB: hr_absensi
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d hr_absensi"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${PORT:-5000}:5000"
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-fid123!!}@db:5432/hr_absensi?schema=public
+      JWT_SECRET: ${JWT_SECRET:-supersecretjwtkey_change_in_production}
+      ENCRYPTION_SECRET: ${ENCRYPTION_SECRET:-289ca2db25b8937939c80fcc1432865f5fd46a7f13db6ab79bfc7c37ea56ab7f}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5000}
+      ENABLE_EMAIL_NOTIFICATION: ${ENABLE_EMAIL_NOTIFICATION:-false}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Project Manager System}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
+      APP_URL: ${APP_URL:-http://localhost:5000}
+      ENABLE_CRON_JOBS: ${ENABLE_CRON_JOBS:-true}
+      CONTRACT_EXPIRING_CRON: ${CONTRACT_EXPIRING_CRON:-0 8 * * *}
+      APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Jakarta}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
