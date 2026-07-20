@@ -353,24 +353,24 @@ export default function ProjectResource() {
                     </div>
                     
                     <div className="overflow-x-auto relative">
-                      <table className="w-full text-sm text-left whitespace-nowrap table-fixed border-collapse" style={{ minWidth: `${676 + months.length * 64}px` }}>
+                      <table className="w-full text-sm text-left whitespace-nowrap table-fixed border-collapse" style={{ minWidth: `${596 + months.length * 40}px` }}>
                         <colgroup>
                           <col className="w-[56px] min-w-[56px]" />
-                          <col className="w-[240px] min-w-[240px]" />
+                          <col className="w-[160px] min-w-[160px]" />
                           <col className="w-[110px] min-w-[110px]" />
                           <col className="w-[110px] min-w-[110px]" />
                           <col className="w-[160px] min-w-[160px]" />
                           {months.map(m => (
-                            <col key={m.key} className="min-w-[64px]" />
+                            <col key={m.key} className="min-w-[40px]" />
                           ))}
                         </colgroup>
                         <thead>
                           <tr className="bg-surface-100 dark:bg-surface-900/50 text-surface-600 dark:text-surface-400">
                             <th rowSpan={2} className="w-[56px] min-w-[56px] px-2 py-2 font-medium border-b border-surface-200 dark:border-white/[0.06] sticky left-0 z-40 bg-surface-100 dark:bg-surface-900 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)]">No</th>
-                            <th rowSpan={2} className="w-[240px] min-w-[240px] px-2 py-2 font-medium border-b border-surface-200 dark:border-white/[0.06] sticky left-[56px] z-40 bg-surface-100 dark:bg-surface-900 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] truncate">Name</th>
-                            <th rowSpan={2} className="w-[110px] min-w-[110px] px-2 py-2 font-medium border-b border-surface-200 dark:border-white/[0.06] sticky left-[296px] z-40 bg-surface-100 dark:bg-surface-900 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] truncate">Start Date</th>
-                            <th rowSpan={2} className="w-[110px] min-w-[110px] px-2 py-2 font-medium border-b border-surface-200 dark:border-white/[0.06] sticky left-[406px] z-40 bg-surface-100 dark:bg-surface-900 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] truncate">End Date</th>
-                            <th rowSpan={2} className="w-[160px] min-w-[160px] px-2 py-2 font-medium border-b border-surface-200 dark:border-white/[0.06] sticky left-[516px] z-40 bg-surface-100 dark:bg-surface-900 shadow-[2px_0_0_0_#cbd5e1] dark:shadow-[2px_0_0_0_rgba(255,255,255,0.12)] truncate">Job Role</th>
+                            <th rowSpan={2} className="w-[160px] min-w-[160px] px-2 py-2 font-medium border-b border-surface-200 dark:border-white/[0.06] sticky left-[56px] z-40 bg-surface-100 dark:bg-surface-900 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] truncate">Name</th>
+                            <th rowSpan={2} className="w-[110px] min-w-[110px] px-2 py-2 font-medium border-b border-surface-200 dark:border-white/[0.06] sticky left-[216px] z-40 bg-surface-100 dark:bg-surface-900 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] truncate">Start Date</th>
+                            <th rowSpan={2} className="w-[110px] min-w-[110px] px-2 py-2 font-medium border-b border-surface-200 dark:border-white/[0.06] sticky left-[326px] z-40 bg-surface-100 dark:bg-surface-900 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] truncate">End Date</th>
+                            <th rowSpan={2} className="w-[160px] min-w-[160px] px-2 py-2 font-medium border-b border-surface-200 dark:border-white/[0.06] sticky left-[436px] z-40 bg-surface-100 dark:bg-surface-900 shadow-[2px_0_0_0_#cbd5e1] dark:shadow-[2px_0_0_0_rgba(255,255,255,0.12)] truncate">Job Role</th>
                             {yearGroups.map((g, i) => (
                               <th key={i} colSpan={g.span} className="px-1 py-1 font-medium text-center border-r border-b border-surface-200 dark:border-white/[0.06] text-xs sm:text-sm">
                                 {g.year}
@@ -396,7 +396,7 @@ export default function ProjectResource() {
                             project.members.map((member, idx) => (
                               <tr key={member.id} className="hover:bg-surface-50 dark:hover:bg-surface-800/30 transition-colors group/row">
                                 <td className="w-[56px] min-w-[56px] px-2 py-2 border-b border-surface-200 dark:border-white/[0.06] sticky left-0 z-30 bg-white dark:bg-surface-800 group-hover/row:bg-surface-50 dark:group-hover/row:bg-surface-800/30 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)]">{idx + 1}</td>
-                                <td className="w-[240px] min-w-[240px] px-2 py-2 font-medium text-surface-900 dark:text-white border-b border-surface-200 dark:border-white/[0.06] sticky left-[56px] z-30 bg-white dark:bg-surface-800 group-hover/row:bg-surface-50 dark:group-hover/row:bg-surface-800/30 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] truncate">
+                                <td className="w-[160px] min-w-[160px] px-2 py-2 font-medium text-surface-900 dark:text-white border-b border-surface-200 dark:border-white/[0.06] sticky left-[56px] z-30 bg-white dark:bg-surface-800 group-hover/row:bg-surface-50 dark:group-hover/row:bg-surface-800/30 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] truncate">
                                   <div className="relative inline-block group w-full">
                                     <span
                                       className="cursor-help block w-full truncate"
@@ -414,13 +414,13 @@ export default function ProjectResource() {
                                     </div>
                                   </div>
                                 </td>
-                                <td className="w-[110px] min-w-[110px] px-2 py-2 border-b border-surface-200 dark:border-white/[0.06] sticky left-[296px] z-30 bg-white dark:bg-surface-800 group-hover/row:bg-surface-50 dark:group-hover/row:bg-surface-800/30 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] truncate">
+                                <td className="w-[110px] min-w-[110px] px-2 py-2 border-b border-surface-200 dark:border-white/[0.06] sticky left-[216px] z-30 bg-white dark:bg-surface-800 group-hover/row:bg-surface-50 dark:group-hover/row:bg-surface-800/30 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] truncate">
                                   {formatDate(member.startDate)}
                                 </td>
-                                <td className="w-[110px] min-w-[110px] px-2 py-2 border-b border-surface-200 dark:border-white/[0.06] sticky left-[406px] z-30 bg-white dark:bg-surface-800 group-hover/row:bg-surface-50 dark:group-hover/row:bg-surface-800/30 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] truncate">
+                                <td className="w-[110px] min-w-[110px] px-2 py-2 border-b border-surface-200 dark:border-white/[0.06] sticky left-[326px] z-30 bg-white dark:bg-surface-800 group-hover/row:bg-surface-50 dark:group-hover/row:bg-surface-800/30 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.06)] truncate">
                                   {formatDate(member.endDate)}
                                 </td>
-                                <td className="w-[160px] min-w-[160px] px-2 py-2 border-b border-surface-200 dark:border-white/[0.06] sticky left-[516px] z-30 bg-white dark:bg-surface-800 group-hover/row:bg-surface-50 dark:group-hover/row:bg-surface-800/30 shadow-[2px_0_0_0_#cbd5e1] dark:shadow-[2px_0_0_0_rgba(255,255,255,0.12)] truncate" title={member.jobRoleName || member.jobRoleCode || ''}>
+                                <td className="w-[160px] min-w-[160px] px-2 py-2 border-b border-surface-200 dark:border-white/[0.06] sticky left-[436px] z-30 bg-white dark:bg-surface-800 group-hover/row:bg-surface-50 dark:group-hover/row:bg-surface-800/30 shadow-[2px_0_0_0_#cbd5e1] dark:shadow-[2px_0_0_0_rgba(255,255,255,0.12)] truncate" title={member.jobRoleName || member.jobRoleCode || ''}>
                                   {member.jobRoleName || member.jobRoleCode || '-'}
                                 </td>
                                 {months.map(m => {

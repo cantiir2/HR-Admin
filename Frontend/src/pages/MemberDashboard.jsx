@@ -6,7 +6,7 @@ import {
   Camera, MapPin, LogOut, CheckCircle, Clock,
   ArrowUpCircle, ArrowDownCircle, FileText,
   Navigation, Loader2, AlertCircle, Fingerprint,
-  CalendarDays, User
+  CalendarDays, User, FolderKanban, ChevronRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
@@ -31,10 +31,8 @@ const MemberDashboard = () => {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [photoBase64, setPhotoBase64] = useState(null);
-  const [location, setLocation] = useState(null);
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
-  const [locationLoading, setLocationLoading] = useState(false);
   const [attendances, setAttendances] = useState([]);
   const [todayRecord, setTodayRecord] = useState(null);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -45,10 +43,27 @@ const MemberDashboard = () => {
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
   const [exportLoading, setExportLoading] = useState(false);
+  
+  const [dashboardProjects, setDashboardProjects] = useState([]);
+  const [dashboardTimeline, setDashboardTimeline] = useState('current');
+  const [dashboardProjectsLoading, setDashboardProjectsLoading] = useState(true);
 
   const navigate = useNavigate();
 
   useEffect(() => { fetchAttendances(); }, [filterMonth, filterYear]);
+  useEffect(() => { fetchDashboardProjects(); }, [dashboardTimeline]);
+
+  const fetchDashboardProjects = async () => {
+    try {
+      setDashboardProjectsLoading(true);
+      const res = await api.get(`/api/projects/my-projects?pageNo=1&pageSize=3&timeline=${dashboardTimeline}`);
+      setDashboardProjects(res.data.data || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDashboardProjectsLoading(false);
+    }
+  };
 
   const fetchAttendances = async () => {
     try {
@@ -106,27 +121,36 @@ const MemberDashboard = () => {
     reader.readAsDataURL(file);
   };
 
-  const getLocation = () => {
-    if (!navigator.geolocation) { showToast({ type: 'error', title: 'Gagal', message: 'Geolocation tidak didukung' }); return; }
-    setLocationLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => { setLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }); setLocationLoading(false); },
-      () => { showToast({ type: 'error', title: 'Gagal', message: 'Gagal mendapatkan lokasi' }); setLocationLoading(false); },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  };
-
   const handleSubmit = async (type) => {
     // if (!photoBase64) { showToast({ type: 'error', title: 'Validasi Gagal', message: 'Silakan ambil foto' }); return; }
-    if (!location) { showToast({ type: 'error', title: 'Validasi Gagal', message: 'Silakan dapatkan lokasi' }); return; }
     if (type === 'check-out' && !note.trim()) { showToast({ type: 'error', title: 'Validasi Gagal', message: 'Catatan aktivitas wajib diisi' }); return; }
+    
     setLoading(true);
     try {
+      let position;
+      try {
+        position = await new Promise((resolve, reject) => {
+          if (!navigator.geolocation) reject(new Error('Geolocation tidak didukung'));
+          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 });
+        });
+      } catch (geoErr) {
+        if (geoErr.code === 2 || geoErr.code === 3) {
+          position = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: false, timeout: 8000, maximumAge: 10000 });
+          });
+        } else {
+          throw geoErr;
+        }
+      }
+
+      const latitude = position.coords.latitude;
+      const longitude = position.coords.longitude;
+
       const endpoint = type === 'check-in' ? '/api/attendance/check-in' : '/api/attendance/check-out';
       const payload = {
         photo: photoBase64,
-        latitude: location.latitude,
-        longitude: location.longitude,
+        latitude,
+        longitude,
         ...(type === 'check-out' ? { note } : {})
       };
       const response = await api.post(endpoint, payload);
@@ -135,10 +159,20 @@ const MemberDashboard = () => {
       }
       await fetchAttendances();
       showToast({ type: 'success', title: 'Berhasil', message: response.data.message || `${type === 'check-in' ? 'Check-In' : 'Check-Out'} berhasil!` });
-      setPhotoBase64(null); setLocation(null); setNote('');
+      setPhotoBase64(null); setNote('');
       setIsOvertimeCheckout(false);
     } catch (err) {
-      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal mengirim absensi' });
+      if (err.code === 1) {
+        showToast({ type: 'error', title: 'Izin Lokasi Ditolak', message: 'Akses lokasi ditolak browser. Mohon izinkan akses.' });
+      } else if (err.code === 2) {
+        showToast({ type: 'error', title: 'Lokasi Tidak Tersedia', message: 'Pastikan fitur Location / GPS di pengaturan perangkat Anda (Windows/HP) sudah Aktif.' });
+      } else if (err.code === 3) {
+        showToast({ type: 'error', title: 'Waktu Habis', message: 'Sinyal lokasi lemah atau pencarian terlalu lama. Coba lagi.' });
+      } else if (err.message === 'Geolocation tidak didukung') {
+        showToast({ type: 'error', title: 'Gagal', message: 'Perangkat tidak mendukung fitur lokasi.' });
+      } else {
+        showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal mengirim absensi' });
+      }
     } finally { setLoading(false); }
   };
 
@@ -191,6 +225,55 @@ const MemberDashboard = () => {
             {todayRecord?.checkOutTime ? format(new Date(todayRecord.checkOutTime), 'HH:mm') : '--:--'}
           </p>
         </div>
+      </div>
+
+      {/* Projects Widget */}
+      <div className="glass-card p-6 animate-slide-up mt-4 mb-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <FolderKanban size={18} className="text-brand-400" />
+            <h2 className="text-lg font-semibold text-white">Project Saya</h2>
+          </div>
+          <div className="flex items-center gap-3">
+            <AppSelect
+              value={dashboardTimeline}
+              onChange={(val) => setDashboardTimeline(val)}
+              className="py-1 text-xs"
+              options={[
+                ['current', 'Sedang Berjalan'],
+                ['incoming', 'Akan Datang']
+              ]}
+            />
+            <button 
+              onClick={() => navigate('/member/projects')}
+              className="text-xs text-brand-400 hover:text-brand-300 font-medium flex items-center gap-1"
+            >
+              Lihat Semua <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+
+        {dashboardProjectsLoading ? (
+          <div className="text-center py-6"><Loader2 size={20} className="animate-spin text-surface-400 mx-auto" /></div>
+        ) : dashboardProjects.length === 0 ? (
+          <div className="text-center py-6 text-surface-400 text-sm bg-white/[0.03] rounded-xl border border-white/[0.05]">
+            Tidak ada project untuk kategori ini
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {dashboardProjects.map(p => (
+              <div key={p.id} className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.05] hover:bg-white/[0.06] transition-colors cursor-pointer flex justify-between items-center" onClick={() => navigate(`/member/projects/${p.id}`)}>
+                <div>
+                  <p className="text-sm font-medium text-white line-clamp-1">{p.name}</p>
+                  <p className="text-xs text-surface-400 mt-0.5" title="Rentang penugasan Anda">
+                    {format(new Date(p.members?.[0]?.joinedAt || p.contractStart), 'dd MMM yyyy')} - {format(new Date(p.members?.[0]?.leftAt || p.contractEnd), 'dd MMM yyyy')}
+                  </p>
+                </div>
+                <ChevronRight size={16} className="text-surface-500" />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Attendance Form */}
@@ -252,12 +335,6 @@ const MemberDashboard = () => {
               )}
             </div> */}
 
-            <button onClick={getLocation} disabled={locationLoading}
-              className={`w-full py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all text-sm font-medium ${location ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-white/[0.06] text-surface-300 border border-white/[0.1] hover:bg-white/[0.1]'}`}>
-              {locationLoading ? <Loader2 size={16} className="animate-spin" /> : location ? <Navigation size={16} /> : <MapPin size={16} />}
-              {locationLoading ? 'Mendapatkan lokasi...' : location ? `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}` : 'Dapatkan Lokasi'}
-            </button>
-
             {canCheckOut && (
               <div className="relative">
                 <FileText size={16} className="absolute left-3.5 top-3 text-surface-500" />
@@ -270,7 +347,7 @@ const MemberDashboard = () => {
                 ? 'bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-emerald-500/20'
                 : 'bg-gradient-to-r from-rose-600 to-rose-500 text-white shadow-rose-500/20'
                 }`}>
-              {loading ? <Loader2 size={18} className="animate-spin" /> : canCheckIn ? <><ArrowUpCircle size={18} /> Check-In</> : <><ArrowDownCircle size={18} /> Check-Out</>}
+              {loading ? <><Loader2 size={18} className="animate-spin" /> {canCheckIn ? 'Check-In...' : 'Check-Out...'}</> : canCheckIn ? <><ArrowUpCircle size={18} /> Check-In</> : <><ArrowDownCircle size={18} /> Check-Out</>}
             </button>
           </div>
         </div>

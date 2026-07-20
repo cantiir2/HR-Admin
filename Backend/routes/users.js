@@ -486,7 +486,7 @@ router.post('/available-members/search', authenticateToken, authenticateAdmin, a
       }
     });
 
-    const rows = users.map(user => {
+    let rows = users.map(user => {
       const assignments = user.projects
         .map(item => ({
           ...item,
@@ -532,9 +532,14 @@ router.post('/available-members/search', authenticateToken, authenticateAdmin, a
         available_from: availableFrom,
         availability_status: availabilityStatus,
         matching_score: priorityOrder,
-        priority_order: priorityOrder
+        priority_order: priorityOrder,
+        has_conflict: !isAvailable
       };
     });
+
+    if (rangeStart) {
+      rows = rows.filter(row => !row.has_conflict);
+    }
 
     const normalizedSort = normalizeSortParams(sortBy, sortOrder);
 

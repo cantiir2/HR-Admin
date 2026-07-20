@@ -139,13 +139,102 @@ module.exports = (prisma) => {
       const pageNo = Math.max(parseInt(req.query.pageNo, 10) || 1, 1);
       const pageSize = Math.min(Math.max(parseInt(req.query.pageSize, 10) || 10, 1), 50);
       const skip = (pageNo - 1) * pageSize;
+      const timeline = req.query.timeline;
+      const status = req.query.status;
 
-      const whereCondition = {
-        OR: [
-          { projectManagerId: req.user.id },
-          { members: { some: { userId: req.user.id } } }
+      const today = new Date();
+      today.setUTCHours(0, 0, 0, 0);
+
+      const baseWhere = {
+        AND: [
+          {
+            OR: [
+              { projectManagerId: req.user.id },
+              { members: { some: { userId: req.user.id } } }
+            ]
+          }
         ]
       };
+      
+      if (status) {
+        baseWhere.AND.push({ status });
+      }
+
+      let whereCondition = baseWhere;
+
+      if (timeline === 'current') {
+        whereCondition = {
+          AND: [
+            baseWhere,
+            {
+              OR: [
+                {
+                  projectManagerId: req.user.id,
+                  contractStart: { lte: today },
+                  contractEnd: { gte: today }
+                },
+                {
+                  members: {
+                    some: {
+                      userId: req.user.id,
+                      joinedAt: { lte: today },
+                      leftAt: { gte: today }
+                    }
+                  }
+                },
+                {
+                  members: {
+                    some: {
+                      userId: req.user.id,
+                      joinedAt: null
+                    }
+                  },
+                  contractStart: { lte: today },
+                  contractEnd: { gte: today }
+                }
+              ]
+            }
+          ]
+        };
+      } else if (timeline === 'incoming') {
+        whereCondition = {
+          AND: [
+            baseWhere,
+            {
+              OR: [
+                {
+                  projectManagerId: req.user.id,
+                  contractStart: { gt: today }
+                },
+                {
+                  members: {
+                    some: {
+                      userId: req.user.id,
+                      joinedAt: { gt: today }
+                    }
+                  }
+                },
+                {
+                  members: {
+                    some: {
+                      userId: req.user.id,
+                      joinedAt: null
+                    }
+                  },
+                  contractStart: { gt: today }
+                }
+              ]
+            }
+          ]
+        };
+      }
+
+      let orderByCondition = { createdAt: 'desc' };
+      if (timeline === 'incoming') {
+        orderByCondition = { contractStart: 'asc' };
+      } else if (timeline === 'current') {
+        orderByCondition = { contractEnd: 'asc' };
+      }
 
       const [projects, totalRows] = await prisma.$transaction([
         prisma.project.findMany({
@@ -155,12 +244,13 @@ module.exports = (prisma) => {
           include: {
             projectManager: { select: { id: true, name: true, email: true, jobRoleCode: true, profilePhoto: true } },
             members: {
+              where: { userId: req.user.id }, // only return member's own allocation to get their dates
               include: {
                 user: { select: { id: true, name: true, email: true, jobRoleCode: true, profilePhoto: true } }
               }
             }
           },
-          orderBy: { createdAt: 'desc' }
+          orderBy: orderByCondition
         }),
         prisma.project.count({ where: whereCondition })
       ]);
@@ -313,6 +403,37 @@ module.exports = (prisma) => {
       if (joinedAt && new Date(joinedAt) < project.contractStart ||
           leftAt && new Date(leftAt) > project.contractEnd) {
         return res.status(400).json({ error: 'Tanggal assignment harus berada dalam periode project' });
+      }
+
+      // Check for overlapping schedule
+      const targetStart = joinedAt ? new Date(joinedAt) : project.contractStart;
+      const targetEnd = leftAt ? new Date(leftAt) : project.contractEnd;
+      targetStart.setUTCHours(0, 0, 0, 0);
+      targetEnd.setUTCHours(23, 59, 59, 999);
+
+      const existingMemberships = await prisma.projectMember.findMany({
+        where: {
+          userId,
+          project: { status: 'active' }
+        },
+        include: {
+          project: {
+            select: { name: true, contractStart: true, contractEnd: true, status: true }
+          }
+        }
+      });
+
+      for (const m of existingMemberships) {
+        const mStart = m.joinedAt ? new Date(m.joinedAt) : m.project.contractStart;
+        const mEnd = m.leftAt ? new Date(m.leftAt) : m.project.contractEnd;
+        mStart.setUTCHours(0, 0, 0, 0);
+        mEnd.setUTCHours(23, 59, 59, 999);
+
+        if (mStart <= targetEnd && mEnd >= targetStart) {
+          return res.status(400).json({ 
+            error: `Gagal assign. Member sudah dialokasikan pada project "${m.project.name}" di rentang waktu yang bertabrakan.` 
+          });
+        }
       }
 
       const member = await prisma.projectMember.create({

@@ -168,7 +168,12 @@ const ProjectManagement = () => {
   const addMember = async (e) => {
     e.preventDefault();
     try {
-      await api.post(`/api/projects/${selectedProject.id}/members`, memberForm);
+      const payload = {
+        ...memberForm,
+        joinedAt: memberForm.joinedAt || null,
+        leftAt: memberForm.leftAt || null,
+      };
+      await api.post(`/api/projects/${selectedProject.id}/members`, payload);
       fetchProjects(page.pageNo, page.pageSize);
       // Refresh selected project
       const updated = await api.get(`/api/projects/${selectedProject.id}`);

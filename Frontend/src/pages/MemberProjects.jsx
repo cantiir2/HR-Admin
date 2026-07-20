@@ -4,6 +4,7 @@ import api from '../lib/api';
 import { FolderKanban, MapPin, Calendar, Users, LayoutDashboard } from 'lucide-react';
 import { format } from 'date-fns';
 import Pagination from '../components/Pagination';
+import AppSelect from '../components/AppSelect';
 
 const statusColors = {
   active: 'badge-success',
@@ -17,18 +18,20 @@ const MemberProjects = () => {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState({ pageNo: 1, pageSize: 10, totalRows: 0, totalPages: 0 });
+  const [timeline, setTimeline] = useState('current');
+  const [status, setStatus] = useState('');
 
   const pageSizeRef = useRef(10);
 
   useEffect(() => {
     fetchProjects(1, pageSizeRef.current);
-  }, []);
+  }, [timeline, status]);
 
   const fetchProjects = async (pageNo = 1, pageSize = pageSizeRef.current) => {
     try {
       pageSizeRef.current = pageSize;
       setLoading(true);
-      const res = await api.get(`/api/projects/my-projects?pageNo=${pageNo}&pageSize=${pageSize}`);
+      const res = await api.get(`/api/projects/my-projects?pageNo=${pageNo}&pageSize=${pageSize}&timeline=${timeline}&status=${status}`);
       setProjects(res.data.data || []);
       setPage(res.data.page || { pageNo, pageSize, totalRows: 0, totalPages: 0 });
     } catch (error) {
@@ -63,6 +66,35 @@ const MemberProjects = () => {
             Daftar project di mana Anda ditugaskan sebagai anggota.
           </p>
         </div>
+        
+        <div className="flex flex-col sm:flex-row gap-3">
+          <AppSelect 
+            value={status} 
+            onChange={(val) => setStatus(val)} 
+            options={[
+              ['', 'Semua Status'],
+              ['active', 'Active'],
+              ['completed', 'Completed'],
+              ['cancelled', 'Cancelled']
+            ]}
+          />
+        </div>
+      </div>
+      
+      {/* Tabs */}
+      <div className="flex border-b border-white/[0.1] mb-6">
+        <button 
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${timeline === 'current' ? 'border-brand-500 text-brand-400' : 'border-transparent text-surface-400 hover:text-white'}`}
+          onClick={() => setTimeline('current')}
+        >
+          Proyek Berjalan
+        </button>
+        <button 
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${timeline === 'incoming' ? 'border-brand-500 text-brand-400' : 'border-transparent text-surface-400 hover:text-white'}`}
+          onClick={() => setTimeline('incoming')}
+        >
+          Proyek Akan Datang
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -107,9 +139,9 @@ const MemberProjects = () => {
                   <MapPin size={12} /> <span className="truncate">{project.location}</span>
                 </div>
               )}
-              <div className="flex items-center gap-2 text-xs text-surface-400">
+              <div className="flex items-center gap-2 text-xs text-surface-400" title="Rentang penugasan Anda">
                 <Calendar size={12} />
-                {format(new Date(project.contractStart), 'MM/dd/yy')} — {format(new Date(project.contractEnd), 'MM/dd/yy')}
+                {format(new Date(project.members?.[0]?.joinedAt || project.contractStart), 'MM/dd/yy')} — {format(new Date(project.members?.[0]?.leftAt || project.contractEnd), 'MM/dd/yy')}
               </div>
               <div className="flex items-center gap-2 text-xs text-surface-400">
                 <Users size={12} /> {project.members?.length || 0} anggota
@@ -132,7 +164,7 @@ const MemberProjects = () => {
           <div className="col-span-full text-center py-16 glass-card">
             <FolderKanban size={32} className="mx-auto text-surface-500 mb-3" />
             <p className="text-white font-medium mb-1">Tidak Ada Project</p>
-            <p className="text-surface-400 text-sm">Anda belum ditugaskan ke project manapun.</p>
+            <p className="text-surface-400 text-sm">Anda belum ditugaskan ke project manapun untuk kategori ini.</p>
           </div>
         )}
       </div>
