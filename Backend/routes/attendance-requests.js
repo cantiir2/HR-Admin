@@ -20,7 +20,7 @@ module.exports = (prisma) => {
   // Helper to combine date and time string into Date object
   function combineDateTime(dateStr, timeStr) {
     if (!timeStr) return null;
-    return new Date(`${dateStr}T${timeStr}:00.000Z`);
+    return new Date(`${dateStr.split('T')[0]}T${timeStr}:00.000+07:00`);
   }
 
   // GET /api/attendance-requests/me
@@ -469,7 +469,7 @@ module.exports = (prisma) => {
       if (request.status !== 'PENDING') return res.status(400).json({ error: 'Request sudah tidak PENDING' });
 
       // Transaction
-      await prisma.$transaction(async (tx) => {
+      const result = await prisma.$transaction(async (tx) => {
         // 1. Mark request as approved
         await tx.attendanceRequest.update({
           where: { id },

@@ -137,6 +137,10 @@ module.exports = (prisma) => {
       const attendances = await prisma.attendance.findMany({
         where: whereClause,
         orderBy,
+        omit: {
+          checkInPhoto: true,
+          checkOutPhoto: true
+        },
         ...(month && year ? {} : { take: 30 })
       });
       res.json(attendances);

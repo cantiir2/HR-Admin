@@ -233,8 +233,8 @@ export default function AttendanceRequestManagement() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col gap-1 text-xs">
-                        {req.requestedCheckInTime && <span>In: {format(new Date(req.requestedCheckInTime.replace('Z', '')), 'HH:mm')}</span>}
-                        {req.requestedCheckOutTime && <span>Out: {format(new Date(req.requestedCheckOutTime.replace('Z', '')), 'HH:mm')}</span>}
+                        {req.requestedCheckInTime && <span>In: {format(new Date(req.requestedCheckInTime), 'HH:mm')}</span>}
+                        {req.requestedCheckOutTime && <span>Out: {format(new Date(req.requestedCheckOutTime), 'HH:mm')}</span>}
                       </div>
                     </td>
                     <td className="px-6 py-4 max-w-[200px] truncate" title={req.reason}>
@@ -295,10 +295,10 @@ export default function AttendanceRequestManagement() {
                   <p className="text-xs text-surface-400 mb-1">Waktu</p>
                   <p className="flex gap-2 text-sm font-medium text-white">
                     {selectedReq.requestedCheckInTime && (
-                      <span>In: {format(new Date(selectedReq.requestedCheckInTime.replace('Z', '')), 'HH:mm')}</span>
+                      <span>In: {format(new Date(selectedReq.requestedCheckInTime), 'HH:mm')}</span>
                     )}
                     {selectedReq.requestedCheckOutTime && (
-                      <span>Out: {format(new Date(selectedReq.requestedCheckOutTime.replace('Z', '')), 'HH:mm')}</span>
+                      <span>Out: {format(new Date(selectedReq.requestedCheckOutTime), 'HH:mm')}</span>
                     )}
                   </p>
                 </div>

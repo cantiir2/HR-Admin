@@ -34,24 +34,24 @@ function formatTimeJakarta(dateValue) {
 // Description : Menghitung total jam kerja efektif setelah dikurangi jam istirahat normal dan istirahat lembur
 function calculateWorkingHours(checkInTime, checkOutTime, breakMinutes, overtimeBreakMinutes = 0, normalWorkingMins = 480) {
   if (!checkInTime || !checkOutTime) return { totalMins: 0, appliedBreakMins: 0 };
-  
+
   const start = new Date(checkInTime);
   const end = new Date(checkOutTime);
   let diffMs = end - start;
   let diffMins = Math.floor(diffMs / 60000);
-  
+
   let appliedBreakMins = breakMinutes;
   diffMins -= breakMinutes;
-  
+
   if (diffMins > normalWorkingMins) {
     const excess = diffMins - normalWorkingMins;
     const actualOvertimeBreak = Math.min(excess, overtimeBreakMinutes);
     appliedBreakMins += actualOvertimeBreak;
-    
+
     const actualOvertime = Math.max(0, excess - overtimeBreakMinutes);
     diffMins = normalWorkingMins + actualOvertime;
   }
-  
+
   return {
     totalMins: Math.max(0, diffMins),
     appliedBreakMins: appliedBreakMins

@@ -429,10 +429,10 @@ export default function AttendanceRequest() {
                       <td className="px-6 py-4">
                         <div className="flex flex-col gap-1 text-xs">
                           {req.requestedCheckInTime && (
-                            <span>In: {format(new Date(req.requestedCheckInTime.replace('Z', '')), 'HH:mm')}</span>
+                            <span>In: {format(new Date(req.requestedCheckInTime), 'HH:mm')}</span>
                           )}
                           {req.requestedCheckOutTime && (
-                            <span>Out: {format(new Date(req.requestedCheckOutTime.replace('Z', '')), 'HH:mm')}</span>
+                            <span>Out: {format(new Date(req.requestedCheckOutTime), 'HH:mm')}</span>
                           )}
                         </div>
                       </td>
