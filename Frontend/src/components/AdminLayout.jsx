@@ -40,6 +40,7 @@ const AdminLayout = () => {
       icon: FolderClosed,
       subItems: [
         { to: '/admin/projects', icon: FolderKanban, label: 'Project' },
+        { to: '/admin/project-geofence', icon: MapIcon, label: 'Area Mapping' },
         { to: '/admin/project-resources', icon: CalendarCheck, label: 'Project Resource' },
         { to: '/admin/available-members', icon: CalendarCheck, label: 'Available Member' },
       ]

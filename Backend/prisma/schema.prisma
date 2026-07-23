@@ -252,6 +252,20 @@ model Project {
   @@map("tb_m_project")
 }
 
+model Geofence {
+  id          String   @id @default(uuid())
+  name        String
+  description String?  @db.Text
+  location    String?  @db.Text
+  latitude    Float?
+  longitude   Float?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("tb_m_geofence")
+}
+
 // ─── Project Member (Junction) ─────────────────────────────────────────────
 model ProjectMember {
   id            String    @id @default(uuid())

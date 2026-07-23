@@ -2,19 +2,55 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken, authenticateAdmin } = require('../middleware/auth');
 const { buildOrderBy } = require('../utils/sorting');
+const { detectProjectArea } = require('../utils/geofence');
 
 module.exports = (prisma) => {
-  // ─── POST Check-In ──────────────────────────────────────────────────────
+  async function getActiveGeofences() {
+    try {
+      const geofences = await prisma.geofence.findMany({
+        where: { isActive: true }
+      });
+      if (geofences && geofences.length > 0) {
+        return geofences;
+      }
+    } catch (e) { }
+    return await prisma.project.findMany({
+      where: {
+        status: { in: ['active', 'Active', 'ACTIVE'] }
+      }
+    });
+  }
+
+  function getAreaStatus(lat, lng, geofences) {
+    if (lat === null || lat === undefined || lng === null || lng === undefined) {
+      return null;
+    }
+    const match = detectProjectArea(lat, lng, geofences);
+    if (match) {
+      return { ...match, inRange: true };
+    }
+    return { name: 'Luar Area', location: '', inRange: false };
+  }
+
+  function attachAreaStatus(attendance, geofences) {
+    if (!attendance) return null;
+    const checkInArea = getAreaStatus(attendance.checkInLat, attendance.checkInLng, geofences);
+    const checkOutArea = getAreaStatus(attendance.checkOutLat, attendance.checkOutLng, geofences);
+    return {
+      ...attendance,
+      checkInArea,
+      checkOutArea
+    };
+  }
+
   router.post('/check-in', authenticateToken, async (req, res) => {
     try {
       const { photo, latitude, longitude, note } = req.body;
-      // if (!photo) return res.status(400).json({ error: 'Foto wajib diambil' });
       if (!latitude || !longitude) return res.status(400).json({ error: 'Lokasi GPS diperlukan' });
 
       const today = new Date();
       const dateOnly = jakartaDate();
 
-      // Check if already checked in today
       const existing = await prisma.attendance.findUnique({
         where: { userId_date: { userId: req.user.id, date: dateOnly } }
       });
@@ -23,8 +59,9 @@ module.exports = (prisma) => {
         return res.status(400).json({ error: 'Anda sudah melakukan check-in hari ini' });
       }
 
+      const activeProjects = await getActiveGeofences();
+
       if (existing) {
-        // Update existing record (shouldn't happen, but just in case)
         const updated = await prisma.attendance.update({
           where: { id: existing.id },
           data: {
@@ -35,10 +72,9 @@ module.exports = (prisma) => {
             checkInNote: note
           }
         });
-        return res.status(200).json({ message: 'Check-in berhasil', attendance: updated });
+        return res.status(200).json({ message: 'Check-in berhasil', attendance: attachAreaStatus(updated, activeProjects) });
       }
 
-      // Create new attendance record for today
       const attendance = await prisma.attendance.create({
         data: {
           userId: req.user.id,
@@ -51,24 +87,21 @@ module.exports = (prisma) => {
         }
       });
 
-      res.status(201).json({ message: 'Check-in berhasil', attendance });
+      res.status(201).json({ message: 'Check-in berhasil', attendance: attachAreaStatus(attendance, activeProjects) });
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Server error' });
     }
   });
 
-  // ─── POST Check-Out ─────────────────────────────────────────────────────
   router.post('/check-out', authenticateToken, async (req, res) => {
     try {
       const { photo, latitude, longitude, note } = req.body;
-      // if (!photo) return res.status(400).json({ error: 'Foto wajib diambil' });
       if (!latitude || !longitude) return res.status(400).json({ error: 'Lokasi GPS diperlukan' });
 
       const today = new Date();
       const dateOnly = jakartaDate();
 
-      // Find today's attendance record
       const existing = await prisma.attendance.findUnique({
         where: { userId_date: { userId: req.user.id, date: dateOnly } }
       });
@@ -77,11 +110,13 @@ module.exports = (prisma) => {
         return res.status(400).json({ error: 'Anda belum melakukan check-in hari ini' });
       }
 
+      const activeProjects = await getActiveGeofences();
+
       if (existing.checkOutTime) {
         if (today <= existing.checkOutTime) {
           return res.status(400).json({ error: 'Waktu check-out baru harus lebih besar dari check-out sebelumnya' });
         }
-        
+
         const updated = await prisma.attendance.update({
           where: { id: existing.id },
           data: {
@@ -92,8 +127,8 @@ module.exports = (prisma) => {
             checkOutNote: note
           }
         });
-        
-        return res.json({ message: 'Check-out lembur berhasil diperbarui', attendance: updated });
+
+        return res.json({ message: 'Check-out lembur berhasil diperbarui', attendance: attachAreaStatus(updated, activeProjects) });
       }
 
       const updated = await prisma.attendance.update({
@@ -107,14 +142,36 @@ module.exports = (prisma) => {
         }
       });
 
-      res.json({ message: 'Check-out berhasil', attendance: updated });
+      res.json({ message: 'Check-out berhasil', attendance: attachAreaStatus(updated, activeProjects) });
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Server error' });
     }
   });
 
-  // ─── GET My Attendances ─────────────────────────────────────────────────
+  router.get('/today', authenticateToken, async (req, res) => {
+    try {
+      const dateOnly = jakartaDate();
+      const attendance = await prisma.attendance.findFirst({
+        where: { userId: req.user.id, date: dateOnly },
+        include: {
+          user: { select: { name: true, email: true, jobRoleCode: true } }
+        }
+      });
+
+      const activeProjects = await getActiveGeofences();
+
+      if (!attendance) {
+        return res.json(null);
+      }
+
+      res.json(attachAreaStatus(attendance, activeProjects));
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
+
   router.get('/me', authenticateToken, async (req, res) => {
     try {
       const { month, year, sortBy, sortOrder } = req.query;
@@ -134,27 +191,30 @@ module.exports = (prisma) => {
         };
       }
 
-      const attendances = await prisma.attendance.findMany({
-        where: whereClause,
-        orderBy,
-        omit: {
-          checkInPhoto: true,
-          checkOutPhoto: true
-        },
-        ...(month && year ? {} : { take: 30 })
-      });
-      res.json(attendances);
+      const [attendances, activeProjects] = await Promise.all([
+        prisma.attendance.findMany({
+          where: whereClause,
+          orderBy,
+          omit: {
+            checkInPhoto: true,
+            checkOutPhoto: true
+          },
+          ...(month && year ? {} : { take: 30 })
+        }),
+        getActiveGeofences()
+      ]);
+
+      res.json(attendances.map(att => attachAreaStatus(att, activeProjects)));
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Server error' });
     }
   });
 
-  // ─── GET All Attendances (Admin) ────────────────────────────────────────
   router.get('/', authenticateToken, authenticateAdmin, async (req, res) => {
     try {
       const { page, limit, search, date, startDate, endDate, all, projectManagerId, sortBy, sortOrder } = req.query;
-      
+
       const allowedSortFields = ['date', 'user.name', 'checkInTime', 'checkOutTime', 'createdAt'];
       const orderBy = buildOrderBy(sortBy, sortOrder, allowedSortFields, { sortBy: 'date', sortOrder: 'desc' });
 
@@ -198,6 +258,8 @@ module.exports = (prisma) => {
         };
       }
 
+      const activeProjects = await getActiveGeofences();
+
       if (page && limit) {
         const pageNumber = parseInt(page) || 1;
         const limitNumber = parseInt(limit) || 10;
@@ -217,7 +279,7 @@ module.exports = (prisma) => {
         ]);
 
         return res.json({
-          data: attendances,
+          data: attendances.map(att => attachAreaStatus(att, activeProjects)),
           total,
           page: pageNumber,
           limit: limitNumber,
@@ -232,37 +294,39 @@ module.exports = (prisma) => {
         },
         orderBy
       });
-      res.json(attendances);
+      res.json(attendances.map(att => attachAreaStatus(att, activeProjects)));
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Server error' });
     }
   });
 
-  // ─── GET Today's Locations (Admin Map) ──────────────────────────────────
   router.get('/locations', authenticateToken, authenticateAdmin, async (req, res) => {
     try {
       const dateOnly = jakartaDate();
 
-      const locations = await prisma.attendance.findMany({
-        where: {
-          date: dateOnly,
-          ...(req.query.projectManagerId ? {
-            user: { projects: { some: { project: { projectManagerId: req.query.projectManagerId } } } }
-          } : {})
-        },
-        include: {
-          user: { select: { name: true, email: true, jobRoleCode: true } }
-        }
-      });
-      res.json(locations);
+      const [locations, activeProjects] = await Promise.all([
+        prisma.attendance.findMany({
+          where: {
+            date: dateOnly,
+            ...(req.query.projectManagerId ? {
+              user: { projects: { some: { project: { projectManagerId: req.query.projectManagerId } } } }
+            } : {})
+          },
+          include: {
+            user: { select: { name: true, email: true, jobRoleCode: true } }
+          }
+        }),
+        getActiveGeofences()
+      ]);
+
+      res.json(locations.map(loc => attachAreaStatus(loc, activeProjects)));
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Server error' });
     }
   });
 
-  // ─── GET Export Working Report ──────────────────────────────────────────
   router.get('/export', authenticateToken, async (req, res) => {
     try {
       const { month, year } = req.query;

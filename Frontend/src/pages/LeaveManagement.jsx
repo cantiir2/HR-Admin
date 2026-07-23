@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Check, Download, Eye, Loader2, Search, X } from 'lucide-react';
 import { format } from 'date-fns';
 import api from '../lib/api';
@@ -10,13 +11,23 @@ import { useAuth } from '../context/AuthContext';
 import { downloadBase64File, viewBase64File } from '../lib/fileValidation';
 import { useToast } from '../context/ToastContext';
 
+// Name Function : LeaveManagement
+// Author : Iyan.FID
+// Description : Halaman manajemen pengajuan cuti karyawan dan proses approval/rejection.
 const LeaveManagement = () => {
+  const [searchParams] = useSearchParams();
   const { showToast } = useToast();
   const { user } = useAuth();
   const [leaves, setLeaves] = useState([]);
   const [statuses, setStatuses] = useState([['', 'Semua Status']]);
-  const [statusClass, setStatusClass] = useState({});
-  const [filters, setFilters] = useState({ search: '', status: '' });
+  const [statusClass, setStatusClass] = useState({
+    PENDING: 'badge-warning',
+    APPROVED_BY_PM: 'badge-info',
+    APPROVED: 'badge-success',
+    REJECTED: 'badge-danger',
+    CANCELLED: 'badge-danger',
+  });
+  const [filters, setFilters] = useState({ search: '', status: searchParams.get('status') || '' });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [evidenceImage, setEvidenceImage] = useState(null);
 
@@ -30,12 +41,12 @@ const LeaveManagement = () => {
         if (res.data && res.data.length > 0) {
           res.data.forEach(item => {
             dynamicStatuses.push([item.code, item.name]);
-            dynamicStatusClass[item.code] = item.description || 'badge-info';
+            dynamicStatusClass[item.code] = item.description || (item.code === 'PENDING' ? 'badge-warning' : 'badge-info');
           });
         }
 
         setStatuses(dynamicStatuses);
-        setStatusClass(dynamicStatusClass);
+        setStatusClass(prev => ({ ...prev, ...dynamicStatusClass }));
       } catch (error) {
         console.error('Failed to fetch leave statuses', error);
       }
@@ -47,7 +58,7 @@ const LeaveManagement = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
 
-  const { sortBy, sortOrder, handleSort } = useTableSort('startDate', 'desc');
+  const { sortBy, sortOrder, handleSort } = useTableSort('createdAt', 'desc');
 
   const closeEvidenceModal = () => {
     setIsModalOpen(false);
@@ -148,6 +159,7 @@ const LeaveManagement = () => {
                 <SortableHeader label="Periode" field="startDate" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
                 <SortableHeader label="Total" field="totalDays" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
                 <SortableHeader label="Status" field="status" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
+                <SortableHeader label="Created Date" field="createdAt" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
                 <SortableHeader label="Evidence" />
                 <SortableHeader label="Info" />
                 <SortableHeader label="Aksi" />
@@ -164,7 +176,10 @@ const LeaveManagement = () => {
                     {format(new Date(item.startDate), 'dd MMM yyyy')} - {format(new Date(item.endDate), 'dd MMM yyyy')}
                   </td>
                   <td className="px-4 py-3 text-sm text-surface-400">{item.totalDays} hari</td>
-                  <td className="px-4 py-3"><span className={statusClass[item.status] || 'badge-info'}>{item.status}</span></td>
+                  <td className="px-4 py-3"><span className={statusClass[item.status] || (item.status === 'PENDING' ? 'badge-warning' : 'badge-info')}>{item.status}</span></td>
+                  <td className="px-4 py-3 text-sm text-surface-400">
+                    {format(new Date(item.createdAt), 'dd MMM yyyy')}
+                  </td>
                   <td className="px-4 py-3 text-sm text-surface-400">
                     {item.hasEvidencePhoto ? 'Evidence tersedia' : item.leaveType === 'OTHERS' ? 'Tidak ada evidence photo' : 'Tidak ada evidence'}
                   </td>

@@ -97,23 +97,26 @@ const AdminAttendanceList = () => {
                   <td className="px-4 py-3 text-sm text-surface-400">{format(new Date(att.date), 'dd MMM yyyy')}</td>
                   <td className="px-4 py-3">
                     {att.checkInTime ? (
-                      <span className="badge-success">{format(new Date(att.checkInTime), 'HH:mm')}</span>
+                      <div>
+                        <span className="badge-success">{format(new Date(att.checkInTime), 'HH:mm')}</span>
+                        <p className="text-[11px] font-semibold text-surface-700 dark:text-surface-300 mt-1">
+                          {att.checkInArea?.inRange ? att.checkInArea.name : '-'}
+                        </p>
+                      </div>
                     ) : <span className="text-surface-600 text-xs">-</span>}
                   </td>
                   <td className="px-4 py-3">
                     {att.checkOutTime ? (
-                      <span className="badge-danger">{format(new Date(att.checkOutTime), 'HH:mm')}</span>
+                      <div>
+                        <span className="badge-danger">{format(new Date(att.checkOutTime), 'HH:mm')}</span>
+                        <p className="text-[11px] font-semibold text-surface-700 dark:text-surface-300 mt-1">
+                          {att.checkOutArea?.inRange ? att.checkOutArea.name : '-'}
+                        </p>
+                      </div>
                     ) : <span className="text-surface-600 text-xs">-</span>}
                   </td>
                   <td className="px-4 py-3 text-xs text-surface-400 max-w-[150px] truncate">{att.checkInNote || '-'}</td>
                   <td className="px-4 py-3 text-xs text-surface-400 max-w-[150px] truncate">{att.checkOutNote || '-'}</td>
-                  {/* <td className="px-4 py-3">
-                    <div className="flex gap-1">
-                      {att.checkInPhoto && <img src={att.checkInPhoto} alt="In" className="w-8 h-8 rounded-lg object-cover border border-white/10" />}
-                      {att.checkOutPhoto && <img src={att.checkOutPhoto} alt="Out" className="w-8 h-8 rounded-lg object-cover border border-white/10" />}
-                      {!att.checkInPhoto && !att.checkOutPhoto && <span className="text-surface-600 text-xs">-</span>}
-                    </div>
-                  </td> */}
                 </tr>
               ))}
             </tbody>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../../lib/api';
 import { useToast } from '../../context/ToastContext';
 import { useConfirm } from '../../context/ConfirmContext';
@@ -41,6 +42,7 @@ const StatusBadge = ({ status }) => {
 };
 
 export default function AttendanceRequestManagement() {
+  const [searchParams] = useSearchParams();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
 
@@ -49,7 +51,7 @@ export default function AttendanceRequestManagement() {
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
 
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '');
   const [statuses, setStatuses] = useState([]);
 
   const { sortBy, sortOrder, handleSort } = useTableSort('requestDate', 'desc');

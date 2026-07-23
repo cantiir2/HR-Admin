@@ -22,6 +22,7 @@ import MemberProjects from './pages/MemberProjects';
 import SystemMaster from './pages/admin/SystemMaster';
 import AvailableMember from './pages/admin/AvailableMember';
 import ProjectResource from './pages/admin/ProjectResource';
+import ProjectGeofenceConfig from './pages/admin/ProjectGeofenceConfig';
 import ProtectedRoute from './components/ProtectedRoute';
 import AttendanceRequest from './pages/AttendanceRequest';
 import AttendanceRequestManagement from './pages/admin/AttendanceRequestManagement';
@@ -72,6 +73,7 @@ function App() {
                   <Route path="system" element={<SystemMaster />} />
                   <Route path="available-members" element={<AvailableMember />} />
                   <Route path="project-resources" element={<ProjectResource />} />
+                  <Route path="project-geofence" element={<ProjectGeofenceConfig />} />
                 </Route>
 
                 <Route path="/" element={<Navigate to="/login" replace />} />

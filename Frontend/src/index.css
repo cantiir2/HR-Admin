@@ -99,6 +99,11 @@
            bg-brand-500/10 text-brand-400 border border-brand-500/20;
   }
 
+  .badge-warning {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium
+           bg-amber-500/10 text-amber-400 border border-amber-500/20;
+  }
+
   .stat-card {
     @apply glass-card p-5 relative overflow-hidden transition-all duration-300;
   }

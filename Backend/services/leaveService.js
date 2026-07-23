@@ -398,6 +398,7 @@ async function listLeaveRequests(prisma, currentUser, filters = {}) {
 
   return {
     data: data.map(toLeaveResponse),
+    total: totalRows,
     page: { pageNo, pageSize, totalRows, totalPages: Math.ceil(totalRows / pageSize) }
   };
 }

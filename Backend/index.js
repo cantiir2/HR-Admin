@@ -84,6 +84,7 @@ app.use('/api/tasks', require('./routes/tasks')(prisma));
 app.use('/api/notifications', require('./routes/notifications')(prisma));
 app.use('/api/working-reports', require('./routes/working-reports')(prisma));
 app.use('/api/leaves', require('./routes/leaves')(prisma));
+app.use('/api/geofences', require('./routes/geofences')(prisma));
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -6,7 +6,8 @@ import {
   Camera, MapPin, LogOut, CheckCircle, Clock,
   ArrowUpCircle, ArrowDownCircle, FileText,
   Navigation, Loader2, AlertCircle, Fingerprint,
-  CalendarDays, User, FolderKanban, ChevronRight
+  CalendarDays, User, FolderKanban, ChevronRight,
+  MapPinCheck
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
@@ -43,7 +44,7 @@ const MemberDashboard = () => {
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
   const [exportLoading, setExportLoading] = useState(false);
-  
+
   const [dashboardProjects, setDashboardProjects] = useState([]);
   const [dashboardTimeline, setDashboardTimeline] = useState('current');
   const [dashboardProjectsLoading, setDashboardProjectsLoading] = useState(true);
@@ -122,9 +123,8 @@ const MemberDashboard = () => {
   };
 
   const handleSubmit = async (type) => {
-    // if (!photoBase64) { showToast({ type: 'error', title: 'Validasi Gagal', message: 'Silakan ambil foto' }); return; }
     if (type === 'check-out' && !note.trim()) { showToast({ type: 'error', title: 'Validasi Gagal', message: 'Catatan aktivitas wajib diisi' }); return; }
-    
+
     setLoading(true);
     try {
       let position;
@@ -205,7 +205,6 @@ const MemberDashboard = () => {
         <p className="text-3xl font-bold text-white tracking-tight mt-1">{format(new Date(), 'HH:mm')}</p>
       </div>
 
-      {/* Today Stats */}
       <div className="grid grid-cols-2 gap-3 animate-slide-up">
         <div className="stat-card">
           <div className="flex items-center gap-2 mb-2">
@@ -215,6 +214,16 @@ const MemberDashboard = () => {
           <p className="text-lg font-bold text-white">
             {todayRecord?.checkInTime ? format(new Date(todayRecord.checkInTime), 'HH:mm') : '--:--'}
           </p>
+          {todayRecord?.checkInTime && todayRecord?.checkInArea && (
+            <div className="mt-1">
+              <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium ${todayRecord.checkInArea.inRange
+                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                  : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                }`}>
+                <MapPinCheck size={13}/> {todayRecord.checkInArea.name}
+              </span>
+            </div>
+          )}
         </div>
         <div className="stat-card">
           <div className="flex items-center gap-2 mb-2">
@@ -224,10 +233,19 @@ const MemberDashboard = () => {
           <p className="text-lg font-bold text-white">
             {todayRecord?.checkOutTime ? format(new Date(todayRecord.checkOutTime), 'HH:mm') : '--:--'}
           </p>
+          {todayRecord?.checkOutTime && todayRecord?.checkOutArea && (
+            <div className="mt-1">
+              <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium ${todayRecord.checkOutArea.inRange
+                  ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                  : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                }`}>
+                <MapPinCheck size={13}/> {todayRecord.checkOutArea.name}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Projects Widget */}
       <div className="glass-card p-6 animate-slide-up mt-4 mb-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -244,7 +262,7 @@ const MemberDashboard = () => {
                 ['incoming', 'Akan Datang']
               ]}
             />
-            <button 
+            <button
               onClick={() => navigate('/member/projects')}
               className="text-xs text-brand-400 hover:text-brand-300 font-medium flex items-center gap-1"
             >
@@ -276,7 +294,6 @@ const MemberDashboard = () => {
         )}
       </div>
 
-      {/* Attendance Form */}
       {(canCheckIn || canCheckOut) && (
         <div className="glass-card-light p-6 animate-slide-up">
           <div className="flex items-center justify-between mb-1">
@@ -284,7 +301,7 @@ const MemberDashboard = () => {
               {canCheckIn ? 'Check-In' : isOvertimeCheckout ? 'Update Check-Out Lembur' : 'Check-Out'}
             </h2>
             {isOvertimeCheckout && (
-              <button 
+              <button
                 onClick={() => setIsOvertimeCheckout(false)}
                 className="text-xs text-surface-400 hover:text-white transition-colors"
               >
@@ -295,46 +312,6 @@ const MemberDashboard = () => {
           <p className="text-sm text-surface-400 mb-5">Ambil lokasi untuk absensi</p>
 
           <div className="space-y-4">
-            {/* <div className="w-full h-64 border-2 border-dashed border-white/[0.1] rounded-xl overflow-hidden relative bg-black/20 flex flex-col items-center justify-center">
-              {photoBase64 ? (
-                <div className="relative w-full h-full group">
-                  <img src={photoBase64} alt="Captured" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={retakePhoto} className="text-sm font-medium text-white bg-white/20 backdrop-blur px-4 py-2 rounded-full">
-                      Foto Ulang
-                    </button>
-                  </div>
-                </div>
-              ) : isCameraOpen ? (
-
-                <div className="relative w-full h-full flex flex-col items-center">
-                  <Webcam
-                    audio={false}
-                    ref={webcamRef}
-                    screenshotFormat="image/jpeg"
-                    videoConstraints={{ facingMode: "user" }} // "user" = kamera depan, "environment" = kamera belakang
-                    className="w-full h-full object-cover"
-                  />
-                  <button
-                    onClick={capturePhoto}
-                    className="absolute bottom-4 bg-brand-500 text-white p-3 rounded-full shadow-lg hover:scale-105 transition-transform"
-                  >
-                    <Camera size={24} />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setIsCameraOpen(true)}
-                  className="flex flex-col items-center text-surface-500 hover:text-brand-400 transition-colors"
-                >
-                  <div className="w-14 h-14 rounded-2xl bg-white/[0.06] flex items-center justify-center mb-3">
-                    <Camera size={24} />
-                  </div>
-                  <span className="font-medium text-sm">Buka Kamera Absensi</span>
-                </button>
-              )}
-            </div> */}
-
             {canCheckOut && (
               <div className="relative">
                 <FileText size={16} className="absolute left-3.5 top-3 text-surface-500" />
@@ -374,7 +351,6 @@ const MemberDashboard = () => {
         </div>
       ) : null}
 
-      {/* History */}
       <div className="glass-card p-6 animate-slide-up">
         <div className="flex flex-col gap-4 mb-4">
           <div className="flex items-center justify-between">
@@ -419,11 +395,27 @@ const MemberDashboard = () => {
                   <div className="grid grid-cols-2 gap-3 mt-1.5">
                     <div>
                       <span className="text-xs text-emerald-400 font-medium block mb-0.5">In: {att.checkInTime ? format(new Date(att.checkInTime), 'HH:mm') : '-'}</span>
-                      <span className="text-[11px] text-surface-400 line-clamp-1" title={att.checkInNote || 'Tidak ada catatan'}>Catatan: {att.checkInNote || '-'}</span>
+                      {att.checkInTime && att.checkInArea && (
+                        <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium mb-1 ${att.checkInArea.inRange
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                          }`}>
+                          <MapPinCheck size={13}/> {att.checkInArea.name}
+                        </span>
+                      )}
+                      <span className="text-[11px] text-surface-400 line-clamp-1 block" title={att.checkInNote || 'Tidak ada catatan'}>Catatan: {att.checkInNote || '-'}</span>
                     </div>
                     <div>
                       <span className="text-xs text-rose-400 font-medium block mb-0.5">Out: {att.checkOutTime ? format(new Date(att.checkOutTime), 'HH:mm') : '-'}</span>
-                      <span className="text-[11px] text-surface-400 line-clamp-1" title={att.checkOutNote || 'Tidak ada catatan'}>Catatan: {att.checkOutNote || '-'}</span>
+                      {att.checkOutTime && att.checkOutArea && (
+                        <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium mb-1 ${att.checkOutArea.inRange
+                            ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                            : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                          }`}>
+                          <MapPinCheck size={13}/> {att.checkOutArea.name}
+                        </span>
+                      )}
+                      <span className="text-[11px] text-surface-400 line-clamp-1 block" title={att.checkOutNote || 'Tidak ada catatan'}>Catatan: {att.checkOutNote || '-'}</span>
                     </div>
                   </div>
                 </div>

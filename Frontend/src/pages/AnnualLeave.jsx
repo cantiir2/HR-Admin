@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CalendarDays, Download, Eye, FileImage, Loader2, Send, Upload, X } from 'lucide-react';
 import { format } from 'date-fns';
 import api from '../lib/api';
@@ -43,7 +43,15 @@ const calculateWorkingDays = (startDate, endDate) => {
   return total;
 };
 
+const formatDisplayDate = (isoStr) => {
+  if (!isoStr) return '';
+  const [y, m, d] = isoStr.split('-');
+  return (y && m && d) ? `${d}/${m}/${y}` : '';
+};
+
 const AnnualLeave = () => {
+  const startDateRef = useRef(null);
+  const endDateRef = useRef(null);
   const { showToast } = useToast();
   const [balance, setBalance] = useState(null);
   const [leaves, setLeaves] = useState([]);
@@ -71,11 +79,11 @@ const AnnualLeave = () => {
 
         if (res.data && res.data.length > 0) {
           res.data.forEach(item => {
-            dynamicStatusClass[item.code] = item.description || 'badge-info';
+            dynamicStatusClass[item.code] = item.description || (item.code === 'PENDING' ? 'badge-warning' : 'badge-info');
           });
         }
 
-        setStatusClass(dynamicStatusClass);
+        setStatusClass(prev => ({ ...prev, ...dynamicStatusClass }));
       } catch (error) {
         console.error('Failed to fetch leave statuses', error);
       }
@@ -282,11 +290,57 @@ const AnnualLeave = () => {
           />
           <div>
             <label className="block text-sm text-surface-300 mb-1">Tanggal Mulai</label>
-            <input type="date" value={form.startDate} onChange={e => setForm(current => ({ ...current, startDate: e.target.value }))} className="input-dark text-sm [color-scheme:light] dark:[color-scheme:dark]" />
+            <div
+              className="relative cursor-pointer"
+              onClick={() => {
+                try {
+                  startDateRef.current?.showPicker();
+                } catch (err) {
+                  startDateRef.current?.focus();
+                }
+              }}
+            >
+              <div className="input-dark text-sm flex items-center justify-between pointer-events-none">
+                <span className={form.startDate ? 'text-white' : 'text-surface-500'}>
+                  {formatDisplayDate(form.startDate) || 'dd/mm/yyyy'}
+                </span>
+                <CalendarDays size={16} className="text-surface-400 shrink-0 ml-2" />
+              </div>
+              <input
+                ref={startDateRef}
+                type="date"
+                value={form.startDate}
+                onChange={e => setForm(current => ({ ...current, startDate: e.target.value }))}
+                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10 [color-scheme:dark]"
+              />
+            </div>
           </div>
           <div>
             <label className="block text-sm text-surface-300 mb-1">Tanggal Selesai</label>
-            <input type="date" value={form.endDate} onChange={e => setForm(current => ({ ...current, endDate: e.target.value }))} className="input-dark text-sm [color-scheme:light] dark:[color-scheme:dark]" />
+            <div
+              className="relative cursor-pointer"
+              onClick={() => {
+                try {
+                  endDateRef.current?.showPicker();
+                } catch (err) {
+                  endDateRef.current?.focus();
+                }
+              }}
+            >
+              <div className="input-dark text-sm flex items-center justify-between pointer-events-none">
+                <span className={form.endDate ? 'text-white' : 'text-surface-500'}>
+                  {formatDisplayDate(form.endDate) || 'dd/mm/yyyy'}
+                </span>
+                <CalendarDays size={16} className="text-surface-400 shrink-0 ml-2" />
+              </div>
+              <input
+                ref={endDateRef}
+                type="date"
+                value={form.endDate}
+                onChange={e => setForm(current => ({ ...current, endDate: e.target.value }))}
+                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10 [color-scheme:dark]"
+              />
+            </div>
           </div>
           <div className="md:col-span-2">
             <label className="block text-sm text-surface-300 mb-1">Alasan</label>
@@ -356,7 +410,7 @@ const AnnualLeave = () => {
                     {format(new Date(item.startDate), 'dd MMM yyyy')} - {format(new Date(item.endDate), 'dd MMM yyyy')}
                   </td>
                   <td className="px-4 py-3 text-sm text-surface-400">{item.totalDays} hari</td>
-                  <td className="px-4 py-3"><span className={statusClass[item.status] || 'badge-info'}>{item.status}</span></td>
+                  <td className="px-4 py-3"><span className={statusClass[item.status] || (item.status === 'PENDING' ? 'badge-warning' : 'badge-info')}>{item.status}</span></td>
                   <td className="px-4 py-3 text-sm text-surface-400">
                     {item.hasEvidencePhoto ? 'Evidence tersedia' : 'Tidak ada evidence'}
                   </td>
