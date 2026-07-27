@@ -12,6 +12,7 @@ import {
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import AppSelect from '../components/AppSelect';
+import Pagination from '../components/Pagination';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
@@ -41,8 +42,11 @@ const MemberDashboard = () => {
   const [isOvertimeCheckout, setIsOvertimeCheckout] = useState(false);
   const webcamRef = useRef(null);
 
+  const [filterDate, setFilterDate] = useState(new Date().getDate());
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [exportLoading, setExportLoading] = useState(false);
 
   const [dashboardProjects, setDashboardProjects] = useState([]);
@@ -53,6 +57,19 @@ const MemberDashboard = () => {
 
   useEffect(() => { fetchAttendances(); }, [filterMonth, filterYear]);
   useEffect(() => { fetchDashboardProjects(); }, [dashboardTimeline]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterDate, filterMonth, filterYear]);
+
+  useEffect(() => {
+    if (filterDate) {
+      const maxDays = new Date(filterYear, filterMonth, 0).getDate();
+      if (filterDate > maxDays) {
+        setFilterDate(maxDays);
+      }
+    }
+  }, [filterMonth, filterYear]);
 
   const fetchDashboardProjects = async () => {
     try {
@@ -190,6 +207,27 @@ const MemberDashboard = () => {
     { value: 10, label: 'Oktober' }, { value: 11, label: 'November' }, { value: 12, label: 'Desember' }
   ];
 
+  const daysInMonth = new Date(filterYear, filterMonth, 0).getDate();
+  const daysOptions = [
+    { value: '', label: 'Semua Tanggal' },
+    ...Array.from({ length: daysInMonth }, (_, i) => {
+      const d = new Date(filterYear, filterMonth - 1, i + 1);
+      const dayName = format(d, 'EEEE', { locale: localeId });
+      return { value: i + 1, label: `${dayName}, ${i + 1}` };
+    })
+  ];
+
+  const filteredAttendances = attendances.filter(att => {
+    if (!filterDate) return true;
+    const dateValue = att.date || att.checkInTime;
+    if (!dateValue) return false;
+    const day = parseInt(formatDateJakarta(dateValue).split('-')[2], 10);
+    return day === Number(filterDate);
+  });
+
+  const totalPages = Math.ceil(filteredAttendances.length / pageSize) || 1;
+  const paginatedAttendances = filteredAttendances.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
   if (initialLoading) {
     return (
       <div className="flex items-center justify-center h-full min-h-[50vh]">
@@ -217,10 +255,10 @@ const MemberDashboard = () => {
           {todayRecord?.checkInTime && todayRecord?.checkInArea && (
             <div className="mt-1">
               <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium ${todayRecord.checkInArea.inRange
-                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                  : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
                 }`}>
-                <MapPinCheck size={13}/> {todayRecord.checkInArea.name}
+                <MapPinCheck size={13} /> {todayRecord.checkInArea.name}
               </span>
             </div>
           )}
@@ -236,10 +274,10 @@ const MemberDashboard = () => {
           {todayRecord?.checkOutTime && todayRecord?.checkOutArea && (
             <div className="mt-1">
               <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium ${todayRecord.checkOutArea.inRange
-                  ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                  : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
                 }`}>
-                <MapPinCheck size={13}/> {todayRecord.checkOutArea.name}
+                <MapPinCheck size={13} /> {todayRecord.checkOutArea.name}
               </span>
             </div>
           )}
@@ -368,7 +406,13 @@ const MemberDashboard = () => {
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-2">
+            <AppSelect
+              value={filterDate ?? ''}
+              onChange={value => setFilterDate(value === '' ? null : parseInt(value))}
+              className="py-2 text-sm"
+              options={daysOptions}
+            />
             <AppSelect
               value={filterMonth}
               onChange={value => setFilterMonth(parseInt(value))}
@@ -384,45 +428,62 @@ const MemberDashboard = () => {
           </div>
         </div>
 
-        {attendances.length === 0 ? (
-          <div className="text-center py-8"><Clock size={24} className="text-surface-500 mx-auto mb-2" /><p className="text-surface-400 text-sm">Belum ada riwayat di bulan ini</p></div>
+        {filteredAttendances.length === 0 ? (
+          <div className="text-center py-8"><Clock size={24} className="text-surface-500 mx-auto mb-2" /><p className="text-surface-400 text-sm">{filterDate ? 'Belum ada riwayat pada tanggal ini' : 'Belum ada riwayat di bulan ini'}</p></div>
         ) : (
-          <div className="space-y-2">
-            {attendances.slice(0, 10).map(att => (
-              <div key={att.id} className="flex gap-3 items-center p-3 rounded-xl bg-white/[0.03] border border-white/[0.04]">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white">{format(new Date(att.date), 'EEEE, dd MMM', { locale: localeId })}</p>
-                  <div className="grid grid-cols-2 gap-3 mt-1.5">
-                    <div>
-                      <span className="text-xs text-emerald-400 font-medium block mb-0.5">In: {att.checkInTime ? format(new Date(att.checkInTime), 'HH:mm') : '-'}</span>
-                      {att.checkInTime && att.checkInArea && (
-                        <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium mb-1 ${att.checkInArea.inRange
+          <div className="space-y-4">
+            <div className="space-y-2">
+              {paginatedAttendances.map(att => (
+                <div key={att.id} className="flex gap-3 items-center p-3 rounded-xl bg-white/[0.03] border border-white/[0.04]">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white">{format(new Date(att.date), 'EEEE, dd MMM', { locale: localeId })}</p>
+                    <div className="grid grid-cols-2 gap-3 mt-1.5">
+                      <div>
+                        <span className="text-xs text-emerald-400 font-medium block mb-0.5">In: {att.checkInTime ? format(new Date(att.checkInTime), 'HH:mm') : '-'}</span>
+                        {att.checkInTime && att.checkInArea && (
+                          <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium mb-1 ${att.checkInArea.inRange
                             ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                             : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                          }`}>
-                          <MapPinCheck size={13}/> {att.checkInArea.name}
-                        </span>
-                      )}
-                      <span className="text-[11px] text-surface-400 line-clamp-1 block" title={att.checkInNote || 'Tidak ada catatan'}>Catatan: {att.checkInNote || '-'}</span>
-                    </div>
-                    <div>
-                      <span className="text-xs text-rose-400 font-medium block mb-0.5">Out: {att.checkOutTime ? format(new Date(att.checkOutTime), 'HH:mm') : '-'}</span>
-                      {att.checkOutTime && att.checkOutArea && (
-                        <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium mb-1 ${att.checkOutArea.inRange
+                            }`}>
+                            <MapPinCheck size={13} /> {att.checkInArea.name}
+                          </span>
+                        )}
+                        <span className="text-[11px] text-surface-400 line-clamp-1 block" title={att.checkInNote || 'Tidak ada catatan'}>Catatan: {att.checkInNote || '-'}</span>
+                      </div>
+                      <div>
+                        <span className="text-xs text-rose-400 font-medium block mb-0.5">Out: {att.checkOutTime ? format(new Date(att.checkOutTime), 'HH:mm') : '-'}</span>
+                        {att.checkOutTime && att.checkOutArea && (
+                          <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium mb-1 ${att.checkOutArea.inRange
                             ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
                             : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                          }`}>
-                          <MapPinCheck size={13}/> {att.checkOutArea.name}
-                        </span>
-                      )}
-                      <span className="text-[11px] text-surface-400 line-clamp-1 block" title={att.checkOutNote || 'Tidak ada catatan'}>Catatan: {att.checkOutNote || '-'}</span>
+                            }`}>
+                            <MapPinCheck size={13} /> {att.checkOutArea.name}
+                          </span>
+                        )}
+                        <span className="text-[11px] text-surface-400 line-clamp-1 block" title={att.checkOutNote || 'Tidak ada catatan'}>Catatan: {att.checkOutNote || '-'}</span>
+                      </div>
                     </div>
                   </div>
+                  {att.checkInPhoto && <img src={att.checkInPhoto} alt="" className="w-9 h-9 rounded-lg object-cover border border-white/10 flex-shrink-0" />}
+                  {att.checkOutPhoto && <img src={att.checkOutPhoto} alt="" className="w-9 h-9 rounded-lg object-cover border border-white/10 flex-shrink-0" />}
                 </div>
-                {att.checkInPhoto && <img src={att.checkInPhoto} alt="" className="w-9 h-9 rounded-lg object-cover border border-white/10 flex-shrink-0" />}
-                {att.checkOutPhoto && <img src={att.checkOutPhoto} alt="" className="w-9 h-9 rounded-lg object-cover border border-white/10 flex-shrink-0" />}
-              </div>
-            ))}
+              ))}
+            </div>
+            <div className="pt-3 border-t border-white/[0.06]">
+              <Pagination
+                page={{
+                  pageNo: currentPage,
+                  pageSize: pageSize,
+                  totalRows: filteredAttendances.length,
+                  totalPages: totalPages
+                }}
+                doSearch={(pageNo, size) => {
+                  setCurrentPage(pageNo);
+                  if (size) setPageSize(size);
+                }}
+                changePageSize={(size) => setPageSize(size)}
+              />
+            </div>
           </div>
         )}
       </div>

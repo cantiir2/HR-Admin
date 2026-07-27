@@ -14,12 +14,17 @@ const vertexIcon = (index) => L.divIcon({
   iconAnchor: [12, 12]
 });
 
-const createLabelIcon = (name) => L.divIcon({
-  className: 'custom-polygon-label',
-  html: `<div style="font-weight:bold;font-size:18px;color:#000000;text-shadow:0 0 4px #ffffff;white-space:nowrap;text-align:center;pointer-events:none;">${name}</div>`,
-  iconSize: [0, 0],
-  iconAnchor: [80, 12]
-});
+
+const createLabelIcon = (name, zoomLevel = 16) => {
+  const fontSize = Math.max(5, Math.min(20, Math.round(9 + (zoomLevel - 7) * 0.5)));
+  return L.divIcon({
+    className: 'custom-polygon-label',
+    html: `<div style="font-weight:bold;font-size:${fontSize}px;color:#000000;text-shadow:0 0 4px #ffffff;white-space:nowrap;text-align:center;pointer-events:none;transform:translate(-50%,-50%);transition:font-size 0.15s ease;">${name}</div>`,
+    iconSize: [0, 0],
+    iconAnchor: [0, 0]
+  });
+};
+
 
 function RecenterMap({ center }) {
   const map = useMapEvents({});
@@ -28,6 +33,23 @@ function RecenterMap({ center }) {
       map.setView(center, 16);
     }
   }, [center, map]);
+  return null;
+}
+
+function MapZoomListener({ onZoomChange }) {
+  const map = useMapEvents({
+    zoomend() {
+      onZoomChange(map.getZoom());
+    },
+    zoom() {
+      onZoomChange(map.getZoom());
+    }
+  });
+
+  useEffect(() => {
+    onZoomChange(map.getZoom());
+  }, [map, onZoomChange]);
+
   return null;
 }
 
@@ -51,6 +73,7 @@ const ProjectGeofenceConfig = () => {
   const [polygonPoints, setPolygonPoints] = useState([]);
   const [isDrawing, setIsDrawing] = useState(false);
   const [mapCenter, setMapCenter] = useState([-6.200000, 106.816000]);
+  const [mapZoom, setMapZoom] = useState(16);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -412,11 +435,10 @@ const ProjectGeofenceConfig = () => {
                 <button
                   type="button"
                   onClick={() => setIsDrawing(!isDrawing)}
-                  className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
-                    isDrawing
-                      ? 'bg-amber-500/20 border-amber-500/40 text-amber-600 dark:text-amber-300 hover:bg-amber-500/30'
-                      : 'bg-surface-100 dark:bg-white/[0.05] border-surface-200 dark:border-white/10 text-surface-800 dark:text-white hover:bg-surface-200 dark:hover:bg-white/[0.1]'
-                  }`}
+                  className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${isDrawing
+                    ? 'bg-amber-500/20 border-amber-500/40 text-amber-600 dark:text-amber-300 hover:bg-amber-500/30'
+                    : 'bg-surface-100 dark:bg-white/[0.05] border-surface-200 dark:border-white/10 text-surface-800 dark:text-white hover:bg-surface-200 dark:hover:bg-white/[0.1]'
+                    }`}
                 >
                   <MousePointerClick size={16} />
                   {isDrawing ? 'Selesai Menggambar' : 'Mulai Gambar Polygon'}
@@ -436,13 +458,12 @@ const ProjectGeofenceConfig = () => {
 
             <div>
               <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-2">Status Batas Area</label>
-              <div className={`p-4 rounded-xl border flex items-start gap-3 ${
-                status.type === 'success'
-                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-300'
-                  : status.type === 'warning'
-                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-300'
-                    : 'bg-surface-100 dark:bg-surface-800/50 border-surface-200 dark:border-white/10 text-surface-600 dark:text-surface-400'
-              }`}>
+              <div className={`p-4 rounded-xl border flex items-start gap-3 ${status.type === 'success'
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-300'
+                : status.type === 'warning'
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-300'
+                  : 'bg-surface-100 dark:bg-surface-800/50 border-surface-200 dark:border-white/10 text-surface-600 dark:text-surface-400'
+                }`}>
                 {status.type === 'success' && <CheckCircle2 size={20} className="shrink-0 text-emerald-500 dark:text-emerald-400 mt-0.5" />}
                 {status.type === 'warning' && <AlertTriangle size={20} className="shrink-0 text-amber-500 dark:text-amber-400 mt-0.5" />}
                 {status.type === 'empty' && <Info size={20} className="shrink-0 text-surface-500 dark:text-surface-400 mt-0.5" />}
@@ -497,6 +518,7 @@ const ProjectGeofenceConfig = () => {
           )}
 
           <MapContainer center={mapCenter} zoom={polygonPoints.length > 0 ? 16 : 11} style={{ height: '100%', width: '100%' }}>
+            <MapZoomListener onZoomChange={setMapZoom} />
             <TileLayer
               attribution='&copy; OpenStreetMap'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -529,7 +551,7 @@ const ProjectGeofenceConfig = () => {
               <>
                 <Polygon positions={polygonPoints} pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.35, weight: 3 }} />
                 {polygonCenter && areaName && (
-                  <Marker position={polygonCenter} icon={createLabelIcon(areaName)} />
+                  <Marker position={polygonCenter} icon={createLabelIcon(areaName, mapZoom)} />
                 )}
               </>
             )}

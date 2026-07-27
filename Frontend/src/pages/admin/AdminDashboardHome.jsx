@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../lib/api';
-import { MapContainer, TileLayer, Marker, Popup, Circle, Polygon } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle, Polygon, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { Users, ArrowUpCircle, ArrowDownCircle, BarChart3, Search, Clock, Calendar, CheckSquare } from 'lucide-react';
@@ -25,12 +25,15 @@ const createIcon = (color) => L.divIcon({
 const ciIcon = createIcon('#10b981');
 const coIcon = createIcon('#f43f5e');
 
-const createPolygonTextIcon = (name) => L.divIcon({
-  className: 'custom-polygon-label-overlay',
-  html: `<div style="font-weight:bold;font-size:22px;color:#000000;text-shadow:0 0 6px #ffffff, 0 0 2px #ffffff;white-space:nowrap;text-align:center;pointer-events:none;">${name}</div>`,
-  iconSize: [0, 0],
-  iconAnchor: [100, 14]
-});
+const createPolygonTextIcon = (name, zoomLevel = 13) => {
+  const fontSize = Math.max(5, Math.min(20, Math.round(9 + (zoomLevel - 7) * 0.5)));
+  return L.divIcon({
+    className: 'custom-polygon-label-overlay',
+    html: `<div style="font-weight:bold;font-size:${fontSize}px;color:#000000;text-shadow:0 0 5px #ffffff, 0 0 2px #ffffff;white-space:nowrap;text-align:center;pointer-events:none;transform:translate(-50%,-50%);transition:font-size 0.15s ease;">${name}</div>`,
+    iconSize: [0, 0],
+    iconAnchor: [0, 0]
+  });
+};
 
 const projectIcon = L.divIcon({
   className: 'custom-project-map-marker',
@@ -38,11 +41,29 @@ const projectIcon = L.divIcon({
   iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32],
 });
 
+function MapZoomListener({ onZoomChange }) {
+  const map = useMapEvents({
+    zoomend() {
+      onZoomChange(map.getZoom());
+    },
+    zoom() {
+      onZoomChange(map.getZoom());
+    }
+  });
+
+  useEffect(() => {
+    onZoomChange(map.getZoom());
+  }, [map, onZoomChange]);
+
+  return null;
+}
+
 const AdminDashboardHome = () => {
   const [locations, setLocations] = useState([]);
   const [attendances, setAttendances] = useState([]);
   const [projects, setProjects] = useState([]);
   const [geofences, setGeofences] = useState([]);
+  const [mapZoom, setMapZoom] = useState(13);
   const [totalRecords, setTotalRecords] = useState(0);
   const [tab, setTab] = useState('map');
   const [search, setSearch] = useState('');
@@ -60,16 +81,16 @@ const AdminDashboardHome = () => {
 
       const managers = dataList.map(project => project.projectManager).filter(Boolean);
       setProjectManagers([...new Map(managers.map(manager => [manager.id, manager])).values()]);
-    }).catch(() => {});
+    }).catch(() => { });
 
     api.get('/api/geofences').then(r => {
       setGeofences(Array.isArray(r.data) ? r.data : []);
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   useEffect(() => {
     api.get('/api/attendance/locations', { params: { projectManagerId: projectManagerId || undefined } })
-      .then(r => setLocations(r.data)).catch(() => {});
+      .then(r => setLocations(r.data)).catch(() => { });
   }, [projectManagerId]);
 
   useEffect(() => {
@@ -143,7 +164,7 @@ const AdminDashboardHome = () => {
             defaultMapCenter = [parseFloat(parsed[0].lat !== undefined ? parsed[0].lat : parsed[0][0]), parseFloat(parsed[0].lng !== undefined ? parsed[0].lng : parsed[0][1])];
             break;
           }
-        } catch (e) {}
+        } catch (e) { }
       }
     }
   }
@@ -172,10 +193,10 @@ const AdminDashboardHome = () => {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <div className="stat-card"><div className="flex items-center gap-2 mb-2"><div className="p-1.5 rounded-lg bg-brand-500/10"><Users size={14} className="text-brand-400"/></div><span className="text-xs text-surface-400">Total Hadir</span></div><p className="text-2xl font-bold text-white">{locations.length}</p></div>
-        <div className="stat-card"><div className="flex items-center gap-2 mb-2"><div className="p-1.5 rounded-lg bg-emerald-500/10"><ArrowUpCircle size={14} className="text-emerald-400"/></div><span className="text-xs text-surface-400">Check-In</span></div><p className="text-2xl font-bold text-white">{checkedIn}</p></div>
-        <div className="stat-card"><div className="flex items-center gap-2 mb-2"><div className="p-1.5 rounded-lg bg-rose-500/10"><ArrowDownCircle size={14} className="text-rose-400"/></div><span className="text-xs text-surface-400">Check-Out</span></div><p className="text-2xl font-bold text-white">{checkedOut}</p></div>
-        <div className="stat-card"><div className="flex items-center gap-2 mb-2"><div className="p-1.5 rounded-lg bg-amber-500/10"><BarChart3 size={14} className="text-amber-400"/></div><span className="text-xs text-surface-400">Total Record</span></div><p className="text-2xl font-bold text-white">{totalRecords}</p></div>
+        <div className="stat-card"><div className="flex items-center gap-2 mb-2"><div className="p-1.5 rounded-lg bg-brand-500/10"><Users size={14} className="text-brand-400" /></div><span className="text-xs text-surface-400">Total Hadir</span></div><p className="text-2xl font-bold text-white">{locations.length}</p></div>
+        <div className="stat-card"><div className="flex items-center gap-2 mb-2"><div className="p-1.5 rounded-lg bg-emerald-500/10"><ArrowUpCircle size={14} className="text-emerald-400" /></div><span className="text-xs text-surface-400">Check-In</span></div><p className="text-2xl font-bold text-white">{checkedIn}</p></div>
+        <div className="stat-card"><div className="flex items-center gap-2 mb-2"><div className="p-1.5 rounded-lg bg-rose-500/10"><ArrowDownCircle size={14} className="text-rose-400" /></div><span className="text-xs text-surface-400">Check-Out</span></div><p className="text-2xl font-bold text-white">{checkedOut}</p></div>
+        <div className="stat-card"><div className="flex items-center gap-2 mb-2"><div className="p-1.5 rounded-lg bg-amber-500/10"><BarChart3 size={14} className="text-amber-400" /></div><span className="text-xs text-surface-400">Total Members</span></div><p className="text-2xl font-bold text-white">{totalRecords}</p></div>
       </div>
 
       <div className="glass-card p-4 mb-6">
@@ -227,8 +248,9 @@ const AdminDashboardHome = () => {
       {tab === 'map' && (
         <div className="glass-card overflow-hidden" style={{ height: 'calc(100vh - 380px)', minHeight: '400px' }}>
           <MapContainer center={defaultMapCenter} zoom={13} style={{ height: '100%', width: '100%' }}>
+            <MapZoomListener onZoomChange={setMapZoom} />
             <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            
+
             {mapOverlayItems.map(item => {
               let polygon = null;
               if (item.location) {
@@ -237,7 +259,7 @@ const AdminDashboardHome = () => {
                   if (Array.isArray(parsed) && parsed.length >= 3) {
                     polygon = parsed.map(pt => [parseFloat(pt.lat !== undefined ? pt.lat : pt[0]), parseFloat(pt.lng !== undefined ? pt.lng : pt[1])]);
                   }
-                } catch (e) {}
+                } catch (e) { }
               }
 
               let centerLat = 0;
@@ -272,7 +294,7 @@ const AdminDashboardHome = () => {
                         }}
                       />
                       {itemCenter && (
-                        <Marker position={itemCenter} icon={createPolygonTextIcon(item.name)} />
+                        <Marker position={itemCenter} icon={createPolygonTextIcon(item.name, mapZoom)} />
                       )}
                     </>
                   ) : (
@@ -288,7 +310,7 @@ const AdminDashboardHome = () => {
                       }}
                     />
                   )}
-                  {itemCenter && (
+                  {/* {itemCenter && (
                     <Marker position={itemCenter} icon={projectIcon}>
                       <Popup>
                         <div className="text-center min-w-[170px] p-1">
@@ -297,7 +319,7 @@ const AdminDashboardHome = () => {
                         </div>
                       </Popup>
                     </Marker>
-                  )}
+                  )} */}
                 </div>
               );
             })}
@@ -372,12 +394,12 @@ const AdminDashboardHome = () => {
               {paginatedData.length === 0 && <div className="text-center py-12 text-surface-400 text-sm">Tidak ada data</div>}
             </div>
             {paginatedData.length > 0 && (
-                <div className="p-4 border-t border-white/[0.06] flex justify-end">
-                    <Pagination 
-                        page={{ pageNo, pageSize, totalPages }}
-                        doSearch={(p, s) => { setPageNo(p); setPageSize(s); }}
-                    />
-                </div>
+              <div className="p-4 border-t border-white/[0.06] flex justify-end">
+                <Pagination
+                  page={{ pageNo, pageSize, totalPages }}
+                  doSearch={(p, s) => { setPageNo(p); setPageSize(s); }}
+                />
+              </div>
             )}
           </div>
         </div>

@@ -241,22 +241,20 @@ module.exports = (prisma) => {
           whereClause.date = jakartaDate();
         }
       }
-      if (search) {
-        whereClause.user = {
-          AND: [{
-            OR: [
-              { name: { contains: search, mode: 'insensitive' } },
-              { email: { contains: search, mode: 'insensitive' } }
-            ]
-          }]
-        };
-      }
-      if (projectManagerId) {
-        whereClause.user = {
-          ...(whereClause.user || {}),
+
+      whereClause.user = {
+        role: 'MEMBER',
+        jobRoleCode: { not: null, not: '' },
+        ...(projectManagerId ? {
           projects: { some: { project: { projectManagerId } } }
-        };
-      }
+        } : {}),
+        ...(search ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } }
+          ]
+        } : {})
+      };
 
       const activeProjects = await getActiveGeofences();
 
@@ -309,9 +307,13 @@ module.exports = (prisma) => {
         prisma.attendance.findMany({
           where: {
             date: dateOnly,
-            ...(req.query.projectManagerId ? {
-              user: { projects: { some: { project: { projectManagerId: req.query.projectManagerId } } } }
-            } : {})
+            user: {
+              role: 'MEMBER',
+              jobRoleCode: { not: null, not: '' },
+              ...(req.query.projectManagerId ? {
+                projects: { some: { project: { projectManagerId: req.query.projectManagerId } } }
+              } : {})
+            }
           },
           include: {
             user: { select: { name: true, email: true, jobRoleCode: true } }

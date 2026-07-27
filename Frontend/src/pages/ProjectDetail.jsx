@@ -88,26 +88,36 @@ const buildMonthGroups = (weeks) => {
   return groups;
 };
 
+
+const getProjectFirstMonday = (dateStr) => {
+  const date = new Date(`${toDateInputValue(dateStr)}T00:00:00Z`);
+  const day = date.getUTCDay();
+  const diffToMonday = day === 0 ? 6 : day - 1;
+  date.setUTCDate(date.getUTCDate() - diffToMonday);
+  return date;
+};
+
+
 const getTotalWeeks = (projectStartDate, projectEndDate) => {
-  const start = new Date(`${toDateInputValue(projectStartDate)}T00:00:00Z`);
+  const start = getProjectFirstMonday(projectStartDate);
   const end = new Date(`${toDateInputValue(projectEndDate)}T00:00:00Z`);
   const totalDays = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
   return Math.max(1, Math.ceil(totalDays / 7));
 };
 
 const getWeekStartDate = (projectStartDate, weekIndex) => {
-  const start = new Date(`${toDateInputValue(projectStartDate)}T00:00:00Z`);
+  const start = getProjectFirstMonday(projectStartDate);
   start.setUTCDate(start.getUTCDate() + (weekIndex * 7));
   return start;
 };
 
 const getMilestoneWeekRange = (projectStartDate, milestoneStartDate, milestoneEndDate) => {
-  const projectStart = new Date(`${toDateInputValue(projectStartDate)}T00:00:00Z`);
+  const projectStartMonday = getProjectFirstMonday(projectStartDate);
   const milestoneStart = new Date(`${toDateInputValue(milestoneStartDate)}T00:00:00Z`);
   const milestoneEnd = new Date(`${toDateInputValue(milestoneEndDate)}T00:00:00Z`);
   return {
-    startWeek: Math.floor((milestoneStart - projectStart) / (7 * 24 * 60 * 60 * 1000)) + 1,
-    endWeek: Math.floor((milestoneEnd - projectStart) / (7 * 24 * 60 * 60 * 1000)) + 1
+    startWeek: Math.floor((milestoneStart - projectStartMonday) / (7 * 24 * 60 * 60 * 1000)) + 1,
+    endWeek: Math.floor((milestoneEnd - projectStartMonday) / (7 * 24 * 60 * 60 * 1000)) + 1
   };
 };
 
@@ -646,7 +656,7 @@ const ProjectDetail = () => {
                                         )}
                                       </div>
                                     );
-                                    
+
                                     if (snapshot.isDragging) {
                                       return createPortal(child, document.body);
                                     }
