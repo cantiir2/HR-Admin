@@ -2,7 +2,6 @@ const ExcelJS = require('exceljs');
 const fs = require('fs');
 const path = require('path');
 
-// Helpers
 function formatDuration(minutes) {
   if (minutes <= 0) return '00.00';
   const h = Math.floor(minutes / 60);
@@ -27,6 +26,15 @@ function formatTimeJakarta(dateValue) {
   })
     .format(new Date(dateValue))
     .replace(':', '.');
+}
+
+function toYmdStr(dateValue) {
+  if (!dateValue) return '';
+  const d = new Date(dateValue);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 // Name Function : calculateWorkingHours
@@ -146,10 +154,13 @@ async function generateWorkingReport(userId, month, year, prisma) {
   const otBreakStr = otBreakTimeConfig ? otBreakTimeConfig.code : '00:30';
   const overtimeBreakMinutes = parseTimeToMinutes(otBreakStr);
 
+  const daysInMonth = new Date(year, month, 0).getDate();
+
   // Get Attendance Data
   // Convert month/year to local range (since dates are saved as db.Date which might be 00:00 UTC)
   const startDate = new Date(Date.UTC(year, month - 1, 1));
   const endDate = new Date(Date.UTC(year, month, 1));
+  const endOfMonthDate = new Date(Date.UTC(year, month - 1, daysInMonth));
 
   const attendances = await prisma.attendance.findMany({
     where: {
@@ -160,6 +171,16 @@ async function generateWorkingReport(userId, month, year, prisma) {
       }
     },
     orderBy: { date: 'asc' }
+  });
+
+  // Get Approved Leave Requests for the month
+  const leaveRequests = await prisma.leaveRequest.findMany({
+    where: {
+      userId: userId,
+      status: 'APPROVED',
+      startDate: { lte: endOfMonthDate },
+      endDate: { gte: startDate }
+    }
   });
 
   // Create Excel Workbook
@@ -294,78 +315,111 @@ async function generateWorkingReport(userId, month, year, prisma) {
   let sumTotalWorking = 0;
   let sumOverTime = 0;
 
-  const daysInMonth = new Date(year, month, 0).getDate();
-
   for (let i = 1; i <= daysInMonth; i++) {
     const currentDate = new Date(Date.UTC(year, month - 1, i));
+    const currentYmd = toYmdStr(currentDate);
+
     const att = attendances.find(a => new Date(a.date).getUTCDate() === i);
+    const leave = leaveRequests.find(l => {
+      const startYmd = toYmdStr(l.startDate);
+      const endYmd = toYmdStr(l.endDate);
+      return currentYmd >= startYmd && currentYmd <= endYmd;
+    });
 
     const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'short' });
     const dateStr = `${i} (${dayName})`;
 
-    let inTime = '';
-    let outTime = '';
-    let breakStrRow = '';
-    let totalStr = '';
-    let overStr = '';
-    let placeStr = '';
-    let activityStr = '';
-
-    if (att && att.checkInTime) {
-      inTime = formatTimeJakarta(att.checkInTime);
-      placeStr = location;
-
-      let notes = [];
-      if (att.checkInNote) notes.push(att.checkInNote);
-
-      if (att.checkOutTime) {
-        outTime = formatTimeJakarta(att.checkOutTime);
-        if (att.checkOutNote) notes.push(att.checkOutNote);
-
-        const calcResult = calculateWorkingHours(att.checkInTime, att.checkOutTime, breakMinutes, overtimeBreakMinutes);
-        const totalMins = calcResult.totalMins;
-        const overMins = calculateOvertime(totalMins, 480);
-
-        breakStrRow = formatDuration(calcResult.appliedBreakMins);
-        totalStr = formatDuration(totalMins);
-        overStr = formatDuration(overMins);
-
-        sumTotalWorking += totalMins;
-        sumOverTime += overMins;
-      } else {
-        outTime = '-';
-        breakStrRow = '-';
-        totalStr = '-';
-        overStr = '00.00';
-      }
-      activityStr = notes.join('\n');
-    }
-
     const row = sheet.getRow(startRow);
-    row.values = {
-      A: dateStr,
-      B: inTime,
-      C: outTime,
-      D: breakStrRow,
-      E: totalStr,
-      F: overStr,
-      G: placeStr,
-      H: activityStr
-    };
 
-    // Formatting
-    ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].forEach(col => {
-      const c = row.getCell(col);
-      c.font = { ...baseFont, size: 10 };
-      c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-      c.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-    });
-    // Activity left align
-    row.getCell('H').alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+    if (leave) {
+      const cellA = row.getCell('A');
+      cellA.value = dateStr;
+      cellA.font = { ...baseFont, size: 10 };
+      cellA.alignment = { horizontal: 'center', vertical: 'middle' };
+      cellA.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
 
-    // Auto height for activity
-    if (activityStr.includes('\n')) {
-      row.height = 30; // approx 2 lines
+      sheet.mergeCells(`B${startRow}:H${startRow}`);
+      const keterangan = leave.reason ? leave.reason.trim() : '';
+      const leaveText = keterangan
+        ? (keterangan.toUpperCase().startsWith('CUTI:') ? keterangan : `CUTI: ${keterangan}`)
+        : 'CUTI';
+
+      const cellB = row.getCell('B');
+      cellB.value = leaveText;
+
+      ['B', 'C', 'D', 'E', 'F', 'G', 'H'].forEach(col => {
+        const c = row.getCell(col);
+        c.font = { name: 'Arial Unicode MS', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF0000' } };
+        c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        c.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+      });
+
+      row.height = 35;
+    } else {
+      let inTime = '';
+      let outTime = '';
+      let breakStrRow = '';
+      let totalStr = '';
+      let overStr = '';
+      let placeStr = '';
+      let activityStr = '';
+
+      if (att && att.checkInTime) {
+        inTime = formatTimeJakarta(att.checkInTime);
+        placeStr = location;
+
+        let notes = [];
+        if (att.checkInNote) notes.push(att.checkInNote);
+
+        if (att.checkOutTime) {
+          outTime = formatTimeJakarta(att.checkOutTime);
+          if (att.checkOutNote) notes.push(att.checkOutNote);
+
+          const calcResult = calculateWorkingHours(att.checkInTime, att.checkOutTime, breakMinutes, overtimeBreakMinutes);
+          const totalMins = calcResult.totalMins;
+          const overMins = calculateOvertime(totalMins, 480);
+
+          breakStrRow = formatDuration(calcResult.appliedBreakMins);
+          totalStr = formatDuration(totalMins);
+          overStr = formatDuration(overMins);
+
+          sumTotalWorking += totalMins;
+          sumOverTime += overMins;
+        } else {
+          outTime = '-';
+          breakStrRow = '-';
+          totalStr = '-';
+          overStr = '00.00';
+        }
+        activityStr = notes.join('\n');
+      }
+
+      row.values = {
+        A: dateStr,
+        B: inTime,
+        C: outTime,
+        D: breakStrRow,
+        E: totalStr,
+        F: overStr,
+        G: placeStr,
+        H: activityStr
+      };
+
+      // Formatting
+      ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].forEach(col => {
+        const c = row.getCell(col);
+        c.font = { ...baseFont, size: 10 };
+        c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        c.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+      });
+      // Activity left align
+      row.getCell('H').alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+
+      // Auto height for activity
+      if (activityStr.includes('\n')) {
+        row.height = 30; // approx 2 lines
+      }
     }
 
     startRow++;
