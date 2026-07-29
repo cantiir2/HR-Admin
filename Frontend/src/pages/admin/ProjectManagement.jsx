@@ -16,6 +16,8 @@ const ProjectManagement = () => {
   const [editingProject, setEditingProject] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
   const [memberForm, setMemberForm] = useState({ userId: '', roleInProject: 'Member', joinedAt: '', leftAt: '' });
+  const [editingMemberId, setEditingMemberId] = useState(null);
+  const [editMemberForm, setEditMemberForm] = useState({ joinedAt: '', leftAt: '' });
   const [filters, setFilters] = useState({
     search: '', status: '', projectManagerId: '', customer: '', dateFrom: '', dateTo: ''
   });
@@ -159,12 +161,20 @@ const ProjectManagement = () => {
     }
   };
 
+  // Name Function : openMembers
+  // Author : Iyan.FID
+  // Description : Opens project member management modal and resets member forms
   const openMembers = (project) => {
     setSelectedProject(project);
     setMemberForm({ userId: '', roleInProject: 'Member', joinedAt: '', leftAt: '' });
+    setEditingMemberId(null);
+    setEditMemberForm({ joinedAt: '', leftAt: '' });
     setShowMemberModal(true);
   };
 
+  // Name Function : addMember
+  // Author : Iyan.FID
+  // Description : Adds a new member to the selected project
   const addMember = async (e) => {
     e.preventDefault();
     try {
@@ -197,6 +207,42 @@ const ProjectManagement = () => {
     }
   };
 
+  const startEditMember = (member) => {
+    setEditingMemberId(member.userId);
+    setEditMemberForm({
+      joinedAt: member.joinedAt ? member.joinedAt.split('T')[0] : '',
+      leftAt: member.leftAt ? member.leftAt.split('T')[0] : ''
+    });
+  };
+
+  const cancelEditMember = () => {
+    setEditingMemberId(null);
+    setEditMemberForm({ joinedAt: '', leftAt: '' });
+  };
+
+  const updateMemberContract = async (e) => {
+    e.preventDefault();
+    if (editMemberForm.joinedAt && editMemberForm.leftAt && editMemberForm.joinedAt > editMemberForm.leftAt) {
+      showToast({ type: 'error', title: 'Validasi Gagal', message: 'Tanggal join tidak boleh melebihi tanggal selesai.' });
+      return;
+    }
+    try {
+      const payload = {
+        joinedAt: editMemberForm.joinedAt || null,
+        leftAt: editMemberForm.leftAt || null,
+      };
+      await api.put(`/api/projects/${selectedProject.id}/members/${editingMemberId}`, payload);
+      fetchProjects(page.pageNo, page.pageSize);
+      const updated = await api.get(`/api/projects/${selectedProject.id}`);
+      setSelectedProject(updated.data);
+      setEditingMemberId(null);
+      setEditMemberForm({ joinedAt: '', leftAt: '' });
+      showToast({ type: 'success', title: 'Berhasil', message: 'Kontrak member berhasil diperbarui' });
+    } catch (err) {
+      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal memperbarui kontrak member' });
+    }
+  };
+
   const statusColors = {
     active: 'badge-success',
     completed: 'badge-info',
@@ -219,59 +265,59 @@ const ProjectManagement = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 items-center">
 
           <label className="block text-sm text-surface-300">Cari Project
-          <input
-            className="input-dark text-sm w-full"
-            placeholder="Cari project / customer / WO"
-            value={filters.search}
-            onChange={e => setFilters({ ...filters, search: e.target.value })}
-          />
+            <input
+              className="input-dark text-sm w-full"
+              placeholder="Cari project / customer / WO"
+              value={filters.search}
+              onChange={e => setFilters({ ...filters, search: e.target.value })}
+            />
           </label>
 
           <label className="block text-sm text-surface-300">Status Project
-          <AppSelect
-            value={filters.status}
-            className="w-full"
-            onChange={value => setFilters({ ...filters, status: value })}
-            options={[
-              ['', 'Semua Status'],
-              ['active', 'Active'],
-              ['completed', 'Completed'],
-              ['cancelled', 'Cancelled']
-            ]}
-          />
+            <AppSelect
+              value={filters.status}
+              className="w-full"
+              onChange={value => setFilters({ ...filters, status: value })}
+              options={[
+                ['', 'Semua Status'],
+                ['active', 'Active'],
+                ['completed', 'Completed'],
+                ['cancelled', 'Cancelled']
+              ]}
+            />
           </label>
 
           <label className="block text-sm text-surface-300">Project Manager
-          <AppSelect
-            value={filters.projectManagerId}
-            className="w-full"
-            onChange={value => setFilters({ ...filters, projectManagerId: value })}
-            options={[
-              ['', 'Semua Project Manager'],
-              ...allUsers
-                .filter(u => u.jobRoleCode === 'PM' || u.role === 'ADMIN')
-                .map(u => [u.id, `${u.name} (${u.jobRoleCode || u.role})`])
-            ]}
-          />
+            <AppSelect
+              value={filters.projectManagerId}
+              className="w-full"
+              onChange={value => setFilters({ ...filters, projectManagerId: value })}
+              options={[
+                ['', 'Semua Project Manager'],
+                ...allUsers
+                  .filter(u => u.jobRoleCode === 'PM' || u.role === 'ADMIN')
+                  .map(u => [u.id, `${u.name} (${u.jobRoleCode || u.role})`])
+              ]}
+            />
           </label>
 
           <div className="flex items-center gap-2 w-full">
             <label className="block text-sm text-surface-300">Start Date Project
-            <input
-              type="date"
-              className="input-dark text-sm w-full [color-scheme:light] dark:[color-scheme:dark]"
-              value={filters.dateFrom}
-              onChange={e => setFilters({ ...filters, dateFrom: e.target.value })}
-            />
+              <input
+                type="date"
+                className="input-dark text-sm w-full [color-scheme:light] dark:[color-scheme:dark]"
+                value={filters.dateFrom}
+                onChange={e => setFilters({ ...filters, dateFrom: e.target.value })}
+              />
             </label>
             <span className="text-surface-500 text-sm">-</span>
             <label className="block text-sm text-surface-300">End Date Project
-            <input
-              type="date"
-              className="input-dark text-sm w-full [color-scheme:light] dark:[color-scheme:dark]"
-              value={filters.dateTo}
-              onChange={e => setFilters({ ...filters, dateTo: e.target.value })}
-            />
+              <input
+                type="date"
+                className="input-dark text-sm w-full [color-scheme:light] dark:[color-scheme:dark]"
+                value={filters.dateTo}
+                onChange={e => setFilters({ ...filters, dateTo: e.target.value })}
+              />
             </label>
           </div>
 
@@ -347,7 +393,7 @@ const ProjectManagement = () => {
               )}
               <div className="flex items-center gap-2 text-xs text-surface-400">
                 <Calendar size={12} />
-                {format(new Date(project.contractStart), 'MM/dd/yy')} — {format(new Date(project.contractEnd), 'MM/dd/yy')}
+                {format(new Date(project.contractStart), 'dd MMM yyyy')} — {format(new Date(project.contractEnd), 'dd MMM yyyy')}
               </div>
               <div className="flex items-center gap-2 text-xs text-surface-400">
                 <Users size={12} /> {project.members.length} anggota
@@ -518,31 +564,95 @@ const ProjectManagement = () => {
               </button>
             </form>
 
-            {/* Member list */}
+            <h4 className="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2">Daftar Anggota</h4>
             <div className="space-y-2">
               {selectedProject.members.map(m => (
-                <div key={m.id} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/[0.04]">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg gradient-brand flex items-center justify-center text-xs font-bold shrink-0">
-                      {m.user.profilePhoto ? (
-                        <img src={m.user.profilePhoto} alt="avatar" className="w-full h-full rounded-lg object-cover" />
-                      ) : (
-                        m.user.name.charAt(0).toUpperCase()
-                      )}
+                <div key={m.id} className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.04]">
+                  {editingMemberId === m.userId ? (
+                    <form onSubmit={updateMemberContract} className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-white">{m.user.name}</p>
+                          <span className="text-[10px] text-surface-400">({m.user.jobRoleCode || '-'})</span>
+                        </div>
+                        <span className="text-[11px] text-brand-400 font-medium">Edit Kontrak</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] text-surface-400 mb-1 block">Tgl Join</label>
+                          <input
+                            type="date"
+                            className="input-dark text-sm w-full"
+                            value={editMemberForm.joinedAt}
+                            onChange={e => setEditMemberForm({ ...editMemberForm, joinedAt: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-surface-400 mb-1 block">Tgl Selesai</label>
+                          <input
+                            type="date"
+                            className="input-dark text-sm w-full"
+                            value={editMemberForm.leftAt}
+                            onChange={e => setEditMemberForm({ ...editMemberForm, leftAt: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={cancelEditMember}
+                          className="btn-secondary text-xs py-1 px-3"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="submit"
+                          className="btn-primary text-xs py-1 px-3"
+                        >
+                          Simpan Kontrak
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg gradient-brand flex items-center justify-center text-xs font-bold shrink-0">
+                          {m.user.profilePhoto ? (
+                            <img src={m.user.profilePhoto} alt="avatar" className="w-full h-full rounded-lg object-cover" />
+                          ) : (
+                            m.user.name.charAt(0).toUpperCase()
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-white">{m.user.name}</p>
+                          <p className="text-[11px] text-surface-500">{m.user.email} • {m.user.jobRoleCode || '-'}</p>
+                          {(m.joinedAt || m.leftAt) && (
+                            <p className="text-[10px] text-brand-400 mt-0.5">
+                              {m.joinedAt ? format(new Date(m.joinedAt), 'dd MMM yy') : '...'} — {m.leftAt ? format(new Date(m.leftAt), 'dd MMM yy') : 'Sekarang'}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => startEditMember(m)}
+                          className="p-1.5 rounded-lg hover:bg-white/10 text-surface-400 hover:text-white transition-colors"
+                          title="Edit Kontrak Assignment"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeMember(m.userId)}
+                          className="p-1.5 rounded-lg hover:bg-rose-500/10 text-surface-400 hover:text-rose-400 transition-colors"
+                          title="Hapus Member"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-white">{m.user.name}</p>
-                      <p className="text-[11px] text-surface-500">{m.user.email} • {m.user.jobRoleCode || '-'}</p>
-                      {(m.joinedAt || m.leftAt) && (
-                        <p className="text-[10px] text-brand-400 mt-0.5">
-                          {m.joinedAt ? format(new Date(m.joinedAt), 'dd MMM yy') : '...'} — {m.leftAt ? format(new Date(m.leftAt), 'dd MMM yy') : 'Sekarang'}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <button onClick={() => removeMember(m.userId)} className="p-1.5 rounded-lg hover:bg-rose-500/10 text-surface-400 hover:text-rose-400 transition-colors shrink-0">
-                    <Trash2 size={14} />
-                  </button>
+                  )}
                 </div>
               ))}
               {selectedProject.members.length === 0 && (

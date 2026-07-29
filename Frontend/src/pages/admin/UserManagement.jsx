@@ -381,7 +381,7 @@ const UserManagement = () => {
                       {contractEnd ? (
                         <div>
                           <p className="text-xs text-surface-400">
-                            {(latestContract?.startDate || user.contractStart) && format(new Date(latestContract?.startDate || user.contractStart), 'dd/MM/yy')} - {format(new Date(contractEnd), 'dd/MM/yy')}
+                            {(latestContract?.startDate || user.contractStart) && format(new Date(latestContract?.startDate || user.contractStart), 'dd MMM yy')} - {format(new Date(contractEnd), 'dd MMM yy')}
                           </p>
                           {days !== null && days <= 30 && days >= 0 && (
                             <span className="text-[10px] text-amber-400 font-medium">⚠ {days} hari lagi</span>
@@ -855,7 +855,7 @@ function formatDate(value) {
 }
 
 function formatDateLong(value) {
-  return value ? new Date(value).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '-';
+  return value ? new Date(value).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
 }
 
 function formatRupiah(value) {

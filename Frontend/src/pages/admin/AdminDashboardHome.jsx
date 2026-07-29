@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
 import { MapContainer, TileLayer, Marker, Popup, Circle, Polygon, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -58,7 +59,11 @@ function MapZoomListener({ onZoomChange }) {
   return null;
 }
 
+// Name Function : AdminDashboardHome
+// Author : Iyan.FID
+// Description : Halaman dashboard admin dengan peta, status kehadiran, dan daftar pending approval terfilter PM
 const AdminDashboardHome = () => {
+  const { user } = useAuth();
   const [locations, setLocations] = useState([]);
   const [attendances, setAttendances] = useState([]);
   const [projects, setProjects] = useState([]);
@@ -80,13 +85,23 @@ const AdminDashboardHome = () => {
       setProjects(dataList);
 
       const managers = dataList.map(project => project.projectManager).filter(Boolean);
-      setProjectManagers([...new Map(managers.map(manager => [manager.id, manager])).values()]);
+      if (user?.jobRoleCode === 'PM' && user?.id && !managers.some(m => m.id === user.id)) {
+        managers.push({ id: user.id, name: user.name });
+      }
+      const uniqueManagers = [...new Map(managers.map(manager => [manager.id, manager])).values()];
+      setProjectManagers(uniqueManagers);
     }).catch(() => { });
 
     api.get('/api/geofences').then(r => {
       setGeofences(Array.isArray(r.data) ? r.data : []);
     }).catch(() => { });
-  }, []);
+  }, [user]);
+
+  useEffect(() => {
+    if (user?.id && (user?.jobRoleCode === 'PM' || projectManagers.some(m => m.id === user.id))) {
+      setProjectManagerId(prev => prev || user.id);
+    }
+  }, [user, projectManagers]);
 
   useEffect(() => {
     api.get('/api/attendance/locations', { params: { projectManagerId: projectManagerId || undefined } })
@@ -116,12 +131,15 @@ const AdminDashboardHome = () => {
   }, [pageNo, pageSize, search, projectManagerId]);
 
   useEffect(() => {
+    // Name Function : fetchPendingTasks
+    // Author : Iyan.FID
+    // Description : Mengambil daftar pengajuan absensi dan cuti tertunda berdasarkan filter PM
     const fetchPendingTasks = async () => {
       setPendingLoading(true);
       try {
         const [attRes, leaveRes] = await Promise.all([
-          api.get('/api/attendance-requests', { params: { status: 'PENDING', pageSize: 5 } }).catch(() => ({ data: { data: [] } })),
-          api.get('/api/leaves', { params: { status: 'PENDING', pageSize: 5 } }).catch(() => ({ data: { data: [] } }))
+          api.get('/api/attendance-requests', { params: { status: 'PENDING', pageSize: 5, projectManagerId: projectManagerId || undefined } }).catch(() => ({ data: { data: [] } })),
+          api.get('/api/leaves', { params: { status: 'PENDING', pageSize: 5, projectManagerId: projectManagerId || undefined } }).catch(() => ({ data: { data: [] } }))
         ]);
 
         const attList = (attRes.data?.data || attRes.data || []).map(item => ({
@@ -150,7 +168,7 @@ const AdminDashboardHome = () => {
       }
     };
     fetchPendingTasks();
-  }, []);
+  }, [projectManagerId]);
 
   let defaultMapCenter = [-6.2, 106.816];
   if (locations.length > 0 && (locations[0].checkInLat || locations[0].checkOutLat)) {

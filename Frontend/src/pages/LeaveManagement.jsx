@@ -20,12 +20,20 @@ const LeaveManagement = () => {
   const { user } = useAuth();
   const [leaves, setLeaves] = useState([]);
   const [statuses, setStatuses] = useState([['', 'Semua Status']]);
-  const [statusClass, setStatusClass] = useState({
+  const defaultStatusClass = {
     PENDING: 'badge-warning',
     APPROVED_BY_PM: 'badge-info',
     APPROVED: 'badge-success',
     REJECTED: 'badge-danger',
     CANCELLED: 'badge-danger',
+  };
+  const [statusClass, setStatusClass] = useState(defaultStatusClass);
+  const [statusLabels, setStatusLabels] = useState({
+    PENDING: 'Pending',
+    APPROVED_BY_PM: 'Approved by PM',
+    APPROVED: 'Approved',
+    REJECTED: 'Rejected',
+    CANCELLED: 'Cancelled',
   });
   const [filters, setFilters] = useState({ search: '', status: searchParams.get('status') || '' });
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -37,15 +45,22 @@ const LeaveManagement = () => {
         const res = await api.get('/api/system?category=LEAVE_STATUS&isActive=true');
         const dynamicStatuses = [['', 'Semua Status']];
         const dynamicStatusClass = {};
+        const dynamicStatusLabels = {};
 
         if (res.data && res.data.length > 0) {
           res.data.forEach(item => {
             dynamicStatuses.push([item.code, item.name]);
-            dynamicStatusClass[item.code] = item.description || (item.code === 'PENDING' ? 'badge-warning' : 'badge-info');
+            if (item.name) dynamicStatusLabels[item.code] = item.name;
+            if (item.description) {
+              dynamicStatusClass[item.code] = (item.code === 'PENDING' && item.description === 'badge-info')
+                ? 'badge-warning'
+                : item.description;
+            }
           });
         }
 
         setStatuses(dynamicStatuses);
+        setStatusLabels(prev => ({ ...prev, ...dynamicStatusLabels }));
         setStatusClass(prev => ({ ...prev, ...dynamicStatusClass }));
       } catch (error) {
         console.error('Failed to fetch leave statuses', error);
@@ -176,7 +191,7 @@ const LeaveManagement = () => {
                     {format(new Date(item.startDate), 'dd MMM yyyy')} - {format(new Date(item.endDate), 'dd MMM yyyy')}
                   </td>
                   <td className="px-4 py-3 text-sm text-surface-400">{item.totalDays} hari</td>
-                  <td className="px-4 py-3"><span className={statusClass[item.status] || (item.status === 'PENDING' ? 'badge-warning' : 'badge-info')}>{item.status}</span></td>
+                  <td className="px-4 py-3"><span className={statusClass[item.status] || (item.status === 'PENDING' ? 'badge-warning' : 'badge-info')}>{statusLabels[item.status] || item.status}</span></td>
                   <td className="px-4 py-3 text-sm text-surface-400">
                     {format(new Date(item.createdAt), 'dd MMM yyyy')}
                   </td>

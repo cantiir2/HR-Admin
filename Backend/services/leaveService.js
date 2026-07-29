@@ -368,7 +368,9 @@ async function listLeaveRequests(prisma, currentUser, filters = {}) {
       }
     });
   }
-  if (currentUser.role !== 'ADMIN') {
+  if (filters.projectManagerId) {
+    andWhere.push({ user: { projects: { some: { project: { projectManagerId: filters.projectManagerId } } } } });
+  } else if (currentUser.role !== 'ADMIN') {
     andWhere.push({ user: { projects: { some: { project: { projectManagerId: currentUser.id } } } } });
   }
 

@@ -31,13 +31,10 @@ const statusClass = {
 };
 
 const formatDeadlineDate = (deadlineDate) => {
-  if (!deadlineDate) return '-';
-  const date = new Date(deadlineDate);
-  return [
-    String(date.getUTCDate()).padStart(2, '0'),
-    String(date.getUTCMonth() + 1).padStart(2, '0'),
-    date.getUTCFullYear()
-  ].join('/');
+  if (!deadlineDate) return '';
+  const dateObj = new Date(deadlineDate);
+  if (isNaN(dateObj.getTime())) return '';
+  return format(dateObj, 'dd MMM yyyy');
 };
 
 const isDeadlinePassed = (deadlineDate) => {

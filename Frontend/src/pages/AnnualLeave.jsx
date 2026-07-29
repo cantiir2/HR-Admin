@@ -46,7 +46,10 @@ const calculateWorkingDays = (startDate, endDate) => {
 const formatDisplayDate = (isoStr) => {
   if (!isoStr) return '';
   const [y, m, d] = isoStr.split('-');
-  return (y && m && d) ? `${d}/${m}/${y}` : '';
+  if (!y || !m || !d) return '';
+  const dateObj = new Date(Number(y), Number(m) - 1, Number(d));
+  if (isNaN(dateObj.getTime())) return '';
+  return format(dateObj, 'dd/MMM/yyyy');
 };
 
 const AnnualLeave = () => {
@@ -60,7 +63,21 @@ const AnnualLeave = () => {
   const [warning, setWarning] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [statusClass, setStatusClass] = useState({});
+  const defaultStatusClass = {
+    PENDING: 'badge-warning',
+    APPROVED_BY_PM: 'badge-info',
+    APPROVED: 'badge-success',
+    REJECTED: 'badge-danger',
+    CANCELLED: 'badge-danger',
+  };
+  const [statusClass, setStatusClass] = useState(defaultStatusClass);
+  const [statusLabels, setStatusLabels] = useState({
+    PENDING: 'Pending',
+    APPROVED_BY_PM: 'Approved by PM',
+    APPROVED: 'Approved',
+    REJECTED: 'Rejected',
+    CANCELLED: 'Cancelled',
+  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [evidenceImage, setEvidenceImage] = useState(null);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -76,13 +93,20 @@ const AnnualLeave = () => {
       try {
         const res = await api.get('/api/system?category=LEAVE_STATUS&isActive=true');
         const dynamicStatusClass = {};
+        const dynamicStatusLabels = {};
 
         if (res.data && res.data.length > 0) {
           res.data.forEach(item => {
-            dynamicStatusClass[item.code] = item.description || (item.code === 'PENDING' ? 'badge-warning' : 'badge-info');
+            if (item.name) dynamicStatusLabels[item.code] = item.name;
+            if (item.description) {
+              dynamicStatusClass[item.code] = (item.code === 'PENDING' && item.description === 'badge-info')
+                ? 'badge-warning'
+                : item.description;
+            }
           });
         }
 
+        setStatusLabels(prev => ({ ...prev, ...dynamicStatusLabels }));
         setStatusClass(prev => ({ ...prev, ...dynamicStatusClass }));
       } catch (error) {
         console.error('Failed to fetch leave statuses', error);
@@ -282,64 +306,68 @@ const AnnualLeave = () => {
 
       <div className="glass-card-light p-5 mb-5">
         <div className="grid gap-3 md:grid-cols-2">
-          <AppSelect
-            label="Jenis Cuti"
-            value={form.leaveType}
-            onChange={updateLeaveType}
-            options={leaveTypes}
-          />
-          <div>
-            <label className="block text-sm text-surface-300 mb-1">Tanggal Mulai</label>
-            <div
-              className="relative cursor-pointer"
-              onClick={() => {
-                try {
-                  startDateRef.current?.showPicker();
-                } catch (err) {
-                  startDateRef.current?.focus();
-                }
-              }}
-            >
-              <div className="input-dark text-sm flex items-center justify-between pointer-events-none">
-                <span className={form.startDate ? 'text-white' : 'text-surface-500'}>
-                  {formatDisplayDate(form.startDate) || 'dd/mm/yyyy'}
-                </span>
-                <CalendarDays size={16} className="text-surface-400 shrink-0 ml-2" />
-              </div>
-              <input
-                ref={startDateRef}
-                type="date"
-                value={form.startDate}
-                onChange={e => setForm(current => ({ ...current, startDate: e.target.value }))}
-                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10 [color-scheme:dark]"
-              />
-            </div>
+          <div className="md:col-span-2">
+            <AppSelect
+              label="Jenis Cuti"
+              value={form.leaveType}
+              onChange={updateLeaveType}
+              options={leaveTypes}
+            />
           </div>
-          <div>
-            <label className="block text-sm text-surface-300 mb-1">Tanggal Selesai</label>
-            <div
-              className="relative cursor-pointer"
-              onClick={() => {
-                try {
-                  endDateRef.current?.showPicker();
-                } catch (err) {
-                  endDateRef.current?.focus();
-                }
-              }}
-            >
-              <div className="input-dark text-sm flex items-center justify-between pointer-events-none">
-                <span className={form.endDate ? 'text-white' : 'text-surface-500'}>
-                  {formatDisplayDate(form.endDate) || 'dd/mm/yyyy'}
-                </span>
-                <CalendarDays size={16} className="text-surface-400 shrink-0 ml-2" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:col-span-2">
+            <div>
+              <label className="block text-sm text-surface-300 mb-1">Tanggal Mulai</label>
+              <div
+                className="relative cursor-pointer"
+                onClick={() => {
+                  try {
+                    startDateRef.current?.showPicker();
+                  } catch (err) {
+                    startDateRef.current?.focus();
+                  }
+                }}
+              >
+                <div className="input-dark text-sm flex items-center justify-between pointer-events-none">
+                  <span className={form.startDate ? 'text-white' : 'text-surface-500'}>
+                    {formatDisplayDate(form.startDate) || 'dd/mmm/yyyy'}
+                  </span>
+                  <CalendarDays size={16} className="text-surface-400 shrink-0 ml-2" />
+                </div>
+                <input
+                  ref={startDateRef}
+                  type="date"
+                  value={form.startDate}
+                  onChange={e => setForm(current => ({ ...current, startDate: e.target.value }))}
+                  className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10 [color-scheme:dark]"
+                />
               </div>
-              <input
-                ref={endDateRef}
-                type="date"
-                value={form.endDate}
-                onChange={e => setForm(current => ({ ...current, endDate: e.target.value }))}
-                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10 [color-scheme:dark]"
-              />
+            </div>
+            <div>
+              <label className="block text-sm text-surface-300 mb-1">Tanggal Selesai</label>
+              <div
+                className="relative cursor-pointer"
+                onClick={() => {
+                  try {
+                    endDateRef.current?.showPicker();
+                  } catch (err) {
+                    endDateRef.current?.focus();
+                  }
+                }}
+              >
+                <div className="input-dark text-sm flex items-center justify-between pointer-events-none">
+                  <span className={form.endDate ? 'text-white' : 'text-surface-500'}>
+                    {formatDisplayDate(form.endDate) || 'dd/mmm/yyyy'}
+                  </span>
+                  <CalendarDays size={16} className="text-surface-400 shrink-0 ml-2" />
+                </div>
+                <input
+                  ref={endDateRef}
+                  type="date"
+                  value={form.endDate}
+                  onChange={e => setForm(current => ({ ...current, endDate: e.target.value }))}
+                  className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10 [color-scheme:dark]"
+                />
+              </div>
             </div>
           </div>
           <div className="md:col-span-2">
@@ -358,7 +386,7 @@ const AnnualLeave = () => {
                 <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e => handleEvidenceChange(e.target.files?.[0])} />
               </label>
               <p className="mt-1 text-xs text-surface-500">Opsional. Upload foto bukti pendukung jika tersedia.</p>
-              
+
               <div className="mt-3 p-3 bg-white/[0.02] border border-white/[0.06] rounded-lg space-y-1">
                 <p className="text-xs text-surface-300">
                   <span className="font-semibold text-brand-400">Aturan Cuti OTHERS:</span> Sakit 1 hari tidak memotong cuti. Sakit lebih dari 1 hari tanpa surat dokter akan memotong cuti mulai hari ke-2.
@@ -410,7 +438,7 @@ const AnnualLeave = () => {
                     {format(new Date(item.startDate), 'dd MMM yyyy')} - {format(new Date(item.endDate), 'dd MMM yyyy')}
                   </td>
                   <td className="px-4 py-3 text-sm text-surface-400">{item.totalDays} hari</td>
-                  <td className="px-4 py-3"><span className={statusClass[item.status] || (item.status === 'PENDING' ? 'badge-warning' : 'badge-info')}>{item.status}</span></td>
+                  <td className="px-4 py-3"><span className={statusClass[item.status] || (item.status === 'PENDING' ? 'badge-warning' : 'badge-info')}>{statusLabels[item.status] || item.status}</span></td>
                   <td className="px-4 py-3 text-sm text-surface-400">
                     {item.hasEvidencePhoto ? 'Evidence tersedia' : 'Tidak ada evidence'}
                   </td>
@@ -438,13 +466,13 @@ const AnnualLeave = () => {
           {leaves.length === 0 && <div className="py-12 text-center text-sm text-surface-400">Belum ada pengajuan cuti</div>}
         </div>
         {leaves.length > 0 && (
-            <div className="p-4 border-t border-white/[0.06] flex justify-end">
-              <Pagination
-                page={{ pageNo, pageSize, totalPages }}
-                doSearch={(p, s) => { setPageNo(p); setPageSize(s); }}
-              />
-            </div>
-          )}
+          <div className="p-4 border-t border-white/[0.06] flex justify-end">
+            <Pagination
+              page={{ pageNo, pageSize, totalPages }}
+              doSearch={(p, s) => { setPageNo(p); setPageSize(s); }}
+            />
+          </div>
+        )}
       </div>
 
       {isModalOpen && (

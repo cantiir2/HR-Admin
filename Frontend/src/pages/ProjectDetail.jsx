@@ -43,6 +43,7 @@ const readDroppableId = (droppableId) => {
 };
 
 const toDateInputValue = (value) => value ? value.split('T')[0] : '';
+const toDateDisplay = (value) => value ? format(new Date(value.split('T')[0]), 'dd MMM yyyy') : '';
 
 const isDateInRange = (value, min, max) => {
   if (!value) return true;
@@ -444,7 +445,7 @@ const ProjectDetail = () => {
           <div className="flex flex-wrap items-center gap-4 mt-3 text-xs">
             <div className="flex items-center gap-1.5 bg-surface-800/50 px-2 py-1 rounded-lg border border-white/[0.05]">
               <span className="text-surface-500">Project Start - End:</span>
-              <span className="text-with font-medium">{project.contractStart && project.contractEnd ? `${toDateInputValue(project.contractStart)} to ${toDateInputValue(project.contractEnd)}` : '-'}</span>
+              <span className="text-with font-medium">{project.contractStart && project.contractEnd ? `${toDateDisplay(project.contractStart)} to ${toDateDisplay(project.contractEnd)}` : '-'}</span>
             </div>
             <div className="flex items-center gap-1.5 bg-surface-800/50 px-2 py-1 rounded-lg border border-white/[0.05]">
               <span className="text-surface-500">Customer Company:</span>

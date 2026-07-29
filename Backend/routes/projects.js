@@ -405,37 +405,6 @@ module.exports = (prisma) => {
         return res.status(400).json({ error: 'Tanggal assignment harus berada dalam periode project' });
       }
 
-      // Check for overlapping schedule
-      const targetStart = joinedAt ? new Date(joinedAt) : project.contractStart;
-      const targetEnd = leftAt ? new Date(leftAt) : project.contractEnd;
-      targetStart.setUTCHours(0, 0, 0, 0);
-      targetEnd.setUTCHours(23, 59, 59, 999);
-
-      const existingMemberships = await prisma.projectMember.findMany({
-        where: {
-          userId,
-          project: { status: 'active' }
-        },
-        include: {
-          project: {
-            select: { name: true, contractStart: true, contractEnd: true, status: true }
-          }
-        }
-      });
-
-      for (const m of existingMemberships) {
-        const mStart = m.joinedAt ? new Date(m.joinedAt) : m.project.contractStart;
-        const mEnd = m.leftAt ? new Date(m.leftAt) : m.project.contractEnd;
-        mStart.setUTCHours(0, 0, 0, 0);
-        mEnd.setUTCHours(23, 59, 59, 999);
-
-        if (mStart <= targetEnd && mEnd >= targetStart) {
-          return res.status(400).json({ 
-            error: `Gagal assign. Member sudah dialokasikan pada project "${m.project.name}" di rentang waktu yang bertabrakan.` 
-          });
-        }
-      }
-
       const member = await prisma.projectMember.create({
         data: {
           projectId: req.params.id,
@@ -453,6 +422,48 @@ module.exports = (prisma) => {
       if (error.code === 'P2002') {
         return res.status(400).json({ error: 'User sudah ada di project ini' });
       }
+      console.error(error);
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
+
+  router.put('/:id/members/:userId', authenticateToken, authenticateAdmin, async (req, res) => {
+    try {
+      const { joinedAt, leftAt, roleInProject } = req.body;
+      const { id: projectId, userId } = req.params;
+
+      const existingMember = await prisma.projectMember.findFirst({
+        where: { projectId, userId }
+      });
+      if (!existingMember) {
+        return res.status(404).json({ error: 'Member tidak ditemukan dalam project ini' });
+      }
+
+      const periodError = validatePeriod(joinedAt, leftAt, 'assignment');
+      if (periodError) return res.status(400).json({ error: periodError });
+
+      const project = await prisma.project.findUnique({ where: { id: projectId } });
+      if (!project) return res.status(404).json({ error: 'Project tidak ditemukan' });
+
+      if ((joinedAt && new Date(joinedAt) < project.contractStart) ||
+          (leftAt && new Date(leftAt) > project.contractEnd)) {
+        return res.status(400).json({ error: 'Tanggal assignment harus berada dalam periode project' });
+      }
+
+      const updatedMember = await prisma.projectMember.update({
+        where: { id: existingMember.id },
+        data: {
+          roleInProject: roleInProject !== undefined ? roleInProject : existingMember.roleInProject,
+          joinedAt: joinedAt ? new Date(joinedAt) : null,
+          leftAt: leftAt ? new Date(leftAt) : null
+        },
+        include: {
+          user: { select: { id: true, name: true, email: true } }
+        }
+      });
+
+      res.json(updatedMember);
+    } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Server error' });
     }

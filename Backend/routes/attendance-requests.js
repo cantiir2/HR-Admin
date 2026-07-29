@@ -400,7 +400,7 @@ module.exports = (prisma) => {
   // GET /api/attendance-requests
   router.get('/', authenticateToken, authenticateAdmin, async (req, res) => {
     try {
-      const { status, search, requestType, startDate, endDate, pageNo = 1, pageSize = 20, sortBy, sortOrder } = req.query;
+      const { status, search, requestType, startDate, endDate, pageNo = 1, pageSize = 20, sortBy, sortOrder, projectManagerId } = req.query;
 
       const whereClause = {};
 
@@ -414,10 +414,22 @@ module.exports = (prisma) => {
         };
       }
 
+      const userConditions = {};
       if (search) {
-        whereClause.user = {
-          name: { contains: search, mode: 'insensitive' }
+        userConditions.name = { contains: search, mode: 'insensitive' };
+      }
+      const effectivePmId = projectManagerId || (req.user.role !== 'ADMIN' ? req.user.id : undefined);
+      if (effectivePmId) {
+        userConditions.projects = {
+          some: {
+            project: {
+              projectManagerId: effectivePmId
+            }
+          }
         };
+      }
+      if (Object.keys(userConditions).length > 0) {
+        whereClause.user = userConditions;
       }
 
       const allowedSortFields = ['requestDate', 'createdAt', 'status', 'user.name', 'requestType', 'requestedCheckInTime', 'reason'];
