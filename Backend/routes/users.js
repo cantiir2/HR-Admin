@@ -256,34 +256,50 @@ module.exports = (prisma) => {
       });
 
       const rows = users.map(user => {
-        const assignments = user.projects
+        const sortedAssignments = user.projects
           .map(item => ({
             ...item,
             assignedStart: toDateOnly(item.joinedAt || item.project.contractStart),
             assignedEnd: toDateOnly(item.leftAt || item.project.contractEnd)
           }))
-          .filter(item => item.assignedStart && item.assignedEnd);
+          .filter(item => item.assignedStart && item.assignedEnd)
+          .sort((a, b) => a.assignedStart.getTime() - b.assignedStart.getTime());
 
-        const conflictAssignments = assignments.filter(item => (
+        const conflictAssignments = sortedAssignments.filter(item => (
           rangeStart
             ? item.assignedStart <= rangeEnd && item.assignedEnd >= rangeStart
             : item.assignedStart <= today && item.assignedEnd >= today
         ));
-        const nearestEnd = conflictAssignments
-          .map(item => item.assignedEnd)
-          .sort((a, b) => a.getTime() - b.getTime())[0] || null;
+
         const isAvailable = conflictAssignments.length === 0;
 
         let availabilityStatus = 'Available Now';
         let availableFrom = null;
+        let availableUntil = null;
         let priorityOrder = 0;
-        if (rangeStart && isAvailable) {
+
+        if (!isAvailable) {
+          availableFrom = new Date(Math.min(...conflictAssignments.map(item => item.assignedStart.getTime())));
+          let busyUntil = new Date(Math.max(...conflictAssignments.map(item => item.assignedEnd.getTime())));
+          for (const item of sortedAssignments) {
+            if (item.assignedStart > today && item.assignedStart <= busyUntil) {
+              if (item.assignedEnd > busyUntil) {
+                busyUntil = item.assignedEnd;
+              }
+            }
+          }
+          availableUntil = busyUntil;
+          availabilityStatus = 'Available From';
+          priorityOrder = busyUntil.getTime();
+        } else if (rangeStart) {
           availabilityStatus = 'Available On Selected Date';
           availableFrom = rangeStart;
-        } else if (!isAvailable) {
-          availabilityStatus = 'Available From';
-          availableFrom = nearestEnd;
-          priorityOrder = nearestEnd ? nearestEnd.getTime() : Number.MAX_SAFE_INTEGER;
+          const futureAssignments = sortedAssignments.filter(item => item.assignedStart > rangeStart);
+          availableUntil = futureAssignments.length > 0 ? futureAssignments[0].assignedStart : null;
+        } else {
+          availableFrom = null;
+          const futureAssignments = sortedAssignments.filter(item => item.assignedStart > today);
+          availableUntil = futureAssignments.length > 0 ? futureAssignments[0].assignedStart : null;
         }
 
         return {
@@ -296,6 +312,7 @@ module.exports = (prisma) => {
           skill: user.skill,
           current_project: conflictAssignments.map(item => item.project.name).join(', ') || null,
           available_from: availableFrom,
+          available_until: availableUntil,
           availability_status: availabilityStatus,
           matching_score: priorityOrder,
           priority_order: priorityOrder
@@ -311,276 +328,271 @@ module.exports = (prisma) => {
   });
 
   // POST available members search with filters and pagination
-router.post('/available-members/search', authenticateToken, authenticateAdmin, async (req, res) => {
-  try {
-    const {
-      pageNo: pageNoBody = 1,
-      pageSize: pageSizeBody = 10,
-      startDate = '',
-      endDate = '',
-      skill = '',
-      search = '',
-      sortBy = 'priority_order',
-      sortOrder = 'asc'
-    } = req.body || {};
+  router.post('/available-members/search', authenticateToken, authenticateAdmin, async (req, res) => {
+    try {
+      const {
+        pageNo: pageNoBody = 1,
+        pageSize: pageSizeBody = 10,
+        startDate = '',
+        endDate = '',
+        skill = '',
+        search = '',
+        sortBy = 'priority_order',
+        sortOrder = 'asc'
+      } = req.body || {};
 
-    const pageNo = Math.max(parseInt(pageNoBody, 10) || 1, 1);
-    const pageSize = Math.min(Math.max(parseInt(pageSizeBody, 10) || 10, 1), 50);
-    const skip = (pageNo - 1) * pageSize;
+      const pageNo = Math.max(parseInt(pageNoBody, 10) || 1, 1);
+      const pageSize = Math.min(Math.max(parseInt(pageSizeBody, 10) || 10, 1), 50);
+      const skip = (pageNo - 1) * pageSize;
 
-    if ((startDate && !isDateInput(startDate)) || (endDate && !isDateInput(endDate))) {
-      return res.status(400).json({ error: 'Format tanggal harus YYYY-MM-DD' });
-    }
-
-    if (startDate && endDate && startDate > endDate) {
-      return res.status(400).json({ error: 'Tanggal mulai tidak boleh lebih besar dari tanggal selesai' });
-    }
-
-    /*****/
-    /** Nama Function: parseDateOnly **/
-    /** Deskripsi Function: Mengubah input tanggal YYYY-MM-DD menjadi Date UTC tanpa jam **/
-    /** Creator by: FID.Iyan **/
-    /*****/
-    const parseDateOnly = (value) => {
-      const [year, month, day] = value.split('-').map(Number);
-      return new Date(Date.UTC(year, month - 1, day));
-    };
-
-    /*****/
-    /** Nama Function: toDateOnly **/
-    /** Deskripsi Function: Mengubah Date menjadi Date UTC tanpa jam **/
-    /** Creator by: FID.Iyan **/
-    /*****/
-    const toDateOnly = (date) => {
-      if (!date) return null;
-
-      const value = new Date(date);
-      return new Date(Date.UTC(
-        value.getUTCFullYear(),
-        value.getUTCMonth(),
-        value.getUTCDate()
-      ));
-    };
-
-    /*****/
-    /** Nama Function: normalizeSortParams **/
-    /** Deskripsi Function: Memvalidasi parameter sorting available member **/
-    /** Creator by: FID.Iyan **/
-    /*****/
-    const normalizeSortParams = (requestedSortBy, requestedSortOrder) => {
-      const allowedSortFields = [
-        'name',
-        'email',
-        'job_title',
-        'job_role_code',
-        'job_role_name',
-        'skill',
-        'current_project',
-        'available_from',
-        'availability_status',
-        'matching_score',
-        'priority_order'
-      ];
-
-      const normalizedSortBy = allowedSortFields.includes(requestedSortBy)
-        ? requestedSortBy
-        : 'priority_order';
-
-      const normalizedSortOrder = ['asc', 'desc'].includes(String(requestedSortOrder).toLowerCase())
-        ? String(requestedSortOrder).toLowerCase()
-        : 'asc';
-
-      return {
-        sortBy: normalizedSortBy,
-        sortOrder: normalizedSortOrder
-      };
-    };
-
-    /*****/
-    /** Nama Function: compareAvailableMembers **/
-    /** Deskripsi Function: Mengurutkan data available member berdasarkan field dan arah sorting **/
-    /** Creator by: FID.Iyan **/
-    /*****/
-    const compareAvailableMembers = (a, b, field, order) => {
-      const direction = order === 'desc' ? -1 : 1;
-
-      const getValue = (row) => {
-        if (field === 'available_from') {
-          return row.available_from ? new Date(row.available_from).getTime() : 0;
-        }
-
-        if (field === 'matching_score' || field === 'priority_order') {
-          return Number(row[field] || 0);
-        }
-
-        return row[field] ?? '';
-      };
-
-      const valueA = getValue(a);
-      const valueB = getValue(b);
-
-      if (typeof valueA === 'number' && typeof valueB === 'number') {
-        return (valueA - valueB) * direction;
+      if ((startDate && !isDateInput(startDate)) || (endDate && !isDateInput(endDate))) {
+        return res.status(400).json({ error: 'Format tanggal harus YYYY-MM-DD' });
       }
 
-      return String(valueA).localeCompare(String(valueB), 'id', {
-        sensitivity: 'base',
-        numeric: true
-      }) * direction;
-    };
-
-    const rangeStart = startDate ? parseDateOnly(startDate) : (endDate ? parseDateOnly(endDate) : null);
-    const rangeEnd = endDate ? parseDateOnly(endDate) : rangeStart;
-    const today = toDateOnly(new Date());
-
-    const jobRoles = await prisma.systemMaster.findMany({
-      where: {
-        category: 'JOB_ROLE',
-        isActive: true
-      },
-      select: {
-        code: true,
-        name: true
+      if (startDate && endDate && startDate > endDate) {
+        return res.status(400).json({ error: 'Tanggal mulai tidak boleh lebih besar dari tanggal selesai' });
       }
-    });
 
-    const jobRoleMap = new Map(jobRoles.map(role => [role.code, role.name]));
+      const parseDateOnly = (value) => {
+        const [year, month, day] = value.split('-').map(Number);
+        return new Date(Date.UTC(year, month - 1, day));
+      };
 
-    const users = await prisma.user.findMany({
-      where: {
-        role: 'MEMBER',
-        ...(skill ? { jobRoleCode: skill } : {}),
-        ...(search ? {
-          OR: [
-            { name: { contains: search, mode: 'insensitive' } },
-            { email: { contains: search, mode: 'insensitive' } }
-          ]
-        } : {})
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        jobRoleCode: true,
-        skill: true,
-        projects: {
-          where: {
-            project: {
-              status: 'active'
-            }
-          },
-          include: {
-            project: {
-              select: {
-                id: true,
-                name: true,
-                contractStart: true,
-                contractEnd: true
+      const toDateOnly = (date) => {
+        if (!date) return null;
+
+        const value = new Date(date);
+        return new Date(Date.UTC(
+          value.getUTCFullYear(),
+          value.getUTCMonth(),
+          value.getUTCDate()
+        ));
+      };
+
+      const normalizeSortParams = (requestedSortBy, requestedSortOrder) => {
+        const allowedSortFields = [
+          'name',
+          'email',
+          'job_title',
+          'job_role_code',
+          'job_role_name',
+          'skill',
+          'current_project',
+          'available_from',
+          'available_until',
+          'availability_status',
+          'matching_score',
+          'priority_order'
+        ];
+
+        const normalizedSortBy = allowedSortFields.includes(requestedSortBy)
+          ? requestedSortBy
+          : 'priority_order';
+
+        const normalizedSortOrder = ['asc', 'desc'].includes(String(requestedSortOrder).toLowerCase())
+          ? String(requestedSortOrder).toLowerCase()
+          : 'asc';
+
+        return {
+          sortBy: normalizedSortBy,
+          sortOrder: normalizedSortOrder
+        };
+      };
+
+      const compareAvailableMembers = (a, b, field, order) => {
+        const direction = order === 'desc' ? -1 : 1;
+
+        const getValue = (row) => {
+          if (field === 'available_from' || field === 'available_until') {
+            return row[field] ? new Date(row[field]).getTime() : 0;
+          }
+
+          if (field === 'matching_score' || field === 'priority_order') {
+            return Number(row[field] || 0);
+          }
+
+          return row[field] ?? '';
+        };
+
+        const valueA = getValue(a);
+        const valueB = getValue(b);
+
+        if (typeof valueA === 'number' && typeof valueB === 'number') {
+          return (valueA - valueB) * direction;
+        }
+
+        return String(valueA).localeCompare(String(valueB), 'id', {
+          sensitivity: 'base',
+          numeric: true
+        }) * direction;
+      };
+
+      const rangeStart = startDate ? parseDateOnly(startDate) : (endDate ? parseDateOnly(endDate) : null);
+      const rangeEnd = endDate ? parseDateOnly(endDate) : rangeStart;
+      const today = toDateOnly(new Date());
+
+      const jobRoles = await prisma.systemMaster.findMany({
+        where: {
+          category: 'JOB_ROLE',
+          isActive: true
+        },
+        select: {
+          code: true,
+          name: true
+        }
+      });
+
+      const jobRoleMap = new Map(jobRoles.map(role => [role.code, role.name]));
+
+      const users = await prisma.user.findMany({
+        where: {
+          role: 'MEMBER',
+          ...(skill ? { jobRoleCode: skill } : {}),
+          ...(search ? {
+            OR: [
+              { name: { contains: search, mode: 'insensitive' } },
+              { email: { contains: search, mode: 'insensitive' } }
+            ]
+          } : {})
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          jobRoleCode: true,
+          skill: true,
+          projects: {
+            where: {
+              project: {
+                status: 'active'
+              }
+            },
+            include: {
+              project: {
+                select: {
+                  id: true,
+                  name: true,
+                  contractStart: true,
+                  contractEnd: true
+                }
               }
             }
           }
+        },
+        orderBy: {
+          name: 'asc'
         }
-      },
-      orderBy: {
-        name: 'asc'
-      }
-    });
-
-    let rows = users.map(user => {
-      const assignments = user.projects
-        .map(item => ({
-          ...item,
-          assignedStart: toDateOnly(item.joinedAt || item.project.contractStart),
-          assignedEnd: toDateOnly(item.leftAt || item.project.contractEnd)
-        }))
-        .filter(item => item.assignedStart && item.assignedEnd);
-
-      const conflictAssignments = assignments.filter(item => (
-        rangeStart
-          ? item.assignedStart <= rangeEnd && item.assignedEnd >= rangeStart
-          : item.assignedStart <= today && item.assignedEnd >= today
-      ));
-
-      const nearestEnd = conflictAssignments
-        .map(item => item.assignedEnd)
-        .sort((a, b) => a.getTime() - b.getTime())[0] || null;
-
-      const isAvailable = conflictAssignments.length === 0;
-
-      let availabilityStatus = 'Available Now';
-      let availableFrom = null;
-      let priorityOrder = 0;
-
-      if (rangeStart && isAvailable) {
-        availabilityStatus = 'Available On Selected Date';
-        availableFrom = rangeStart;
-      } else if (!isAvailable) {
-        availabilityStatus = 'Available From';
-        availableFrom = nearestEnd;
-        priorityOrder = nearestEnd ? nearestEnd.getTime() : Number.MAX_SAFE_INTEGER;
-      }
-
-      return {
-        user_id: user.id,
-        name: user.name,
-        email: user.email,
-        job_title: jobRoleMap.get(user.jobRoleCode) || user.jobRoleCode || null,
-        job_role_code: user.jobRoleCode,
-        job_role_name: jobRoleMap.get(user.jobRoleCode) || user.jobRoleCode || null,
-        skill: user.skill,
-        current_project: conflictAssignments.map(item => item.project.name).join(', ') || null,
-        available_from: availableFrom,
-        availability_status: availabilityStatus,
-        matching_score: priorityOrder,
-        priority_order: priorityOrder,
-        has_conflict: !isAvailable
-      };
-    });
-
-    if (rangeStart) {
-      rows = rows.filter(row => !row.has_conflict);
-    }
-
-    const normalizedSort = normalizeSortParams(sortBy, sortOrder);
-
-    rows.sort((a, b) => {
-      const result = compareAvailableMembers(
-        a,
-        b,
-        normalizedSort.sortBy,
-        normalizedSort.sortOrder
-      );
-
-      if (result !== 0) {
-        return result;
-      }
-
-      return a.name.localeCompare(b.name, 'id', {
-        sensitivity: 'base',
-        numeric: true
       });
-    });
 
-    const totalRows = rows.length;
+      let rows = users.map(user => {
+        const sortedAssignments = user.projects
+          .map(item => ({
+            ...item,
+            assignedStart: toDateOnly(item.joinedAt || item.project.contractStart),
+            assignedEnd: toDateOnly(item.leftAt || item.project.contractEnd)
+          }))
+          .filter(item => item.assignedStart && item.assignedEnd)
+          .sort((a, b) => a.assignedStart.getTime() - b.assignedStart.getTime());
 
-    return res.json({
-      data: rows.slice(skip, skip + pageSize),
-      page: {
-        pageNo,
-        pageSize,
-        totalRows,
-        totalPages: Math.ceil(totalRows / pageSize)
-      },
-      sort: {
-        sortBy: normalizedSort.sortBy,
-        sortOrder: normalizedSort.sortOrder
+        const conflictAssignments = sortedAssignments.filter(item => (
+          rangeStart
+            ? item.assignedStart <= rangeEnd && item.assignedEnd >= rangeStart
+            : item.assignedStart <= today && item.assignedEnd >= today
+        ));
+
+        const isAvailable = conflictAssignments.length === 0;
+
+        let availabilityStatus = 'Available Now';
+        let availableFrom = null;
+        let availableUntil = null;
+        let priorityOrder = 0;
+
+        if (!isAvailable) {
+          availableFrom = new Date(Math.min(...conflictAssignments.map(item => item.assignedStart.getTime())));
+          let busyUntil = new Date(Math.max(...conflictAssignments.map(item => item.assignedEnd.getTime())));
+          for (const item of sortedAssignments) {
+            if (item.assignedStart > today && item.assignedStart <= busyUntil) {
+              if (item.assignedEnd > busyUntil) {
+                busyUntil = item.assignedEnd;
+              }
+            }
+          }
+          availableUntil = busyUntil;
+          availabilityStatus = 'Available From';
+          priorityOrder = busyUntil.getTime();
+        } else if (rangeStart) {
+          availabilityStatus = 'Available On Selected Date';
+          availableFrom = rangeStart;
+          const futureAssignments = sortedAssignments.filter(item => item.assignedStart > rangeStart);
+          availableUntil = futureAssignments.length > 0 ? futureAssignments[0].assignedStart : null;
+        } else {
+          availableFrom = null;
+          const futureAssignments = sortedAssignments.filter(item => item.assignedStart > today);
+          availableUntil = futureAssignments.length > 0 ? futureAssignments[0].assignedStart : null;
+        }
+
+        return {
+          user_id: user.id,
+          name: user.name,
+          email: user.email,
+          job_title: jobRoleMap.get(user.jobRoleCode) || user.jobRoleCode || null,
+          job_role_code: user.jobRoleCode,
+          job_role_name: jobRoleMap.get(user.jobRoleCode) || user.jobRoleCode || null,
+          skill: user.skill,
+          current_project: conflictAssignments.map(item => item.project.name).join(', ') || null,
+          available_from: availableFrom,
+          available_until: availableUntil,
+          availability_status: availabilityStatus,
+          matching_score: priorityOrder,
+          priority_order: priorityOrder,
+          has_conflict: !isAvailable
+        };
+      });
+
+      if (rangeStart) {
+        rows = rows.filter(row => !row.has_conflict);
       }
-    });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: 'Server error' });
-  }
-});
+
+      const normalizedSort = normalizeSortParams(sortBy, sortOrder);
+
+      rows.sort((a, b) => {
+        const result = compareAvailableMembers(
+          a,
+          b,
+          normalizedSort.sortBy,
+          normalizedSort.sortOrder
+        );
+
+        if (result !== 0) {
+          return result;
+        }
+
+        return a.name.localeCompare(b.name, 'id', {
+          sensitivity: 'base',
+          numeric: true
+        });
+      });
+
+      const totalRows = rows.length;
+
+      return res.json({
+        data: rows.slice(skip, skip + pageSize),
+        page: {
+          pageNo,
+          pageSize,
+          totalRows,
+          totalPages: Math.ceil(totalRows / pageSize)
+        },
+        sort: {
+          sortBy: normalizedSort.sortBy,
+          sortOrder: normalizedSort.sortOrder
+        }
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ error: 'Server error' });
+    }
+  });
 
 
 
@@ -816,7 +828,7 @@ router.post('/available-members/search', authenticateToken, authenticateAdmin, a
       const ktpNumber = decryptSafe(user?.ktpNumberEncrypted);
       const kkNumber = decryptSafe(user?.kkNumberEncrypted);
       const contractInfo = await getCurrentUserContract(prisma, req.user.id);
-      
+
       res.json({
         ...user,
         ...contractInfo,
@@ -869,17 +881,17 @@ router.post('/available-members/search', authenticateToken, authenticateAdmin, a
       res.json(result);
     } catch (error) {
       if (error.message === 'User tidak ditemukan') {
-         res.status(404).json({ error: error.message });
+        res.status(404).json({ error: error.message });
       } else if (
-         error.message.includes('wajib diisi') ||
-         error.message.includes('minimal 8 karakter') ||
-         error.message.includes('tidak sesuai') ||
-         error.message.includes('tidak boleh sama')
+        error.message.includes('wajib diisi') ||
+        error.message.includes('minimal 8 karakter') ||
+        error.message.includes('tidak sesuai') ||
+        error.message.includes('tidak boleh sama')
       ) {
-         res.status(400).json({ error: error.message });
+        res.status(400).json({ error: error.message });
       } else {
-         console.error(error);
-         res.status(500).json({ error: 'Server error' });
+        console.error(error);
+        res.status(500).json({ error: 'Server error' });
       }
     }
   });
@@ -1379,7 +1391,7 @@ async function getCurrentUserContract(prisma, userId) {
 
   if (user.contracts && user.contracts.length > 0) {
     const upcomingContracts = [];
-    
+
     for (const contract of user.contracts) {
       const statusObj = calculateContractStatus(contract.startDate, contract.endDate);
       if (statusObj.contractStatus === 'ACTIVE') {
@@ -1404,7 +1416,7 @@ async function getCurrentUserContract(prisma, userId) {
         remainingDays: activeContract.remainingDays
       };
     }
-    
+
     if (upcomingContracts.length > 0) {
       upcomingContracts.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
       upcomingContract = upcomingContracts[0];
@@ -1420,7 +1432,7 @@ async function getCurrentUserContract(prisma, userId) {
         remainingDays: upcomingContract.remainingDays
       };
     }
-    
+
     if (expiredContract) {
       return {
         contractNumber: expiredContract.contractNumber,

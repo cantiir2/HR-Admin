@@ -155,7 +155,7 @@ module.exports = (prisma) => {
           }
         ]
       };
-      
+
       if (status) {
         baseWhere.AND.push({ status });
       }
@@ -307,8 +307,8 @@ module.exports = (prisma) => {
     try {
       const { name, description, location, latitude, longitude, contractStart, contractEnd, status, customer, customerName, woNumber } = req.body;
       const projectManagerId = req.body.projectManagerId ?? req.body.project_manager_id;
-      if (!name || !contractStart || !contractEnd || !customer) {
-        return res.status(400).json({ error: 'Nama, Customer Company, tanggal mulai, dan tanggal selesai wajib diisi' });
+      if (!name || !contractStart || !contractEnd || !customer || !projectManagerId) {
+        return res.status(400).json({ error: 'Nama, Customer Company, Project Manager, tanggal mulai, dan tanggal selesai wajib diisi' });
       }
       const periodError = validatePeriod(contractStart, contractEnd, 'project');
       if (periodError) return res.status(400).json({ error: periodError });
@@ -348,6 +348,7 @@ module.exports = (prisma) => {
         'project'
       );
       if (periodError) return res.status(400).json({ error: periodError });
+      if (!projectManagerId) return res.status(400).json({ error: 'Project Managet tidak boleh kosong' })
       if (projectManagerId && !(await prisma.user.findUnique({ where: { id: projectManagerId } }))) {
         return res.status(400).json({ error: 'Project Manager tidak ditemukan' });
       }
@@ -401,7 +402,7 @@ module.exports = (prisma) => {
       const project = await prisma.project.findUnique({ where: { id: req.params.id } });
       if (!project) return res.status(404).json({ error: 'Project tidak ditemukan' });
       if (joinedAt && new Date(joinedAt) < project.contractStart ||
-          leftAt && new Date(leftAt) > project.contractEnd) {
+        leftAt && new Date(leftAt) > project.contractEnd) {
         return res.status(400).json({ error: 'Tanggal assignment harus berada dalam periode project' });
       }
 

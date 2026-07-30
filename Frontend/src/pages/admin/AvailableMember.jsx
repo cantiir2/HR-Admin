@@ -102,6 +102,7 @@ const AvailableMember = () => {
                 <SortableHeader label="Job / Skill" field="job_role_code" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
                 <SortableHeader label="Current Project" />
                 <SortableHeader label="Available From" field="available_from" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
+                <SortableHeader label="Available Until" field="available_until" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
                 <SortableHeader label="Status" />
               </tr>
             </thead>
@@ -112,6 +113,11 @@ const AvailableMember = () => {
                   <td className="px-4 py-3 text-surface-300"><p>{member.job_role_name || member.job_title || '-'}</p><p className="text-xs text-surface-500">{member.job_role_code || '-'}</p></td>
                   <td className="px-4 py-3 text-surface-300">{member.current_project || '-'}</td>
                   <td className="px-4 py-3 text-surface-300">{member.available_from ? new Date(member.available_from).toLocaleDateString('id-ID') : 'Sekarang'}</td>
+                  <td className="px-4 py-3 text-surface-300">
+                    {member.available_until
+                      ? new Date(member.available_until).toLocaleDateString('id-ID')
+                      : 'Seterusnya'}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={member.availability_status.startsWith('Available On') || member.availability_status === 'Available Now' ? 'badge-success' : 'badge-info'}>
                       {member.availability_status === 'Available From' && member.available_from
