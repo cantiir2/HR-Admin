@@ -480,7 +480,7 @@ const ProjectManagement = () => {
                   <input type="text" className="input-dark text-sm" value={form.woNumber} onChange={e => setForm({ ...form, woNumber: e.target.value })} />
                 </div>
                 <div>
-                  <label className="block text-sm text-surface-300 mb-1">Project Manager</label>
+                  <label className="block text-sm text-surface-300 mb-1">Project Manager <span style={{ color: 'red' }}>*</span></label>
                   <AppSelect
                     value={form.projectManagerId}
                     onChange={value => setForm({ ...form, projectManagerId: value })}
