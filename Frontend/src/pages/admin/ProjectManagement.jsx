@@ -15,9 +15,9 @@ const ProjectManagement = () => {
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
-  const [memberForm, setMemberForm] = useState({ userId: '', roleInProject: 'Member', joinedAt: '', leftAt: '' });
+  const [memberForm, setMemberForm] = useState({ userId: '', roleInProject: 'Member', joinedAt: '', leftAt: '', allocation: 100 });
   const [editingMemberId, setEditingMemberId] = useState(null);
-  const [editMemberForm, setEditMemberForm] = useState({ joinedAt: '', leftAt: '' });
+  const [editMemberForm, setEditMemberForm] = useState({ joinedAt: '', leftAt: '', allocation: 100 });
   const [filters, setFilters] = useState({
     search: '', status: '', projectManagerId: '', customer: '', dateFrom: '', dateTo: ''
   });
@@ -166,9 +166,9 @@ const ProjectManagement = () => {
   // Description : Opens project member management modal and resets member forms
   const openMembers = (project) => {
     setSelectedProject(project);
-    setMemberForm({ userId: '', roleInProject: 'Member', joinedAt: '', leftAt: '' });
+    setMemberForm({ userId: '', roleInProject: 'Member', joinedAt: '', leftAt: '', allocation: 100 });
     setEditingMemberId(null);
-    setEditMemberForm({ joinedAt: '', leftAt: '' });
+    setEditMemberForm({ joinedAt: '', leftAt: '', allocation: 100 });
     setShowMemberModal(true);
   };
 
@@ -180,6 +180,7 @@ const ProjectManagement = () => {
     try {
       const payload = {
         ...memberForm,
+        allocation: Number(memberForm.allocation) || 100,
         joinedAt: memberForm.joinedAt || null,
         leftAt: memberForm.leftAt || null,
       };
@@ -188,7 +189,7 @@ const ProjectManagement = () => {
       // Refresh selected project
       const updated = await api.get(`/api/projects/${selectedProject.id}`);
       setSelectedProject(updated.data);
-      setMemberForm({ userId: '', roleInProject: 'Member', joinedAt: '', leftAt: '' });
+      setMemberForm({ userId: '', roleInProject: 'Member', joinedAt: '', leftAt: '', allocation: 100 });
       showToast({ type: 'success', title: 'Berhasil', message: 'Member berhasil ditambahkan' });
     } catch (err) {
       showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal menambah member' });
@@ -211,13 +212,14 @@ const ProjectManagement = () => {
     setEditingMemberId(member.userId);
     setEditMemberForm({
       joinedAt: member.joinedAt ? member.joinedAt.split('T')[0] : '',
-      leftAt: member.leftAt ? member.leftAt.split('T')[0] : ''
+      leftAt: member.leftAt ? member.leftAt.split('T')[0] : '',
+      allocation: member.allocation !== undefined ? member.allocation : 100
     });
   };
 
   const cancelEditMember = () => {
     setEditingMemberId(null);
-    setEditMemberForm({ joinedAt: '', leftAt: '' });
+    setEditMemberForm({ joinedAt: '', leftAt: '', allocation: 100 });
   };
 
   const updateMemberContract = async (e) => {
@@ -230,13 +232,14 @@ const ProjectManagement = () => {
       const payload = {
         joinedAt: editMemberForm.joinedAt || null,
         leftAt: editMemberForm.leftAt || null,
+        allocation: Number(editMemberForm.allocation) || 100
       };
       await api.put(`/api/projects/${selectedProject.id}/members/${editingMemberId}`, payload);
       fetchProjects(page.pageNo, page.pageSize);
       const updated = await api.get(`/api/projects/${selectedProject.id}`);
       setSelectedProject(updated.data);
       setEditingMemberId(null);
-      setEditMemberForm({ joinedAt: '', leftAt: '' });
+      setEditMemberForm({ joinedAt: '', leftAt: '', allocation: 100 });
       showToast({ type: 'success', title: 'Berhasil', message: 'Kontrak member berhasil diperbarui' });
     } catch (err) {
       showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal memperbarui kontrak member' });
@@ -549,7 +552,7 @@ const ProjectManagement = () => {
                 ]}
                 required
               />
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="text-[10px] text-surface-400 mb-1 block">Tgl Join</label>
                   <input type="date" className="input-dark text-sm" value={memberForm.joinedAt} onChange={e => setMemberForm({ ...memberForm, joinedAt: e.target.value })} />
@@ -557,6 +560,19 @@ const ProjectManagement = () => {
                 <div>
                   <label className="text-[10px] text-surface-400 mb-1 block">Tgl Selesai</label>
                   <input type="date" className="input-dark text-sm" value={memberForm.leftAt} onChange={e => setMemberForm({ ...memberForm, leftAt: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-[10px] text-surface-400 mb-1 block">Alokasi (%) <span style={{ color: 'red' }}>*</span></label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    className="input-dark text-sm w-full"
+                    placeholder="1-100"
+                    value={memberForm.allocation}
+                    onChange={e => setMemberForm({ ...memberForm, allocation: e.target.value })}
+                    required
+                  />
                 </div>
               </div>
               <button type="submit" className="btn-primary text-sm w-full py-2 flex justify-center items-center gap-1">
@@ -577,7 +593,7 @@ const ProjectManagement = () => {
                         </div>
                         <span className="text-[11px] text-brand-400 font-medium">Edit Kontrak</span>
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-3 gap-2">
                         <div>
                           <label className="text-[10px] text-surface-400 mb-1 block">Tgl Join</label>
                           <input
@@ -594,6 +610,19 @@ const ProjectManagement = () => {
                             className="input-dark text-sm w-full"
                             value={editMemberForm.leftAt}
                             onChange={e => setEditMemberForm({ ...editMemberForm, leftAt: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-surface-400 mb-1 block">Alokasi (%)</label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="100"
+                            className="input-dark text-sm w-full"
+                            placeholder="1-100"
+                            value={editMemberForm.allocation}
+                            onChange={e => setEditMemberForm({ ...editMemberForm, allocation: e.target.value })}
+                            required
                           />
                         </div>
                       </div>
@@ -624,7 +653,10 @@ const ProjectManagement = () => {
                           )}
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-white">{m.user.name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium text-white">{m.user.name}</p>
+                            <span className="badge-info text-[10px] px-1.5 py-0.5 rounded font-semibold">Alokasi: {m.allocation || 100}%</span>
+                          </div>
                           <p className="text-[11px] text-surface-500">{m.user.email} • {m.user.jobRoleCode || '-'}</p>
                           {(m.joinedAt || m.leftAt) && (
                             <p className="text-[10px] text-brand-400 mt-0.5">

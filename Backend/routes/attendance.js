@@ -301,7 +301,11 @@ module.exports = (prisma) => {
 
   router.get('/locations', authenticateToken, authenticateAdmin, async (req, res) => {
     try {
-      const dateOnly = jakartaDate();
+      const { date, projectManagerId } = req.query;
+      if (date && !isValidDateInput(date)) {
+        return res.status(400).json({ error: 'Format tanggal harus YYYY-MM-DD' });
+      }
+      const dateOnly = date ? jakartaDate(date) : jakartaDate();
 
       const [locations, activeProjects] = await Promise.all([
         prisma.attendance.findMany({
@@ -310,8 +314,8 @@ module.exports = (prisma) => {
             user: {
               role: 'MEMBER',
               jobRoleCode: { not: null, not: '' },
-              ...(req.query.projectManagerId ? {
-                projects: { some: { project: { projectManagerId: req.query.projectManagerId } } }
+              ...(projectManagerId ? {
+                projects: { some: { project: { projectManagerId } } }
               } : {})
             }
           },

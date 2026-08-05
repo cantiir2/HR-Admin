@@ -77,12 +77,23 @@ function buildEvidenceData(userId, data = {}) {
   };
 }
 
-function toLeaveResponse(leave) {
+function toLeaveResponse(leave, currentUser) {
   if (!leave) return leave;
-  const { evidencePhoto, ...safeLeave } = leave;
+  const { evidencePhoto, user, ...safeLeave } = leave;
+  let isCurrentUserPm = false;
+  let safeUser = user;
+  if (user) {
+    const { projects, ...restUser } = user;
+    safeUser = restUser;
+    if (currentUser && Array.isArray(projects)) {
+      isCurrentUserPm = projects.some(p => p.project?.projectManagerId === currentUser.id);
+    }
+  }
   return {
     ...safeLeave,
-    hasEvidencePhoto: Boolean(evidencePhoto)
+    user: safeUser,
+    hasEvidencePhoto: Boolean(evidencePhoto),
+    isCurrentUserPm
   };
 }
 
@@ -227,7 +238,7 @@ async function isProjectManagerForUser(prisma, managerId, userId) {
 /** Deskripsi Function: Membuat pengajuan cuti dan notifikasi approval **/
 /** Creator by: FID.Iyan **/
 /*****/
-async function createLeaveRequest(prisma, userId, data = {}) {
+async function createLeaveRequest(prisma, userId, data = {}, currentUser) {
   const startDate = parseDateOnly(data.startDate);
   const endDate = parseDateOnly(data.endDate);
   const reason = String(data.reason || '').trim();
@@ -241,6 +252,18 @@ async function createLeaveRequest(prisma, userId, data = {}) {
   const totalDays = calculateWorkingDays(startDate, endDate);
   if (totalDays <= 0) return { error: 'Tanggal cuti harus memiliki minimal satu hari kerja' };
 
+  const overlappingLeave = await prisma.leaveRequest.findFirst({
+    where: {
+      userId,
+      status: { in: ['PENDING', 'APPROVED_BY_PM', 'APPROVED'] },
+      startDate: { lte: endDate },
+      endDate: { gte: startDate }
+    }
+  });
+  if (overlappingLeave) {
+    return { error: 'Tanggal pengajuan cuti bertabrakan (overlap) dengan pengajuan cuti Anda yang sudah ada.' };
+  }
+
   const contract = await findEligibleContract(prisma, userId, startDate, endDate);
   if (!contract) return { error: 'Kontrak user tidak ditemukan' };
 
@@ -251,12 +274,11 @@ async function createLeaveRequest(prisma, userId, data = {}) {
     totalDays
   });
 
-  const overQuotaDays = Math.max(requestedDeductDays - balance.remainingLeaveDays, 0);
+  const overQuotaDays = Math.max(0, requestedDeductDays - balance.remainingLeaveDays);
   const isOverQuota = overQuotaDays > 0;
 
-  if (isOverQuota && data.warningAcknowledged !== true) {
+  if (isOverQuota && !data.warningAcknowledged) {
     return {
-      error: 'Pengajuan cuti melebihi jatah dan perlu persetujuan warning',
       requiresWarning: true,
       balance: {
         remainingLeaveDays: balance.remainingLeaveDays,
@@ -267,36 +289,35 @@ async function createLeaveRequest(prisma, userId, data = {}) {
     };
   }
 
-  const requester = await getUserRecipient(prisma, userId);
+  const requester = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { name: true, email: true }
+  });
 
   const transactionResult = await prisma.$transaction(async (tx) => {
     const leave = await tx.leaveRequest.create({
       data: {
         userId,
         contractId: contract.id,
+        leaveType: evidenceData.leaveType,
         startDate,
         endDate,
         totalDays,
         reason,
-        leaveType: evidenceData.leaveType,
         evidencePhoto: evidenceData.evidencePhoto,
         evidencePhotoName: evidenceData.evidencePhotoName,
         evidencePhotoMimeType: evidenceData.evidencePhotoMimeType,
         isOverQuota,
-        overQuotaDays,
-        warningAcknowledged: Boolean(data.warningAcknowledged)
-      },
-      include: {
-        user: { select: { id: true, name: true, email: true } },
-        contract: true
+        overQuotaDays
       }
     });
 
-    const pms = await getProjectManagerRecipientsForUser(tx, userId);
-    const uniquePms = uniqueRecipients(pms);
-
-    const hasEvidencePhoto = Boolean(evidenceData.evidencePhoto);
-    const detail = `${requester?.name || 'Karyawan'} mengajukan cuti ${totalDays} hari (${data.startDate} s/d ${data.endDate}). ${evidenceAvailabilityText(hasEvidencePhoto)}.`;
+    const uniquePms = await getProjectManagerRecipientsForUser(tx, userId);
+    const detail = `User: ${requester?.name || 'Karyawan'} (${requester?.email || '-'})\n` +
+      `Periode: ${startDate.toISOString().slice(0, 10)} - ${endDate.toISOString().slice(0, 10)}\n` +
+      `Total Hari: ${totalDays} hari\n` +
+      `Status Kuota: ${isOverQuota ? `Melebihi jatah ${overQuotaDays} hari` : 'Normal'}\n` +
+      `Alasan: ${reason}`;
 
     const notifications = [];
 
@@ -336,7 +357,7 @@ async function createLeaveRequest(prisma, userId, data = {}) {
     }
 
     return {
-      leave: toLeaveResponse(leave),
+      leave: toLeaveResponse(leave, currentUser),
       notifications
     };
   }, {
@@ -357,7 +378,14 @@ async function createLeaveRequest(prisma, userId, data = {}) {
 /*****/
 async function listLeaveRequests(prisma, currentUser, filters = {}) {
   const andWhere = [];
-  if (filters.status) andWhere.push({ status: filters.status });
+  if (filters.status) {
+    const statuses = String(filters.status).split(',').map(s => s.trim()).filter(Boolean);
+    if (statuses.length > 1) {
+      andWhere.push({ status: { in: statuses } });
+    } else if (statuses.length === 1) {
+      andWhere.push({ status: statuses[0] });
+    }
+  }
   if (filters.search) {
     andWhere.push({
       user: {
@@ -386,7 +414,15 @@ async function listLeaveRequests(prisma, currentUser, filters = {}) {
     prisma.leaveRequest.findMany({
       where,
       include: {
-        user: { select: { id: true, name: true, email: true, jobRoleCode: true } },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            jobRoleCode: true,
+            projects: { select: { project: { select: { projectManagerId: true } } } }
+          }
+        },
         contract: true,
         pmApprover: { select: { id: true, name: true } },
         adminApprover: { select: { id: true, name: true } },
@@ -399,7 +435,7 @@ async function listLeaveRequests(prisma, currentUser, filters = {}) {
   ]);
 
   return {
-    data: data.map(toLeaveResponse),
+    data: data.map(item => toLeaveResponse(item, currentUser)),
     total: totalRows,
     page: { pageNo, pageSize, totalRows, totalPages: Math.ceil(totalRows / pageSize) }
   };

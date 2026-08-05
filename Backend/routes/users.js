@@ -302,6 +302,22 @@ module.exports = (prisma) => {
           availableUntil = futureAssignments.length > 0 ? futureAssignments[0].assignedStart : null;
         }
 
+        const totalAllocation = conflictAssignments.reduce((sum, item) => sum + (item.allocation || 100), 0);
+        const remainingAllocation = Math.max(0, 100 - totalAllocation);
+        const assignedProjectsList = conflictAssignments.map(item => ({
+          id: item.project.id,
+          name: item.project.name,
+          allocation: item.allocation || 100
+        }));
+
+        let currentProjectText = null;
+        if (conflictAssignments.length > 0) {
+          const projectDetails = conflictAssignments
+            .map(item => `${item.project.name} (${item.allocation || 100}%)`)
+            .join(', ');
+          currentProjectText = `${projectDetails} [Total: ${totalAllocation}%, Sisa: ${remainingAllocation}%]`;
+        }
+
         return {
           user_id: user.id,
           name: user.name,
@@ -310,7 +326,10 @@ module.exports = (prisma) => {
           job_role_code: user.jobRoleCode,
           job_role_name: jobRoleMap.get(user.jobRoleCode) || user.jobRoleCode || null,
           skill: user.skill,
-          current_project: conflictAssignments.map(item => item.project.name).join(', ') || null,
+          current_project: currentProjectText,
+          total_allocation: totalAllocation,
+          remaining_allocation: remainingAllocation,
+          assigned_projects: assignedProjectsList,
           available_from: availableFrom,
           available_until: availableUntil,
           availability_status: availabilityStatus,
@@ -531,6 +550,22 @@ module.exports = (prisma) => {
           availableUntil = futureAssignments.length > 0 ? futureAssignments[0].assignedStart : null;
         }
 
+        const totalAllocation = conflictAssignments.reduce((sum, item) => sum + (item.allocation || 100), 0);
+        const remainingAllocation = Math.max(0, 100 - totalAllocation);
+        const assignedProjectsList = conflictAssignments.map(item => ({
+          id: item.project.id,
+          name: item.project.name,
+          allocation: item.allocation || 100
+        }));
+
+        let currentProjectText = null;
+        if (conflictAssignments.length > 0) {
+          const projectDetails = conflictAssignments
+            .map(item => `${item.project.name} (${item.allocation || 100}%)`)
+            .join(', ');
+          currentProjectText = `${projectDetails} [Total: ${totalAllocation}%, Sisa: ${remainingAllocation}%]`;
+        }
+
         return {
           user_id: user.id,
           name: user.name,
@@ -539,7 +574,10 @@ module.exports = (prisma) => {
           job_role_code: user.jobRoleCode,
           job_role_name: jobRoleMap.get(user.jobRoleCode) || user.jobRoleCode || null,
           skill: user.skill,
-          current_project: conflictAssignments.map(item => item.project.name).join(', ') || null,
+          current_project: currentProjectText,
+          total_allocation: totalAllocation,
+          remaining_allocation: remainingAllocation,
+          assigned_projects: assignedProjectsList,
           available_from: availableFrom,
           available_until: availableUntil,
           availability_status: availabilityStatus,

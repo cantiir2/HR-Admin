@@ -251,7 +251,7 @@ export default function AttendanceRequest() {
                   value={selectedDateObj ? selectedDateObj.date : ''}
                   onChange={onDateSelect}
                   options={eligibleDates.map(d => {
-                    let optionLabel = format(new Date(d.date), 'EEEE, dd MMMM yyyy', { locale: localeId });
+                    let optionLabel = format(new Date(d.date), 'EEE, dd MMM yyyy', { locale: localeId });
                     if (d.isToday) {
                       if (d.missingCheckIn) optionLabel = "Hari ini - belum check-in";
                       else if (d.missingCheckOut) optionLabel = "Hari ini - belum check-out";

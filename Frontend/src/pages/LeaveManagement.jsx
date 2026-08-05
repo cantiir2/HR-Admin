@@ -210,16 +210,19 @@ const LeaveManagement = () => {
                           <button type="button" disabled={actionLoading} onClick={() => downloadEvidence(item.id)} className="badge-info"><Download size={13} />Download Evidence</button>
                         </>
                       )}
-                      {item.status === 'PENDING' && (
+                      {item.status === 'PENDING' && (user?.role === 'ADMIN' || item.isCurrentUserPm) && (
                         <button type="button" disabled={actionLoading} onClick={() => approvePm(item.id)} className="badge-success"><Check size={13} />PM Approve</button>
                       )}
                       {user?.role === 'ADMIN' && ['PENDING', 'APPROVED_BY_PM'].includes(item.status) && (
                         <button type="button" disabled={actionLoading} onClick={() => approveAdmin(item.id)} className="badge-success"><Check size={13} />Admin Approve</button>
                       )}
-                      {['PENDING', 'APPROVED_BY_PM'].includes(item.status) && (
+                      {((item.status === 'PENDING' && (user?.role === 'ADMIN' || item.isCurrentUserPm)) || (item.status === 'APPROVED_BY_PM' && user?.role === 'ADMIN')) && (
                         <button type="button" disabled={actionLoading} onClick={() => rejectLeave(item.id)} className="badge-danger"><X size={13} />Reject</button>
                       )}
-                      {!['PENDING', 'APPROVED_BY_PM'].includes(item.status) && !(item.leaveType === 'OTHERS' && item.hasEvidencePhoto) && <span className="text-xs text-surface-500">-</span>}
+                      {!(
+                        (item.status === 'PENDING' && (user?.role === 'ADMIN' || item.isCurrentUserPm)) ||
+                        (user?.role === 'ADMIN' && ['PENDING', 'APPROVED_BY_PM'].includes(item.status))
+                      ) && !(item.leaveType === 'OTHERS' && item.hasEvidencePhoto) && <span className="text-xs text-surface-500">-</span>}
                     </div>
                   </td>
                 </tr>
