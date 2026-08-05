@@ -395,15 +395,40 @@ module.exports = (prisma) => {
   // POST assign member to project
   router.post('/:id/members', authenticateToken, authenticateAdmin, async (req, res) => {
     try {
-      const { userId, roleInProject, joinedAt, leftAt } = req.body;
+      const { userId, roleInProject, joinedAt, leftAt, allocation } = req.body;
       if (!userId) return res.status(400).json({ error: 'userId wajib diisi' });
+
+      const parsedAllocation = allocation !== undefined && allocation !== '' ? parseInt(allocation, 10) : 100;
+      if (isNaN(parsedAllocation) || parsedAllocation <= 0 || parsedAllocation > 100) {
+        return res.status(400).json({ error: 'Persentase alokasi harus di antara 1% dan 100%' });
+      }
+
       const periodError = validatePeriod(joinedAt, leftAt, 'assignment');
       if (periodError) return res.status(400).json({ error: periodError });
+
       const project = await prisma.project.findUnique({ where: { id: req.params.id } });
       if (!project) return res.status(404).json({ error: 'Project tidak ditemukan' });
-      if (joinedAt && new Date(joinedAt) < project.contractStart ||
-        leftAt && new Date(leftAt) > project.contractEnd) {
+
+      if ((joinedAt && new Date(joinedAt) < project.contractStart) ||
+        (leftAt && new Date(leftAt) > project.contractEnd)) {
         return res.status(400).json({ error: 'Tanggal assignment harus berada dalam periode project' });
+      }
+
+      // Check cumulative allocation for user across active projects
+      const existingAssignments = await prisma.projectMember.findMany({
+        where: {
+          userId,
+          project: { status: 'active' }
+        },
+        select: { id: true, allocation: true }
+      });
+      const currentTotalAllocation = existingAssignments.reduce((sum, item) => sum + (item.allocation || 100), 0);
+      const remainingAllocation = 100 - currentTotalAllocation;
+
+      if (parsedAllocation > remainingAllocation) {
+        return res.status(400).json({
+          error: `Alokasi member melebihi 100%. Sisa alokasi yang tersedia: ${Math.max(0, remainingAllocation)}%`
+        });
       }
 
       const member = await prisma.projectMember.create({
@@ -411,6 +436,7 @@ module.exports = (prisma) => {
           projectId: req.params.id,
           userId,
           roleInProject: roleInProject || 'Member',
+          allocation: parsedAllocation,
           joinedAt: joinedAt ? new Date(joinedAt) : null,
           leftAt: leftAt ? new Date(leftAt) : null
         },
@@ -430,7 +456,7 @@ module.exports = (prisma) => {
 
   router.put('/:id/members/:userId', authenticateToken, authenticateAdmin, async (req, res) => {
     try {
-      const { joinedAt, leftAt, roleInProject } = req.body;
+      const { joinedAt, leftAt, roleInProject, allocation } = req.body;
       const { id: projectId, userId } = req.params;
 
       const existingMember = await prisma.projectMember.findFirst({
@@ -447,14 +473,41 @@ module.exports = (prisma) => {
       if (!project) return res.status(404).json({ error: 'Project tidak ditemukan' });
 
       if ((joinedAt && new Date(joinedAt) < project.contractStart) ||
-          (leftAt && new Date(leftAt) > project.contractEnd)) {
+        (leftAt && new Date(leftAt) > project.contractEnd)) {
         return res.status(400).json({ error: 'Tanggal assignment harus berada dalam periode project' });
+      }
+
+      const parsedAllocation = allocation !== undefined && allocation !== ''
+        ? parseInt(allocation, 10)
+        : (existingMember.allocation || 100);
+
+      if (isNaN(parsedAllocation) || parsedAllocation <= 0 || parsedAllocation > 100) {
+        return res.status(400).json({ error: 'Persentase alokasi harus di antara 1% dan 100%' });
+      }
+
+      // Check total allocation excluding current member record
+      const otherAssignments = await prisma.projectMember.findMany({
+        where: {
+          userId,
+          id: { not: existingMember.id },
+          project: { status: 'active' }
+        },
+        select: { id: true, allocation: true }
+      });
+      const otherTotalAllocation = otherAssignments.reduce((sum, item) => sum + (item.allocation || 100), 0);
+      const remainingAllocation = 100 - otherTotalAllocation;
+
+      if (parsedAllocation > remainingAllocation) {
+        return res.status(400).json({
+          error: `Alokasi member melebihi 100%. Sisa alokasi yang tersedia: ${Math.max(0, remainingAllocation)}%`
+        });
       }
 
       const updatedMember = await prisma.projectMember.update({
         where: { id: existingMember.id },
         data: {
           roleInProject: roleInProject !== undefined ? roleInProject : existingMember.roleInProject,
+          allocation: parsedAllocation,
           joinedAt: joinedAt ? new Date(joinedAt) : null,
           leftAt: leftAt ? new Date(leftAt) : null
         },

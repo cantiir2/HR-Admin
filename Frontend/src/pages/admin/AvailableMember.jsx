@@ -111,7 +111,27 @@ const AvailableMember = () => {
                 <tr key={member.user_id}>
                   <td className="px-4 py-3"><p className="text-white font-medium">{member.name}</p><p className="text-xs text-surface-500">{member.email}</p></td>
                   <td className="px-4 py-3 text-surface-300"><p>{member.job_role_name || member.job_title || '-'}</p><p className="text-xs text-surface-500">{member.job_role_code || '-'}</p></td>
-                  <td className="px-4 py-3 text-surface-300">{member.current_project || '-'}</td>
+                  <td className="px-4 py-3 text-surface-300">
+                    {member.assigned_projects && member.assigned_projects.length > 0 ? (
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap gap-1 items-center">
+                          {member.assigned_projects.map(p => (
+                            <span key={p.id || p.name} className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-white/5 border border-white/10 text-white font-medium">
+                              {p.name} <span className="text-brand-400 font-semibold">({p.allocation}%)</span>
+                            </span>
+                          ))}
+                        </div>
+                        <div className="text-[11px] text-surface-400">
+                          Total: <span className="font-semibold text-white">{member.total_allocation}%</span> • Sisa Alokasi: <span className="font-semibold text-emerald-400">{member.remaining_allocation}%</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <span className="text-surface-400">{member.current_project || '-'}</span>
+                        <p className="text-[11px] text-emerald-400 font-medium">Sisa Alokasi: {member.remaining_allocation !== undefined ? `${member.remaining_allocation}%` : '100%'}</p>
+                      </div>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-surface-300">{member.available_from ? new Date(member.available_from).toLocaleDateString('id-ID') : 'Sekarang'}</td>
                   <td className="px-4 py-3 text-surface-300">
                     {member.available_until

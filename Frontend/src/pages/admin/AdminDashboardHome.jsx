@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
@@ -59,11 +59,16 @@ function MapZoomListener({ onZoomChange }) {
   return null;
 }
 
+const jakartaToday = () => new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit'
+}).format(new Date());
+
 // Name Function : AdminDashboardHome
 // Author : Iyan.FID
 // Description : Halaman dashboard admin dengan peta, status kehadiran, dan daftar pending approval terfilter PM
 const AdminDashboardHome = () => {
   const { user } = useAuth();
+  const dateInputRef = useRef(null);
   const [locations, setLocations] = useState([]);
   const [attendances, setAttendances] = useState([]);
   const [projects, setProjects] = useState([]);
@@ -76,6 +81,7 @@ const AdminDashboardHome = () => {
   const [pageSize, setPageSize] = useState(10);
   const [projectManagers, setProjectManagers] = useState([]);
   const [projectManagerId, setProjectManagerId] = useState('');
+  const [selectedDate, setSelectedDate] = useState(jakartaToday);
   const [pendingTasks, setPendingTasks] = useState([]);
   const [pendingLoading, setPendingLoading] = useState(true);
 
@@ -98,21 +104,21 @@ const AdminDashboardHome = () => {
   }, [user]);
 
   useEffect(() => {
-    if (user?.id && (user?.jobRoleCode === 'PM' || projectManagers.some(m => m.id === user.id))) {
+    if (user?.id && user?.role !== 'ADMIN' && (user?.jobRoleCode === 'PM' || projectManagers.some(m => m.id === user.id))) {
       setProjectManagerId(prev => prev || user.id);
     }
   }, [user, projectManagers]);
 
   useEffect(() => {
-    api.get('/api/attendance/locations', { params: { projectManagerId: projectManagerId || undefined } })
+    api.get('/api/attendance/locations', { params: { projectManagerId: projectManagerId || undefined, date: selectedDate || undefined } })
       .then(r => setLocations(r.data)).catch(() => { });
-  }, [projectManagerId]);
+  }, [projectManagerId, selectedDate]);
 
   useEffect(() => {
     const fetchAttendances = async () => {
       try {
         const r = await api.get('/api/attendance', {
-          params: { page: pageNo, limit: pageSize, search, projectManagerId: projectManagerId || undefined }
+          params: { page: pageNo, limit: pageSize, search, projectManagerId: projectManagerId || undefined, date: selectedDate || undefined }
         });
         if (r.data && r.data.data !== undefined) {
           setAttendances(r.data.data);
@@ -128,7 +134,7 @@ const AdminDashboardHome = () => {
     };
     const timer = setTimeout(fetchAttendances, 300);
     return () => clearTimeout(timer);
-  }, [pageNo, pageSize, search, projectManagerId]);
+  }, [pageNo, pageSize, search, projectManagerId, selectedDate]);
 
   useEffect(() => {
     // Name Function : fetchPendingTasks
@@ -137,9 +143,10 @@ const AdminDashboardHome = () => {
     const fetchPendingTasks = async () => {
       setPendingLoading(true);
       try {
+        const leaveStatusParam = user?.role === 'ADMIN' ? 'PENDING,APPROVED_BY_PM' : 'PENDING';
         const [attRes, leaveRes] = await Promise.all([
           api.get('/api/attendance-requests', { params: { status: 'PENDING', pageSize: 5, projectManagerId: projectManagerId || undefined } }).catch(() => ({ data: { data: [] } })),
-          api.get('/api/leaves', { params: { status: 'PENDING', pageSize: 5, projectManagerId: projectManagerId || undefined } }).catch(() => ({ data: { data: [] } }))
+          api.get('/api/leaves', { params: { status: leaveStatusParam, pageSize: 5, projectManagerId: projectManagerId || undefined } }).catch(() => ({ data: { data: [] } }))
         ]);
 
         const attList = (attRes.data?.data || attRes.data || []).map(item => ({
@@ -153,10 +160,10 @@ const AdminDashboardHome = () => {
 
         const leaveList = (leaveRes.data?.data || leaveRes.data || []).map(item => ({
           id: `leave-${item.id}`,
-          type: 'Leave Request',
+          type: item.status === 'APPROVED_BY_PM' ? 'Leave Request (PM Approved)' : 'Leave Request',
           user: item.user?.name || 'Karyawan',
           date: item.startDate || item.createdAt,
-          link: '/admin/leaves?status=PENDING',
+          link: `/admin/leaves?status=${item.status}`,
           icon: Calendar
         }));
 
@@ -168,7 +175,7 @@ const AdminDashboardHome = () => {
       }
     };
     fetchPendingTasks();
-  }, [projectManagerId]);
+  }, [projectManagerId, user]);
 
   let defaultMapCenter = [-6.2, 106.816];
   if (locations.length > 0 && (locations[0].checkInLat || locations[0].checkOutLat)) {
@@ -199,7 +206,36 @@ const AdminDashboardHome = () => {
     <div className="animate-fade-in">
       <div className="mb-6">
         <h2 className="text-xl font-bold text-white">Dashboard</h2>
-        <p className="text-sm text-surface-400">{format(new Date(), 'EEEE, dd MMMM yyyy', { locale: localeId })}</p>
+        <div className="relative inline-flex items-center mt-1">
+          <button
+            type="button"
+            onClick={() => {
+              if (dateInputRef.current) {
+                try {
+                  if (typeof dateInputRef.current.showPicker === 'function') {
+                    dateInputRef.current.showPicker();
+                  } else {
+                    dateInputRef.current.focus();
+                  }
+                } catch (e) {
+                  dateInputRef.current.focus();
+                }
+              }
+            }}
+            className="flex items-center gap-2 text-sm text-surface-600 hover:text-white bg-surface-900 hover:bg-surface-800 px-3 py-1.5 rounded-lg border border-white/10 transition-colors cursor-pointer"
+          >
+            <Calendar size={15} className="text-brand-400" />
+            <span>{selectedDate ? format(new Date(`${selectedDate}T00:00:00`), 'EEEE, dd MMMM yyyy', { locale: localeId }) : ''}</span>
+          </button>
+          <input
+            ref={dateInputRef}
+            type="date"
+            value={selectedDate}
+            onChange={e => { if (e.target.value) { setSelectedDate(e.target.value); setPageNo(1); } }}
+            className="absolute opacity-0 pointer-events-none w-0 h-0"
+            tabIndex={-1}
+          />
+        </div>
       </div>
       <div className="max-w-xs mb-6">
         <AppSelect
