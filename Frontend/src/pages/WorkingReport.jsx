@@ -162,7 +162,7 @@ const WorkingReport = () => {
         </div>
         <div className="stat-card">
           <p className="text-xs text-surface-400 mb-2">Total Attendance</p>
-          <p className="text-2xl font-bold text-white">{detail.attendances?.length || 0}</p>
+          <p className="text-2xl font-bold text-white">{detail.totalRecords || 0}</p>
         </div>
         <div className="stat-card">
           <p className="text-xs text-surface-400 mb-2">Late Days</p>
