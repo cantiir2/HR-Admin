@@ -414,22 +414,7 @@ module.exports = (prisma) => {
         return res.status(400).json({ error: 'Tanggal assignment harus berada dalam periode project' });
       }
 
-      // Check cumulative allocation for user across active projects
-      const existingAssignments = await prisma.projectMember.findMany({
-        where: {
-          userId,
-          project: { status: 'active' }
-        },
-        select: { id: true, allocation: true }
-      });
-      const currentTotalAllocation = existingAssignments.reduce((sum, item) => sum + (item.allocation || 100), 0);
-      const remainingAllocation = 100 - currentTotalAllocation;
 
-      if (parsedAllocation > remainingAllocation) {
-        return res.status(400).json({
-          error: `Alokasi member melebihi 100%. Sisa alokasi yang tersedia: ${Math.max(0, remainingAllocation)}%`
-        });
-      }
 
       const member = await prisma.projectMember.create({
         data: {
@@ -479,29 +464,13 @@ module.exports = (prisma) => {
 
       const parsedAllocation = allocation !== undefined && allocation !== ''
         ? parseInt(allocation, 10)
-        : (existingMember.allocation || 100);
+        : (existingMember.allocation ?? 100);
 
       if (isNaN(parsedAllocation) || parsedAllocation <= 0 || parsedAllocation > 100) {
         return res.status(400).json({ error: 'Persentase alokasi harus di antara 1% dan 100%' });
       }
 
-      // Check total allocation excluding current member record
-      const otherAssignments = await prisma.projectMember.findMany({
-        where: {
-          userId,
-          id: { not: existingMember.id },
-          project: { status: 'active' }
-        },
-        select: { id: true, allocation: true }
-      });
-      const otherTotalAllocation = otherAssignments.reduce((sum, item) => sum + (item.allocation || 100), 0);
-      const remainingAllocation = 100 - otherTotalAllocation;
 
-      if (parsedAllocation > remainingAllocation) {
-        return res.status(400).json({
-          error: `Alokasi member melebihi 100%. Sisa alokasi yang tersedia: ${Math.max(0, remainingAllocation)}%`
-        });
-      }
 
       const updatedMember = await prisma.projectMember.update({
         where: { id: existingMember.id },

@@ -274,7 +274,7 @@ model ProjectMember {
   userId        String
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   roleInProject String? // "Lead", "Member", etc.
-  allocation    Int       @default(0) @map("allocationPercentage")
+  allocation    Int       @default(100) @map("allocationPercentage")
   joinedAt      DateTime? @db.Date
   leftAt        DateTime? @db.Date
 
