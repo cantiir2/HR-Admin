@@ -3,6 +3,7 @@ import api from '../../lib/api';
 import { Plus, Pencil, Trash2, X, Settings, Search } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { useConfirm } from '../../context/ConfirmContext';
+import PermissionControl from '../../components/PermissionControl';
 
 const SystemMaster = () => {
   const [items, setItems] = useState([]);
@@ -89,9 +90,11 @@ const SystemMaster = () => {
           <h2 className="text-xl font-bold text-white">System Master</h2>
           <p className="text-sm text-surface-400">Kelola System dan data master lainnya</p>
         </div>
-        <button onClick={openCreate} className="btn-primary flex items-center gap-2 text-sm">
-          <Plus size={16} /> Tambah Data
-        </button>
+        <PermissionControl action="add">
+          <button onClick={openCreate} className="btn-primary flex items-center gap-2 text-sm">
+            <Plus size={16} /> Tambah Data
+          </button>
+        </PermissionControl>
       </div>
 
       <div className="relative mb-4">
@@ -132,8 +135,12 @@ const SystemMaster = () => {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex gap-1">
-                            <button onClick={() => openEdit(item)} className="p-1.5 rounded-lg hover:bg-white/[0.08] text-surface-400 hover:text-brand-400"><Pencil size={14} /></button>
-                            <button onClick={() => handleDelete(item.id)} className="p-1.5 rounded-lg hover:bg-rose-500/10 text-surface-400 hover:text-rose-400"><Trash2 size={14} /></button>
+                            <PermissionControl action="edit">
+                              <button onClick={() => openEdit(item)} className="p-1.5 rounded-lg hover:bg-white/[0.08] text-surface-400 hover:text-brand-400"><Pencil size={14} /></button>
+                            </PermissionControl>
+                            <PermissionControl action="delete">
+                              <button onClick={() => handleDelete(item.id)} className="p-1.5 rounded-lg hover:bg-rose-500/10 text-surface-400 hover:text-rose-400"><Trash2 size={14} /></button>
+                            </PermissionControl>
                           </div>
                         </td>
                       </tr>

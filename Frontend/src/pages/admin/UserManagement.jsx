@@ -13,11 +13,13 @@ import SortableHeader from '../../components/SortableHeader';
 import useTableSort from '../../hooks/useTableSort';
 import { displaySystemValue, formatWorkingPeriod, parseWorkingExperience } from '../../lib/profileFormat';
 import { useToast } from '../../context/ToastContext';
+import PermissionControl from '../../components/PermissionControl';
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
   const [jobRoles, setJobRoles] = useState([]);
   const [religions, setReligions] = useState([]);
+  const [systemRoles, setSystemRoles] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
@@ -35,10 +37,26 @@ const UserManagement = () => {
   const [jobHistoryForm, setJobHistoryForm] = useState({ id: '', companyName: '', jobTitle: '', description: '', startDate: '', endDate: '', isPresent: false });
   const [contractHistoryForm, setContractHistoryForm] = useState({ id: '', contractNumber: '', vendor: '', startDate: '', endDate: '', contractValue: '' });
   const [form, setForm] = useState({
-    name: '', email: '', password: '', role: 'MEMBER', jobRoleCode: '',
+    name: '', email: '', password: '', roleId: '4', role: 'MEMBER', jobRoleCode: '',
   });
 
   const { sortBy, sortOrder, handleSort } = useTableSort('name', 'asc');
+
+  const getRoleBadgeClass = (roleName) => {
+    switch (roleName) {
+      case 'System Administrator':
+      case 'ADMIN':
+        return 'bg-rose-500/20 text-black-300 border border-rose-500/30 px-2.5 py-1 rounded-lg text-xs font-medium';
+      case 'HR Administrator':
+        return 'bg-amber-500/20 text-black-300 border border-amber-500 px-2.5 py-1 rounded-lg text-xs font-medium';
+      case 'PM':
+        return 'bg-blue-500/20 text-black-300 border border-blue-500/30 px-2.5 py-1 rounded-lg text-xs font-medium';
+      case 'STAFF':
+      case 'MEMBER':
+      default:
+        return 'bg-emerald-500/20 text-black-300 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-xs font-medium';
+    }
+  };
 
   useEffect(() => {
     const fetchContractStatuses = async () => {
@@ -99,11 +117,19 @@ const UserManagement = () => {
     setReligions(res.data);
   };
 
+  const fetchSystemRoles = async () => {
+    try {
+      const res = await api.get('/api/authorization/roles');
+      setSystemRoles(res.data.data || []);
+    } catch (err) {
+      console.error('Failed to fetch system roles', err);
+    }
+  };
+
   useEffect(() => {
-    // Existing screen pattern: initial API hydration updates local list state.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchJobRoles();
     fetchReligions();
+    fetchSystemRoles();
   }, []);
 
   useEffect(() => {
@@ -125,14 +151,18 @@ const UserManagement = () => {
   const openCreate = () => {
     setEditingUser(null);
     setDetailUser(null);
-    setForm({ name: '', email: '', password: '', role: 'MEMBER', jobRoleCode: '' });
+    setForm({ name: '', email: '', password: '', roleId: '4', role: 'MEMBER', jobRoleCode: '' });
     setShowModal(true);
   };
 
   const openEdit = async (user) => {
     setEditingUser(user);
     setForm({
-      name: user.name, email: user.email, password: '', role: user.role,
+      name: user.name,
+      email: user.email,
+      password: '',
+      roleId: user.roleId ? String(user.roleId) : (user.role === 'ADMIN' ? '1' : '4'),
+      role: user.role,
       jobRoleCode: user.jobRoleCode || '',
     });
     setContractHistoryForm({ id: '', contractNumber: '', vendor: '', startDate: '', endDate: '', contractValue: '' });
@@ -158,7 +188,7 @@ const UserManagement = () => {
         if (!data.password) delete data.password;
         await api.put(`/api/users/${editingUser.id}`, data);
       } else {
-        await api.post('/api/users', form);
+        await api.post('/api/users/add', form);
       }
       setShowModal(false);
       await fetchUsers(page.pageNo, page.pageSize);
@@ -288,9 +318,11 @@ const UserManagement = () => {
           <h2 className="text-xl font-bold text-white">User Management</h2>
           <p className="text-sm text-surface-400">Kelola data karyawan dan kontrak</p>
         </div>
-        <button onClick={openCreate} className="btn-primary flex items-center gap-2 text-sm">
-          <UserPlus size={16} /> Tambah User
-        </button>
+        <PermissionControl action="add" apiUrl="/api/users/add">
+          <button onClick={openCreate} className="btn-primary flex items-center gap-2 text-sm">
+            <UserPlus size={16} /> Tambah User
+          </button>
+        </PermissionControl>
       </div>
 
       <div className="glass-card p-4 mb-4">
@@ -309,7 +341,10 @@ const UserManagement = () => {
           <AppSelect
             value={filters.role}
             onChange={value => setFilters({ ...filters, role: value })}
-            options={[['', 'Semua Role'], ['ADMIN', 'Admin'], ['MEMBER', 'Member']]}
+            options={[
+              ['', 'Semua Role'],
+              ...systemRoles.map(r => [String(r.id), r.name])
+            ]}
           />
           <AppSelect
             value={filters.jobRoleCode}
@@ -368,7 +403,7 @@ const UserManagement = () => {
                     </td>
                     <td className="px-4 py-3 text-sm text-surface-400">{user.email}</td>
                     <td className="px-4 py-3">
-                      <span className={user.role === 'ADMIN' ? 'badge-info' : 'badge-success'}>{user.role}</span>
+                      <span className={getRoleBadgeClass(user.roleName || user.role)}>{user.roleName || user.role}</span>
                     </td>
                     <td className="px-4 py-3 text-sm text-surface-400">{user.jobRoleCode || '-'}</td>
                     <td className="px-4 py-3">
@@ -397,12 +432,16 @@ const UserManagement = () => {
                         <button onClick={() => openDetail(user)} className="p-1.5 rounded-lg hover:bg-white/[0.08] text-surface-400 hover:text-emerald-400 transition-colors" title="Detail">
                           <Eye size={14} />
                         </button>
-                        <button onClick={() => openEdit(user)} className="p-1.5 rounded-lg hover:bg-white/[0.08] text-surface-400 hover:text-brand-400 transition-colors">
-                          <Pencil size={14} />
-                        </button>
-                        <button onClick={() => handleDelete(user)} className="p-1.5 rounded-lg hover:bg-rose-500/10 text-surface-400 hover:text-rose-400 transition-colors">
-                          <Trash2 size={14} />
-                        </button>
+                        <PermissionControl action="edit">
+                          <button onClick={() => openEdit(user)} className="p-1.5 rounded-lg hover:bg-white/[0.08] text-surface-400 hover:text-brand-400 transition-colors">
+                            <Pencil size={14} />
+                          </button>
+                        </PermissionControl>
+                        <PermissionControl action="delete">
+                          <button onClick={() => handleDelete(user)} className="p-1.5 rounded-lg hover:bg-rose-500/10 text-surface-400 hover:text-rose-400 transition-colors">
+                            <Trash2 size={14} />
+                          </button>
+                        </PermissionControl>
                       </div>
                     </td>
                   </tr>
@@ -451,7 +490,27 @@ const UserManagement = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm text-surface-300 mb-1">Role Sistem</label>
-                    <AppSelect value={form.role} onChange={value => setForm({ ...form, role: value })} options={[['MEMBER', 'Member'], ['ADMIN', 'Admin']]} />
+                    <AppSelect
+                      value={String(form.roleId || (form.role === 'ADMIN' ? '1' : '4'))}
+                      onChange={value => {
+                        const selectedR = systemRoles.find(r => String(r.id) === String(value));
+                        setForm({
+                          ...form,
+                          roleId: value,
+                          role: selectedR ? (Number(selectedR.id) === 1 ? 'ADMIN' : 'MEMBER') : 'MEMBER'
+                        });
+                      }}
+                      options={
+                        systemRoles.length > 0
+                          ? systemRoles.map(r => [String(r.id), r.name])
+                          : [
+                            ['1', 'System Administrator'],
+                            ['2', 'HR Administrator'],
+                            ['3', 'PM'],
+                            ['4', 'STAFF']
+                          ]
+                      }
+                    />
                   </div>
                   <div>
                     <label className="block text-sm text-surface-300 mb-1">Job Role</label>
@@ -477,7 +536,7 @@ const UserManagement = () => {
                     <h4 className="text-white font-semibold">{detailUser.name}</h4>
                     <p className="text-sm text-surface-400">{detailUser.email}</p>
                     <div className="flex gap-2 mt-2">
-                      <span className={detailUser.role === 'ADMIN' ? 'badge-info' : 'badge-success'}>{detailUser.role}</span>
+                      <span className={getRoleBadgeClass(detailUser.roleName || detailUser.role)}>{detailUser.roleName || detailUser.role}</span>
                       {detailUser.jobRoleCode && <span className="badge-info">{detailUser.jobRoleCode}</span>}
                     </div>
                   </div>
@@ -501,7 +560,27 @@ const UserManagement = () => {
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="block text-sm text-surface-300 mb-1">Role Sistem</label>
-                          <AppSelect value={form.role} onChange={value => setForm({ ...form, role: value })} options={[['MEMBER', 'Member'], ['ADMIN', 'Admin']]} />
+                          <AppSelect
+                            value={String(form.roleId || (form.role === 'ADMIN' ? '1' : '4'))}
+                            onChange={value => {
+                              const selectedR = systemRoles.find(r => String(r.id) === String(value));
+                              setForm({
+                                ...form,
+                                roleId: value,
+                                role: selectedR ? (Number(selectedR.id) === 1 ? 'ADMIN' : 'MEMBER') : 'MEMBER'
+                              });
+                            }}
+                            options={
+                              systemRoles.length > 0
+                                ? systemRoles.map(r => [String(r.id), r.name])
+                                : [
+                                  ['1', 'System Administrator'],
+                                  ['2', 'HR Administrator'],
+                                  ['3', 'PM'],
+                                  ['4', 'STAFF']
+                                ]
+                            }
+                          />
                         </div>
                         <div>
                           <label className="block text-sm text-surface-300 mb-1">Job Role</label>
@@ -513,6 +592,7 @@ const UserManagement = () => {
                         </div>
                       </div>
                     </div>
+
                     <div className="flex gap-3 pt-2">
                       <button type="submit" disabled={actionLoading} className="btn-primary text-sm">Simpan Perubahan Akun</button>
                     </div>

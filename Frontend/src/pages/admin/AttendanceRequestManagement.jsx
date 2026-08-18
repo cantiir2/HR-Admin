@@ -10,6 +10,7 @@ import Pagination from '../../components/Pagination';
 import AppSelect from '../../components/AppSelect';
 import SortableHeader from '../../components/SortableHeader';
 import useTableSort from '../../hooks/useTableSort';
+import PermissionControl from '../../components/PermissionControl';
 
 const RequestTypeBadge = ({ type }) => {
   const styles = {
@@ -330,20 +331,24 @@ export default function AttendanceRequestManagement() {
 
             {selectedReq.status === 'PENDING' && (
               <div className="p-4 border-t border-white/10 bg-white/[0.02] flex justify-end gap-3">
-                <button
-                  onClick={() => setIsDeclineModalOpen(true)}
-                  disabled={actionLoading}
-                  className="btn-secondary text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 hover:border-rose-500/20 border-surface-700"
-                >
-                  Tolak Request
-                </button>
-                <button
-                  onClick={handleApprove}
-                  disabled={actionLoading}
-                  className="btn-primary"
-                >
-                  {actionLoading ? <Loader2 size={16} className="animate-spin" /> : 'Setujui Request'}
-                </button>
+                <PermissionControl action="edit" apiUrl="/api/attendance-requests/*/decline">
+                  <button
+                    onClick={() => setIsDeclineModalOpen(true)}
+                    disabled={actionLoading}
+                    className="btn-secondary text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 hover:border-rose-500/20 border-surface-700"
+                  >
+                    Tolak Request
+                  </button>
+                </PermissionControl>
+                <PermissionControl action="edit" apiUrl="/api/attendance-requests/*/approve">
+                  <button
+                    onClick={handleApprove}
+                    disabled={actionLoading}
+                    className="btn-primary"
+                  >
+                    {actionLoading ? <Loader2 size={16} className="animate-spin" /> : 'Setujui Request'}
+                  </button>
+                </PermissionControl>
               </div>
             )}
           </div>

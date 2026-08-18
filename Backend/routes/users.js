@@ -131,7 +131,39 @@ module.exports = (prisma) => {
           ]
         });
       }
-      if (role) andWhere.push({ role });
+      // Fetch roles mapping lookup
+      const [allUserRoles, allRoleMasters] = await Promise.all([
+        prisma.userRole.findMany(),
+        prisma.roleMaster.findMany()
+      ]);
+
+      const roleMasterMap = new Map(allRoleMasters.map(r => [Number(r.id), r.name]));
+      const userRoleInfoMap = new Map();
+      allUserRoles.forEach(ur => {
+        const rName = roleMasterMap.get(Number(ur.roleId));
+        if (rName) {
+          userRoleInfoMap.set(ur.userName, { roleId: Number(ur.roleId), roleName: rName });
+        }
+      });
+
+      if (role) {
+        if (!isNaN(role)) {
+          // Filtered by roleId
+          const targetRoleId = Number(role);
+          const matchedUserNames = new Set(
+            allUserRoles.filter(ur => Number(ur.roleId) === targetRoleId).map(ur => ur.userName)
+          );
+          andWhere.push({
+            OR: [
+              { email: { in: Array.from(matchedUserNames) } },
+              { id: { in: Array.from(matchedUserNames) } }
+            ]
+          });
+        } else {
+          // Filtered by role string (e.g. ADMIN / MEMBER or Role Name)
+          andWhere.push({ role });
+        }
+      }
       if (jobRoleCode) andWhere.push({ jobRoleCode });
 
       const where = andWhere.length ? { AND: andWhere } : {};
@@ -143,13 +175,21 @@ module.exports = (prisma) => {
         contracts: { orderBy: { endDate: 'desc' }, take: 1 },
         projects: { include: { project: { select: { name: true } } } }
       };
-      const toSafeUser = user => ({
-        ...user,
-        ktpNumberEncrypted: undefined,
-        kkNumberEncrypted: undefined,
-        ktpNumberMasked: maskEncryptedNumber(user.ktpNumberEncrypted),
-        kkNumberMasked: maskEncryptedNumber(user.kkNumberEncrypted)
-      });
+      const toSafeUser = user => {
+        const urInfo = userRoleInfoMap.get(user.email) || userRoleInfoMap.get(user.id) || null;
+        const roleName = urInfo ? urInfo.roleName : (user.role === 'ADMIN' ? 'System Administrator' : 'STAFF');
+        const roleId = urInfo ? urInfo.roleId : (user.role === 'ADMIN' ? 1 : 4);
+
+        return {
+          ...user,
+          roleId,
+          roleName,
+          ktpNumberEncrypted: undefined,
+          kkNumberEncrypted: undefined,
+          ktpNumberMasked: maskEncryptedNumber(user.ktpNumberEncrypted),
+          kkNumberMasked: maskEncryptedNumber(user.kkNumberEncrypted)
+        };
+      };
 
       let totalRows;
       let users;
@@ -645,9 +685,9 @@ module.exports = (prisma) => {
   });
 
   // POST create user (Admin)
-  router.post('/', authenticateToken, authenticateAdmin, async (req, res) => {
+  const handleCreateUser = async (req, res) => {
     try {
-      const { email, password, name, role, jobRoleCode, contractStart, contractEnd } = req.body;
+      const { email, password, name, role, roleId, jobRoleCode, contractStart, contractEnd } = req.body;
       if (!email || !password || !name) {
         return res.status(400).json({ error: 'Email, password, dan nama wajib diisi' });
       }
@@ -658,13 +698,28 @@ module.exports = (prisma) => {
       const salt = await bcrypt.genSalt(10);
       const passwordHash = await bcrypt.hash(password, salt);
 
+      const isSystemAdminRole = roleId === 1 || roleId === '1' || role === 'ADMIN';
+
       const user = await prisma.user.create({
         data: {
           email, passwordHash, name,
-          role: role === 'ADMIN' ? 'ADMIN' : 'MEMBER',
+          role: isSystemAdminRole ? 'ADMIN' : 'MEMBER',
           jobRoleCode: jobRoleCode || null,
           contractStart: contractStart ? new Date(contractStart) : null,
           contractEnd: contractEnd ? new Date(contractEnd) : null,
+        }
+      });
+
+      // Save role in tb_m_user_role
+      const targetRoleId = roleId ? BigInt(roleId) : (isSystemAdminRole ? BigInt(1) : BigInt(4));
+      await prisma.userRole.deleteMany({
+        where: { OR: [{ userName: user.email }, { userName: user.id }] }
+      });
+      await prisma.userRole.create({
+        data: {
+          userName: user.email,
+          roleId: targetRoleId,
+          createdBy: req.user.email || req.user.name || 'system'
         }
       });
 
@@ -673,16 +728,23 @@ module.exports = (prisma) => {
       console.error(error);
       res.status(500).json({ error: 'Server error' });
     }
-  });
+  };
+
+  router.post('/add', authenticateToken, authenticateAdmin, handleCreateUser);
+  router.post('/', authenticateToken, authenticateAdmin, handleCreateUser);
 
   // PUT update user (Admin)
   router.put('/:id', authenticateToken, authenticateAdmin, async (req, res) => {
     try {
-      const { email, name, role, jobRoleCode, contractStart, contractEnd, password } = req.body;
+      const { email, name, role, roleId, jobRoleCode, contractStart, contractEnd, password } = req.body;
       const data = {};
       if (email) data.email = email;
       if (name) data.name = name;
-      if (role) data.role = role === 'ADMIN' ? 'ADMIN' : 'MEMBER';
+      if (roleId === 1 || roleId === '1' || role === 'ADMIN') {
+        data.role = 'ADMIN';
+      } else if (roleId) {
+        data.role = 'MEMBER';
+      }
       if (jobRoleCode !== undefined) data.jobRoleCode = jobRoleCode || null;
       if (contractStart !== undefined) data.contractStart = contractStart ? new Date(contractStart) : null;
       if (contractEnd !== undefined) data.contractEnd = contractEnd ? new Date(contractEnd) : null;
@@ -695,12 +757,29 @@ module.exports = (prisma) => {
         where: { id: req.params.id },
         data
       });
+
+      // Save updated role in tb_m_user_role if provided
+      if (roleId) {
+        const targetRoleId = BigInt(roleId);
+        await prisma.userRole.deleteMany({
+          where: { OR: [{ userName: user.email }, { userName: user.id }] }
+        });
+        await prisma.userRole.create({
+          data: {
+            userName: user.email || user.id,
+            roleId: targetRoleId,
+            createdBy: req.user.email || req.user.name || 'system'
+          }
+        });
+      }
+
       res.json({ message: 'User berhasil diperbarui' });
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Server error' });
     }
   });
+
 
   // GET detail user (Admin)
   router.get('/:id/detail', authenticateToken, authenticateAdmin, async (req, res) => {

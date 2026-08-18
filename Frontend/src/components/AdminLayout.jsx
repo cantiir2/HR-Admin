@@ -14,7 +14,7 @@ import packageJson from "../../package.json";
 
 const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, menus, logout } = useAuth();
   const name = user?.name;
   const version = `v${packageJson.version}`;
 
@@ -22,7 +22,7 @@ const AdminLayout = () => {
     await logout();
   };
 
-  const navItems = [
+  const defaultNavItems = [
     { to: '/admin', icon: MapIcon, label: 'Dashboard', end: true },
     { to: '/admin/users', icon: Users, label: 'User Management' },
     {
@@ -48,6 +48,9 @@ const AdminLayout = () => {
     { to: '/admin/notifications', icon: Bell, label: 'Inbox' },
     { to: '/admin/system', icon: Settings, label: 'System Master' },
   ];
+
+  const navItems = menus && menus.length > 0 ? menus : defaultNavItems;
+
 
   return (
     <div className="flex h-screen bg-surface-950 overflow-hidden">

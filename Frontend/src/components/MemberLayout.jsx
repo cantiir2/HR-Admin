@@ -14,16 +14,16 @@ import packageJson from "../../package.json";
 
 const MemberLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, menus, logout } = useAuth();
   const name = user?.name;
-  const jobRole = user?.jobRoleCode || 'Member';
+  const jobRole = user?.jobRoleCode || (user?.roles && user.roles.length > 0 ? user.roles[0] : 'Member');
   const version = `v${packageJson.version}`;
 
   const handleLogout = async () => {
     await logout();
   };
 
-  const navItems = [
+  const defaultNavItems = [
     { to: '/member', icon: MapIcon, label: 'Dashboard Absensi', end: true },
     {
       label: 'Time Management',
@@ -39,6 +39,9 @@ const MemberLayout = () => {
     ...(user?.jobRoleCode === 'PM' ? [{ to: '/member/leave-approval', icon: ClipboardCheck, label: 'Leave Approval' }] : []),
     { to: '/member/notifications', icon: Bell, label: 'Inbox' },
   ];
+
+  const navItems = menus && menus.length > 0 ? menus : defaultNavItems;
+
 
   return (
     <div className="flex h-screen bg-surface-950 overflow-hidden">

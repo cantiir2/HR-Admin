@@ -27,8 +27,14 @@ prisma.$on('query', (e) => {
   console.log('------------------------\n');
 });
 
+// Handle Prisma BigInt serialization in JSON responses
+BigInt.prototype.toJSON = function () {
+  return Number(this);
+};
+
 const cookieParser = require('cookie-parser');
 const { metricsMiddleware, metricsHandler } = require('./middleware/metrics');
+const { authenticateToken, authorizeApiAccess } = require('./middleware/auth');
 
 // Middleware
 app.set('trust proxy', 1);
@@ -72,9 +78,14 @@ app.use((req, res, next) => {
   next();
 });
 
-// Routes
+// Auth Public & Common Routes
 app.use('/api/auth', require('./routes/auth')(prisma));
+
+// Protected API Routes (authenticated + dynamic role authorization)
+app.use('/api', authenticateToken, authorizeApiAccess(prisma));
+
 app.use('/api/users', require('./routes/users')(prisma));
+app.use('/api/authorization', require('./routes/authorization')(prisma));
 app.use('/api/system', require('./routes/system')(prisma));
 app.use('/api/projects', require('./routes/projects')(prisma));
 app.use('/api/project-resources', require('./routes/project-resources')(prisma));
@@ -85,6 +96,7 @@ app.use('/api/notifications', require('./routes/notifications')(prisma));
 app.use('/api/working-reports', require('./routes/working-reports')(prisma));
 app.use('/api/leaves', require('./routes/leaves')(prisma));
 app.use('/api/geofences', require('./routes/geofences')(prisma));
+
 
 // Health check
 app.get('/api/health', (req, res) => {

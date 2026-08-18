@@ -17,7 +17,7 @@ const AppSelect = ({
 }) => {
   const { isDark } = useTheme();
   const normalizedOptions = toOptions(options);
-  const selected = normalizedOptions.find(option => option.value === value) || null;
+  const selected = normalizedOptions.find(option => String(option.value) === String(value)) || null;
   const colors = isDark
     ? {
         control: '#111827',

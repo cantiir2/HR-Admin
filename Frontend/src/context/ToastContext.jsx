@@ -40,8 +40,13 @@ export const ToastProvider = ({ children }) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
 
+  const success = useCallback((message, title = 'Sukses') => showToast({ type: 'success', title, message }), [showToast]);
+  const error = useCallback((message, title = 'Gagal') => showToast({ type: 'error', title, message }), [showToast]);
+  const warning = useCallback((message, title = 'Peringatan') => showToast({ type: 'warning', title, message }), [showToast]);
+  const info = useCallback((message, title = 'Informasi') => showToast({ type: 'info', title, message }), [showToast]);
+
   return (
-    <ToastContext.Provider value={{ showToast }}>
+    <ToastContext.Provider value={{ showToast, success, error, warning, info }}>
       {children}
       <div 
         className="fixed left-3 right-3 z-[9999] flex flex-col gap-3 sm:left-auto sm:right-4 sm:w-full sm:max-w-sm pointer-events-none"
