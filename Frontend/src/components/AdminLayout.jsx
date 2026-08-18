@@ -16,6 +16,7 @@ const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, menus, logout } = useAuth();
   const name = user?.name;
+  const jobRole = (user?.roles && user.roles.length > 0 ? user.roles[0] : 'Member');
   const version = `v${packageJson.version}`;
 
   const handleLogout = async () => {
@@ -88,7 +89,7 @@ const AdminLayout = () => {
             <UserAvatar name={name} photo={user?.profilePhoto} size="sm" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-white truncate">{name}</p>
-              <p className="text-[11px] text-surface-500">Administrator</p>
+              <p className="text-[11px] text-surface-500">{jobRole}</p>
             </div>
           </div>
           <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-white/[0.04] border border-white/[0.06] text-surface-400 hover:text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/20 transition-all text-sm">

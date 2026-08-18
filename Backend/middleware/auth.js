@@ -81,13 +81,20 @@ const authorizeApiAccess = (prisma) => {
       // Match request method and path against allowed features
       const hasPermission = features.some(feat => {
         const methodMatch = feat.apiMethod === '*' || feat.apiMethod.toUpperCase() === method;
-        
-        let urlPattern = feat.apiUrl.trim();
-        if (urlPattern.endsWith('/*')) {
-          urlPattern = urlPattern.slice(0, -2);
+
+        let pattern = feat.apiUrl.trim();
+        const hasWildcard = pattern.endsWith('/*') || pattern.endsWith('*');
+
+        if (hasWildcard) {
+          const cleanPattern = pattern.endsWith('/*') ? pattern.slice(0, -2) : pattern.slice(0, -1);
+          const pathMatch = path === cleanPattern || path.startsWith(`${cleanPattern}/`);
+          return methodMatch && pathMatch;
+        } else {
+          // Exact match
+          const cleanPattern = pattern.endsWith('/') ? pattern.slice(0, -1) : pattern;
+          const cleanPath = path.endsWith('/') ? path.slice(0, -1) : path;
+          return methodMatch && cleanPath === cleanPattern;
         }
-        const pathMatch = path === urlPattern || path.startsWith(`${urlPattern}/`);
-        return methodMatch && pathMatch;
       });
 
 

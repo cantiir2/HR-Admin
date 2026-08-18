@@ -33,11 +33,33 @@ export const usePermission = () => {
 
       // Check URL match: if explicit apiUrl is provided, match against it. Otherwise match against current route
       if (apiUrl) {
-        let pattern = perm.apiUrl ? perm.apiUrl.trim() : '';
-        if (pattern.endsWith('/*')) {
-          pattern = pattern.slice(0, -2);
+        if (!perm.apiUrl) return false;
+
+        const req = apiUrl.trim();
+        const dbPerm = perm.apiUrl.trim();
+
+        if (req === dbPerm) return methodMatch;
+
+        const reqHasWildcard = req.endsWith('/*') || req.endsWith('*');
+        const dbHasWildcard = dbPerm.endsWith('/*') || dbPerm.endsWith('*');
+
+        const cleanReq = req.endsWith('/*') ? req.slice(0, -2) : (req.endsWith('*') ? req.slice(0, -1) : req);
+        const cleanDbPerm = dbPerm.endsWith('/*') ? dbPerm.slice(0, -2) : (dbPerm.endsWith('*') ? dbPerm.slice(0, -1) : dbPerm);
+
+        if (!reqHasWildcard && !dbHasWildcard) {
+          return methodMatch && cleanReq === cleanDbPerm;
         }
-        return methodMatch && (apiUrl === pattern || apiUrl.startsWith(`${pattern}/`));
+
+        if (dbHasWildcard) {
+          const match = cleanReq === cleanDbPerm || req.startsWith(`${cleanDbPerm}/`) || cleanReq.startsWith(`${cleanDbPerm}/`);
+          return methodMatch && match;
+        }
+
+        if (reqHasWildcard && !dbHasWildcard) {
+          return false;
+        }
+
+        return false;
       }
 
       // Default route-based match

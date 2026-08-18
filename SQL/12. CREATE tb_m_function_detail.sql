@@ -638,3 +638,185 @@ insert
     changed_by,
     changed_dt)
 values(1, 2, 50, 'POST', '/api/users/add', 'admin@hr.com', '2026-08-14 09:58:14.262', null, null);
+
+insert
+    into
+    public.tb_m_function_detail (application_id,
+    function_id,
+    feature_id,
+    api_method,
+    api_url,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(1, 21, 45, 'GET', '/api/notifications/*', 'system', '2026-08-18 05:07:02.951', null, null);
+
+insert
+    into
+    public.tb_m_function_detail (application_id,
+    function_id,
+    feature_id,
+    api_method,
+    api_url,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(1, 21, 46, 'GET', '/api/notifications/unread-count', 'system', '2026-08-18 05:07:02.951', null, null);
+
+insert
+    into
+    public.tb_m_function_detail (application_id,
+    function_id,
+    feature_id,
+    api_method,
+    api_url,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(1, 21, 47, 'GET', '/api/notifications', 'system', '2026-08-18 05:07:02.951', null, null);
+
+insert
+    into
+    public.tb_m_function_detail (application_id,
+    function_id,
+    feature_id,
+    api_method,
+    api_url,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(1, 7, 51, 'POST', '/api/projects/search', 'admin@hr.com', '2026-08-18 05:33:12.811', null, null);
+
+insert
+    into
+    public.tb_m_function_detail (application_id,
+    function_id,
+    feature_id,
+    api_method,
+    api_url,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(1, 4, 52, 'GET', '/api/attendance-requests/*', 'admin@hr.com', '2026-08-18 05:49:52.896', null, null);
+
+insert
+    into
+    public.tb_m_function_detail (application_id,
+    function_id,
+    feature_id,
+    api_method,
+    api_url,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(1, 13, 53, 'GET', '/api/attendance/locations', 'admin@hr.com', '2026-08-18 06:52:22.353', null, null);
+
+insert
+    into
+    public.tb_m_function_detail (application_id,
+    function_id,
+    feature_id,
+    api_method,
+    api_url,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(1, 1, 54, 'GET', '/api/attendance/locations', 'admin@hr.com', '2026-08-18 06:55:10.685', null, null);
+
+insert
+    into
+    public.tb_m_function_detail (application_id,
+    function_id,
+    feature_id,
+    api_method,
+    api_url,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(1, 1, 55, 'GET', '/api/geofences', 'admin@hr.com', '2026-08-18 06:56:49.667', null, null);
+
+insert
+    into
+    public.tb_m_function_detail (application_id,
+    function_id,
+    feature_id,
+    api_method,
+    api_url,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(1, 10, 56, 'POST', '/api/users/available-members/search', 'admin@hr.com', '2026-08-18 07:20:19.096', null, null);
+
+insert
+    into
+    public.tb_m_function_detail (application_id,
+    function_id,
+    feature_id,
+    api_method,
+    api_url,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(1, 12, 57, 'GET', '/api/attendance/me', 'admin@hr.com', '2026-08-18 07:48:14.121', null, null);
+
+insert
+    into
+    public.tb_m_function_detail (application_id,
+    function_id,
+    feature_id,
+    api_method,
+    api_url,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(1, 10, 58, 'GET', '/api/projects/my-projects', 'admin@hr.com', '2026-08-18 07:48:32.635', null, null);
+
+insert
+    into
+    public.tb_m_function_detail (application_id,
+    function_id,
+    feature_id,
+    api_method,
+    api_url,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(1, 12, 59, 'GET', '/api/projects/my-projects', 'admin@hr.com', '2026-08-18 07:49:04.158', null, null);
+
+insert
+    into
+    public.tb_m_function_detail (application_id,
+    function_id,
+    feature_id,
+    api_method,
+    api_url,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(1, 12, 60, 'POST', '/api/attendance/check-in', 'admin@hr.com', '2026-08-18 07:52:27.873', null, null);
+
+insert
+    into
+    public.tb_m_function_detail (application_id,
+    function_id,
+    feature_id,
+    api_method,
+    api_url,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(1, 12, 61, 'POST', '/api/attendance/check-out', 'admin@hr.com', '2026-08-18 07:53:07.048', null, null);

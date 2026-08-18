@@ -7,6 +7,7 @@ import AppSelect from '../../components/AppSelect';
 import Pagination from '../../components/Pagination';
 import { useToast } from '../../context/ToastContext';
 import { useConfirm } from '../../context/ConfirmContext';
+import PermissionControl from '../../components/PermissionControl';
 
 const ProjectManagement = () => {
   const [projects, setProjects] = useState([]);
@@ -259,9 +260,11 @@ const ProjectManagement = () => {
           <h2 className="text-xl font-bold text-white">Dashboard Project</h2>
           <p className="text-sm text-surface-400">Kelola project dan tim</p>
         </div>
-        <button onClick={openCreate} className="btn-primary flex items-center gap-2 text-sm">
-          <Plus size={16} /> Tambah Project
-        </button>
+        <PermissionControl action="add" apiUrl="/api/projects">
+          <button onClick={openCreate} className="btn-primary flex items-center gap-2 text-sm">
+            <Plus size={16} /> Tambah Project
+          </button>
+        </PermissionControl>
       </div>
 
       <div className="glass-card p-4 mb-5">
@@ -422,18 +425,26 @@ const ProjectManagement = () => {
             </div>
 
             <div className="flex gap-2">
-              <Link to={`/admin/projects/${project.id}`} className="flex-1 btn-primary text-xs text-center flex items-center justify-center gap-1">
-                <LayoutDashboard size={12} /> Detail
-              </Link>
-              <button onClick={() => openMembers(project)} className="p-2 rounded-lg hover:bg-white/[0.08] text-surface-400 hover:text-brand-400 transition-colors" title="Anggota">
-                <Users size={14} />
-              </button>
-              <button onClick={() => openEdit(project)} className="p-2 rounded-lg hover:bg-white/[0.08] text-surface-400 hover:text-brand-400 transition-colors" title="Edit">
-                <Pencil size={14} />
-              </button>
-              <button onClick={() => handleDelete(project.id)} className="p-2 rounded-lg hover:bg-rose-500/10 text-surface-400 hover:text-rose-400 transition-colors" title="Hapus">
-                <Trash2 size={14} />
-              </button>
+              <PermissionControl action="list" apiUrl="/api/projects/*">
+                <Link to={`/admin/projects/${project.id}`} className="flex-1 btn-primary text-xs text-center flex items-center justify-center gap-1">
+                  <LayoutDashboard size={12} /> List
+                </Link>
+              </PermissionControl>
+              <PermissionControl action="edit" apiUrl="/api/projects/*/members">
+                <button onClick={() => openMembers(project)} className="p-2 rounded-lg hover:bg-white/[0.08] text-surface-400 hover:text-brand-400 transition-colors" title="Anggota">
+                  <Users size={14} />
+                </button>
+              </PermissionControl>
+              <PermissionControl action="edit" apiUrl="/api/projects/*">
+                <button onClick={() => openEdit(project)} className="p-2 rounded-lg hover:bg-white/[0.08] text-surface-400 hover:text-brand-400 transition-colors" title="Edit">
+                  <Pencil size={14} />
+                </button>
+              </PermissionControl>
+              <PermissionControl action="delete" apiUrl="/api/projects/*">
+                <button onClick={() => handleDelete(project.id)} className="p-2 rounded-lg hover:bg-rose-500/10 text-surface-400 hover:text-rose-400 transition-colors" title="Hapus">
+                  <Trash2 size={14} />
+                </button>
+              </PermissionControl>
             </div>
           </div>
         ))}

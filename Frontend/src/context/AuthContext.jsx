@@ -73,7 +73,7 @@ export const AuthProvider = ({ children }) => {
     if (!user) return false;
 
     // Common bypass routes
-    if (pathname === '/login' || pathname === '/member/profile' || pathname.startsWith('/member/notifications') || pathname.startsWith('/admin/notifications')) {
+    if (pathname === '/login' || pathname === '/member/profile' || pathname === '/notifications' || pathname.startsWith('/member/notifications') || pathname.startsWith('/admin/notifications')) {
       return true;
     }
 

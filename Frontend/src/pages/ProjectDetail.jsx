@@ -144,14 +144,17 @@ const ProjectDetail = () => {
 
   const [milestoneForm, setMilestoneForm] = useState({ name: '', startDate: '', endDate: '', status: 'pending' });
   const [taskForm, setTaskForm] = useState({ title: '', description: '', assignedToId: '', startDate: '', dueDate: '', status: 'TODO' });
+  const [error, setError] = useState(null);
 
   const fetchProject = useCallback(async () => {
     try {
       const res = await api.get(`/api/projects/${id}`);
       console.log('Fetched project data:', res.data);
       setProject(res.data);
+      setError(null);
     } catch (err) {
       console.error(err);
+      setError(err.response?.data?.error || 'Akses ditolak: Anda tidak memiliki izin untuk melihat detail project ini.');
     }
   }, [id]);
 
@@ -431,6 +434,22 @@ const ProjectDetail = () => {
       return next;
     });
   };
+
+  if (error) {
+    return (
+      <div className="p-8 text-center glass-card max-w-md mx-auto mt-20">
+        <h3 className="text-lg font-bold text-rose-400 mb-2">Akses Ditolak</h3>
+        <p className="text-sm text-surface-400 mb-4">{error}</p>
+        <Link to={isAdmin ? "/admin/projects" : "/member/projects"} className="btn-primary text-xs inline-flex items-center gap-1">
+          <ArrowLeft size={14} /> Kembali ke Daftar Project
+        </Link>
+      </div>
+    );
+  }
+
+  if (!project) {
+    return <div className="p-8 text-center text-surface-400">Memuat project...</div>;
+  }
 
   return (
     <div className="animate-fade-in flex flex-col h-[calc(100vh-6rem)]">

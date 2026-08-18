@@ -59,8 +59,10 @@ module.exports = (prisma) => {
         };
       });
 
+      const primaryRole = (rolesList && rolesList.length > 0) ? rolesList[0] : (user.role || 'MEMBER');
+
       const token = jwt.sign(
-        { id: user.id, email: user.email, role: user.role, name: user.name, jobRoleCode: user.jobRoleCode, roles: rolesList },
+        { id: user.id, email: user.email, role: primaryRole, name: user.name, jobRoleCode: user.jobRoleCode, roles: rolesList },
         process.env.JWT_SECRET,
         { expiresIn: '24h' }
       );
@@ -76,7 +78,7 @@ module.exports = (prisma) => {
         user: {
           id: user.id,
           email: user.email,
-          role: user.role,
+          role: primaryRole,
           name: user.name,
           jobRoleCode: user.jobRoleCode,
           profilePhoto: user.profilePhoto,
@@ -141,7 +143,9 @@ module.exports = (prisma) => {
         };
       });
 
-      res.json({ user: { ...user, roles: rolesList, permissions } });
+      const primaryRole = (rolesList && rolesList.length > 0) ? rolesList[0] : (user.role || 'MEMBER');
+
+      res.json({ user: { ...user, role: primaryRole, roles: rolesList, permissions } });
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Server error' });

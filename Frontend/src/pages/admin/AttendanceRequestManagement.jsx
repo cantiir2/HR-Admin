@@ -247,12 +247,14 @@ export default function AttendanceRequestManagement() {
                       <StatusBadge status={req.status} />
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => loadEvidence(req)}
-                        className="text-xs text-brand-400 hover:text-brand-300 bg-brand-500/10 hover:bg-brand-500/20 px-2 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1"
-                      >
-                        <Eye size={14} /> Detail / Evidence
-                      </button>
+                      <PermissionControl apiMethod="GET" apiUrl="/api/attendance-requests/*">
+                        <button
+                          onClick={() => loadEvidence(req)}
+                          className="text-xs text-brand-400 hover:text-brand-300 bg-brand-500/10 hover:bg-brand-500/20 px-2 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1"
+                        >
+                          <Eye size={14} /> Detail / Evidence
+                        </button>
+                      </PermissionControl>
                     </td>
                   </tr>
                 ))
@@ -331,7 +333,7 @@ export default function AttendanceRequestManagement() {
 
             {selectedReq.status === 'PENDING' && (
               <div className="p-4 border-t border-white/10 bg-white/[0.02] flex justify-end gap-3">
-                <PermissionControl action="edit" apiUrl="/api/attendance-requests/*/decline">
+                <PermissionControl apiMethod="PUT" apiUrl="/api/attendance-requests/*">
                   <button
                     onClick={() => setIsDeclineModalOpen(true)}
                     disabled={actionLoading}
@@ -340,7 +342,7 @@ export default function AttendanceRequestManagement() {
                     Tolak Request
                   </button>
                 </PermissionControl>
-                <PermissionControl action="edit" apiUrl="/api/attendance-requests/*/approve">
+                <PermissionControl apiMethod="PUT" apiUrl="/api/attendance-requests/*">
                   <button
                     onClick={handleApprove}
                     disabled={actionLoading}

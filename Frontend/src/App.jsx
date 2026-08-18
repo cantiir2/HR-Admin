@@ -29,6 +29,14 @@ import AttendanceRequestManagement from './pages/admin/AttendanceRequestManageme
 import AuthorizationManagement from './pages/admin/AuthorizationManagement';
 import MasterRoles from './pages/admin/MasterRoles';
 import MasterMenus from './pages/admin/MasterMenus';
+import { useAuth } from './context/AuthContext';
+
+function NotificationsRedirect() {
+  const { user } = useAuth();
+  const userPermissions = user?.permissions || [];
+  const hasAdminNotif = userPermissions.some(p => p.menuUrl === '/admin/notifications' || (p.menuUrl && p.menuUrl.startsWith('/admin')));
+  return <Navigate to={hasAdminNotif ? '/admin/notifications' : '/member/notifications'} replace />;
+}
 
 function App() {
   return (
@@ -83,6 +91,12 @@ function App() {
                 </Route>
 
 
+
+                <Route path="/notifications" element={
+                  <ProtectedRoute>
+                    <NotificationsRedirect />
+                  </ProtectedRoute>
+                } />
 
                 <Route path="/" element={<Navigate to="/login" replace />} />
                 <Route path="*" element={<Navigate to="/login" replace />} />

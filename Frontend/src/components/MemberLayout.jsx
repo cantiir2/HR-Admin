@@ -16,7 +16,7 @@ const MemberLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, menus, logout } = useAuth();
   const name = user?.name;
-  const jobRole = user?.jobRoleCode || (user?.roles && user.roles.length > 0 ? user.roles[0] : 'Member');
+  const jobRole = (user?.roles && user.roles.length > 0 ? user.roles[0] : 'Member');
   const version = `v${packageJson.version}`;
 
   const handleLogout = async () => {
@@ -36,7 +36,7 @@ const MemberLayout = () => {
     },
     { to: '/member/projects', icon: FolderClosed, label: 'Project Saya' },
     { to: '/member/profile', icon: User, label: 'Profil Saya' },
-    ...(user?.jobRoleCode === 'PM' ? [{ to: '/member/leave-approval', icon: ClipboardCheck, label: 'Leave Approval' }] : []),
+    // ...(user?.jobRoleCode === 'PM' ? [{ to: '/member/leave-approval', icon: ClipboardCheck, label: 'Leave Approval' }] : []),
     { to: '/member/notifications', icon: Bell, label: 'Inbox' },
   ];
 

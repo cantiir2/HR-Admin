@@ -18,26 +18,23 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/login" replace />;
   }
 
-  // Check if role is authorized
-  const userRolesList = user.roles || [user.role];
-  const isSystemAdmin = user.role === 'ADMIN' || userRolesList.includes('System Administrator');
-  const isHrAdmin = userRolesList.includes('HR Administrator');
+  const userPermissions = user.permissions || [];
+  const hasAdminPermission = user.role === 'ADMIN' || userPermissions.some(p => p.menuUrl && p.menuUrl.startsWith('/admin'));
 
   if (allowedRoles) {
     const hasRoleAccess = allowedRoles.some(r =>
-      user.role === r ||
-      userRolesList.includes(r) ||
-      (r === 'ADMIN' && (isSystemAdmin || isHrAdmin))
+      (r === 'ADMIN' && hasAdminPermission) ||
+      (r === 'MEMBER' && !hasAdminPermission)
     );
 
     if (!hasRoleAccess) {
-      return <Navigate to={isSystemAdmin || isHrAdmin ? '/admin' : '/member'} replace />;
+      return <Navigate to={hasAdminPermission ? '/admin' : '/member'} replace />;
     }
   }
 
   // Route screen check
-  if (!isSystemAdmin && !isRouteAllowed(location.pathname)) {
-    return <Navigate to="/member" replace />;
+  if (!isRouteAllowed(location.pathname)) {
+    return <Navigate to={hasAdminPermission ? '/admin' : '/member'} replace />;
   }
 
   return children;

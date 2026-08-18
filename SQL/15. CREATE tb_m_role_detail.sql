@@ -25,7 +25,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 1, 1, 'admin@hr.com', '2026-08-14 10:47:33.813', null, null);
+values(1, 1, 20, 36, 'admin@hr.com', '2026-08-18 07:20:25.459', null, null);
 
 insert
     into
@@ -37,7 +37,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 2, 1, 'admin@hr.com', '2026-08-14 10:47:33.815', null, null);
+values(1, 1, 20, 37, 'admin@hr.com', '2026-08-18 07:20:25.479', null, null);
 
 insert
     into
@@ -49,7 +49,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 2, 2, 'admin@hr.com', '2026-08-14 10:47:33.817', null, null);
+values(1, 1, 2, 6, 'admin@hr.com', '2026-08-18 07:20:25.482', null, null);
 
 insert
     into
@@ -61,7 +61,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 2, 4, 'admin@hr.com', '2026-08-14 10:47:33.820', null, null);
+values(1, 1, 20, 35, 'admin@hr.com', '2026-08-18 07:20:25.486', null, null);
 
 insert
     into
@@ -73,7 +73,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 3, 7, 'admin@hr.com', '2026-08-14 10:47:33.822', null, null);
+values(1, 1, 2, 5, 'admin@hr.com', '2026-08-18 07:20:25.494', null, null);
 
 insert
     into
@@ -85,7 +85,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 3, 8, 'admin@hr.com', '2026-08-14 10:47:33.824', null, null);
+values(1, 1, 2, 50, 'admin@hr.com', '2026-08-18 07:20:25.498', null, null);
 
 insert
     into
@@ -97,7 +97,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 4, 9, 'admin@hr.com', '2026-08-14 10:47:33.833', null, null);
+values(1, 1, 7, 51, 'admin@hr.com', '2026-08-18 07:20:25.502', null, null);
 
 insert
     into
@@ -109,7 +109,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 4, 10, 'admin@hr.com', '2026-08-14 10:47:33.835', null, null);
+values(1, 1, 21, 46, 'admin@hr.com', '2026-08-18 07:20:25.506', null, null);
 
 insert
     into
@@ -121,7 +121,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 4, 11, 'admin@hr.com', '2026-08-14 10:47:33.838', null, null);
+values(1, 1, 21, 47, 'admin@hr.com', '2026-08-18 07:20:25.509', null, null);
 
 insert
     into
@@ -133,7 +133,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 5, 12, 'admin@hr.com', '2026-08-14 10:47:33.840', null, null);
+values(1, 1, 1, 1, 'admin@hr.com', '2026-08-18 07:20:25.513', null, null);
 
 insert
     into
@@ -145,7 +145,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 5, 13, 'admin@hr.com', '2026-08-14 10:47:33.842', null, null);
+values(1, 1, 2, 1, 'admin@hr.com', '2026-08-18 07:20:25.515', null, null);
 
 insert
     into
@@ -157,7 +157,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 5, 14, 'admin@hr.com', '2026-08-14 10:47:33.846', null, null);
+values(1, 1, 2, 2, 'admin@hr.com', '2026-08-18 07:20:25.520', null, null);
 
 insert
     into
@@ -169,7 +169,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 6, 15, 'admin@hr.com', '2026-08-14 10:47:33.849', null, null);
+values(1, 1, 2, 4, 'admin@hr.com', '2026-08-18 07:20:25.523', null, null);
 
 insert
     into
@@ -181,7 +181,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 6, 16, 'admin@hr.com', '2026-08-14 10:47:33.853', null, null);
+values(1, 1, 3, 7, 'admin@hr.com', '2026-08-18 07:20:25.526', null, null);
 
 insert
     into
@@ -193,7 +193,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 6, 17, 'admin@hr.com', '2026-08-14 10:47:33.856', null, null);
+values(1, 1, 3, 8, 'admin@hr.com', '2026-08-18 07:20:25.530', null, null);
 
 insert
     into
@@ -205,7 +205,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 7, 18, 'admin@hr.com', '2026-08-14 10:47:33.858', null, null);
+values(1, 1, 4, 9, 'admin@hr.com', '2026-08-18 07:20:25.534', null, null);
 
 insert
     into
@@ -217,7 +217,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 7, 19, 'admin@hr.com', '2026-08-14 10:47:33.861', null, null);
+values(1, 1, 4, 10, 'admin@hr.com', '2026-08-18 07:20:25.537', null, null);
 
 insert
     into
@@ -229,7 +229,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 7, 20, 'admin@hr.com', '2026-08-14 10:47:33.864', null, null);
+values(1, 1, 4, 11, 'admin@hr.com', '2026-08-18 07:20:25.541', null, null);
 
 insert
     into
@@ -241,7 +241,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 7, 21, 'admin@hr.com', '2026-08-14 10:47:33.867', null, null);
+values(1, 1, 5, 12, 'admin@hr.com', '2026-08-18 07:20:25.544', null, null);
 
 insert
     into
@@ -253,7 +253,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 7, 22, 'admin@hr.com', '2026-08-14 10:47:33.869', null, null);
+values(1, 1, 5, 13, 'admin@hr.com', '2026-08-18 07:20:25.547', null, null);
 
 insert
     into
@@ -265,7 +265,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 8, 23, 'admin@hr.com', '2026-08-14 10:47:33.871', null, null);
+values(1, 1, 5, 14, 'admin@hr.com', '2026-08-18 07:20:25.551', null, null);
 
 insert
     into
@@ -277,7 +277,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 8, 24, 'admin@hr.com', '2026-08-14 10:47:33.873', null, null);
+values(1, 1, 6, 15, 'admin@hr.com', '2026-08-18 07:20:25.555', null, null);
 
 insert
     into
@@ -289,7 +289,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 8, 25, 'admin@hr.com', '2026-08-14 10:47:33.878', null, null);
+values(1, 1, 6, 16, 'admin@hr.com', '2026-08-18 07:20:25.559', null, null);
 
 insert
     into
@@ -301,7 +301,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 8, 26, 'admin@hr.com', '2026-08-14 10:47:33.881', null, null);
+values(1, 1, 6, 17, 'admin@hr.com', '2026-08-18 07:20:25.562', null, null);
 
 insert
     into
@@ -313,7 +313,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 9, 27, 'admin@hr.com', '2026-08-14 10:47:33.883', null, null);
+values(1, 1, 7, 18, 'admin@hr.com', '2026-08-18 07:20:25.567', null, null);
 
 insert
     into
@@ -325,7 +325,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 9, 28, 'admin@hr.com', '2026-08-14 10:47:33.885', null, null);
+values(1, 1, 7, 19, 'admin@hr.com', '2026-08-18 07:20:25.571', null, null);
 
 insert
     into
@@ -337,7 +337,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 10, 29, 'admin@hr.com', '2026-08-14 10:47:33.887', null, null);
+values(1, 1, 7, 20, 'admin@hr.com', '2026-08-18 07:20:25.575', null, null);
 
 insert
     into
@@ -349,7 +349,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 11, 30, 'admin@hr.com', '2026-08-14 10:47:33.889', null, null);
+values(1, 1, 7, 21, 'admin@hr.com', '2026-08-18 07:20:25.578', null, null);
 
 insert
     into
@@ -361,7 +361,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 11, 31, 'admin@hr.com', '2026-08-14 10:47:33.893', null, null);
+values(1, 1, 7, 22, 'admin@hr.com', '2026-08-18 07:20:25.582', null, null);
 
 insert
     into
@@ -373,7 +373,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 11, 32, 'admin@hr.com', '2026-08-14 10:47:33.895', null, null);
+values(1, 1, 8, 23, 'admin@hr.com', '2026-08-18 07:20:25.587', null, null);
 
 insert
     into
@@ -385,7 +385,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 11, 33, 'admin@hr.com', '2026-08-14 10:47:33.897', null, null);
+values(1, 1, 8, 24, 'admin@hr.com', '2026-08-18 07:20:25.591', null, null);
 
 insert
     into
@@ -397,7 +397,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 20, 34, 'admin@hr.com', '2026-08-14 10:47:33.900', null, null);
+values(1, 1, 8, 25, 'admin@hr.com', '2026-08-18 07:20:25.594', null, null);
 
 insert
     into
@@ -409,7 +409,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 20, 36, 'admin@hr.com', '2026-08-14 10:47:33.902', null, null);
+values(1, 1, 8, 26, 'admin@hr.com', '2026-08-18 07:20:25.597', null, null);
 
 insert
     into
@@ -421,7 +421,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 20, 37, 'admin@hr.com', '2026-08-14 10:47:33.904', null, null);
+values(1, 1, 9, 27, 'admin@hr.com', '2026-08-18 07:20:25.601', null, null);
 
 insert
     into
@@ -433,7 +433,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 2, 6, 'admin@hr.com', '2026-08-14 10:47:33.906', null, null);
+values(1, 1, 9, 28, 'admin@hr.com', '2026-08-18 07:20:25.605', null, null);
 
 insert
     into
@@ -445,7 +445,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 20, 35, 'admin@hr.com', '2026-08-14 10:47:33.909', null, null);
+values(1, 1, 10, 29, 'admin@hr.com', '2026-08-18 07:20:25.608', null, null);
 
 insert
     into
@@ -457,7 +457,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 2, 5, 'admin@hr.com', '2026-08-14 10:47:33.911', null, null);
+values(1, 1, 11, 30, 'admin@hr.com', '2026-08-18 07:20:25.611', null, null);
 
 insert
     into
@@ -469,7 +469,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(1, 1, 2, 50, 'admin@hr.com', '2026-08-14 10:47:33.913', null, null);
+values(1, 1, 11, 31, 'admin@hr.com', '2026-08-18 07:20:25.614', null, null);
 
 insert
     into
@@ -481,7 +481,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 1, 1, 'system', '2026-08-11 04:15:49.238', null, null);
+values(1, 1, 11, 32, 'admin@hr.com', '2026-08-18 07:20:25.621', null, null);
 
 insert
     into
@@ -493,7 +493,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 2, 1, 'system', '2026-08-11 04:15:49.239', null, null);
+values(1, 1, 11, 33, 'admin@hr.com', '2026-08-18 07:20:25.625', null, null);
 
 insert
     into
@@ -505,7 +505,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 2, 2, 'system', '2026-08-11 04:15:49.240', null, null);
+values(1, 1, 20, 34, 'admin@hr.com', '2026-08-18 07:20:25.629', null, null);
 
 insert
     into
@@ -517,7 +517,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 2, 3, 'system', '2026-08-11 04:15:49.241', null, null);
+values(1, 1, 4, 52, 'admin@hr.com', '2026-08-18 07:20:25.633', null, null);
 
 insert
     into
@@ -529,7 +529,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 2, 4, 'system', '2026-08-11 04:15:49.242', null, null);
+values(1, 1, 1, 54, 'admin@hr.com', '2026-08-18 07:20:25.637', null, null);
 
 insert
     into
@@ -541,7 +541,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 2, 5, 'system', '2026-08-11 04:15:49.243', null, null);
+values(1, 1, 10, 56, 'admin@hr.com', '2026-08-18 07:20:25.641', null, null);
 
 insert
     into
@@ -553,7 +553,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 2, 6, 'system', '2026-08-11 04:15:49.243', null, null);
+values(3, 1, 7, 18, 'admin@hr.com', '2026-08-18 07:20:57.645', null, null);
 
 insert
     into
@@ -565,7 +565,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 3, 7, 'system', '2026-08-11 04:15:49.244', null, null);
+values(3, 1, 7, 19, 'admin@hr.com', '2026-08-18 07:20:57.648', null, null);
 
 insert
     into
@@ -577,7 +577,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 3, 8, 'system', '2026-08-11 04:15:49.245', null, null);
+values(3, 1, 7, 20, 'admin@hr.com', '2026-08-18 07:20:57.652', null, null);
 
 insert
     into
@@ -589,7 +589,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 4, 9, 'system', '2026-08-11 04:15:49.246', null, null);
+values(3, 1, 7, 21, 'admin@hr.com', '2026-08-18 07:20:57.656', null, null);
 
 insert
     into
@@ -601,7 +601,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 4, 10, 'system', '2026-08-11 04:15:49.247', null, null);
+values(3, 1, 7, 22, 'admin@hr.com', '2026-08-18 07:20:57.667', null, null);
 
 insert
     into
@@ -613,7 +613,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 4, 11, 'system', '2026-08-11 04:15:49.248', null, null);
+values(3, 1, 9, 27, 'admin@hr.com', '2026-08-18 07:20:57.670', null, null);
 
 insert
     into
@@ -625,7 +625,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 5, 12, 'system', '2026-08-11 04:15:49.249', null, null);
+values(3, 1, 9, 28, 'admin@hr.com', '2026-08-18 07:20:57.673', null, null);
 
 insert
     into
@@ -637,7 +637,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 5, 13, 'system', '2026-08-11 04:15:49.249', null, null);
+values(3, 1, 10, 29, 'admin@hr.com', '2026-08-18 07:20:57.676', null, null);
 
 insert
     into
@@ -649,7 +649,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 5, 14, 'system', '2026-08-11 04:15:49.250', null, null);
+values(3, 1, 16, 42, 'admin@hr.com', '2026-08-18 07:20:57.678', null, null);
 
 insert
     into
@@ -661,7 +661,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 6, 15, 'system', '2026-08-11 04:15:49.251', null, null);
+values(3, 1, 17, 43, 'admin@hr.com', '2026-08-18 07:20:57.682', null, null);
 
 insert
     into
@@ -673,7 +673,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 6, 16, 'system', '2026-08-11 04:15:49.252', null, null);
+values(3, 1, 4, 9, 'admin@hr.com', '2026-08-18 07:20:57.685', null, null);
 
 insert
     into
@@ -685,7 +685,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 6, 17, 'system', '2026-08-11 04:15:49.253', null, null);
+values(3, 1, 4, 10, 'admin@hr.com', '2026-08-18 07:20:57.688', null, null);
 
 insert
     into
@@ -697,7 +697,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 11, 30, 'system', '2026-08-11 04:15:49.254', null, null);
+values(3, 1, 4, 11, 'admin@hr.com', '2026-08-18 07:20:57.691', null, null);
 
 insert
     into
@@ -709,7 +709,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 11, 31, 'system', '2026-08-11 04:15:49.255', null, null);
+values(3, 1, 4, 52, 'admin@hr.com', '2026-08-18 07:20:57.694', null, null);
 
 insert
     into
@@ -721,7 +721,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 11, 32, 'system', '2026-08-11 04:15:49.256', null, null);
+values(3, 1, 5, 12, 'admin@hr.com', '2026-08-18 07:20:57.697', null, null);
 
 insert
     into
@@ -733,7 +733,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 11, 33, 'system', '2026-08-11 04:15:49.257', null, null);
+values(3, 1, 5, 14, 'admin@hr.com', '2026-08-18 07:20:57.701', null, null);
 
 insert
     into
@@ -745,7 +745,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 12, 38, 'system', '2026-08-11 04:15:49.258', null, null);
+values(3, 1, 5, 13, 'admin@hr.com', '2026-08-18 07:20:57.704', null, null);
 
 insert
     into
@@ -757,7 +757,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 13, 39, 'system', '2026-08-11 04:15:49.259', null, null);
+values(3, 1, 6, 15, 'admin@hr.com', '2026-08-18 07:20:57.708', null, null);
 
 insert
     into
@@ -769,7 +769,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 14, 40, 'system', '2026-08-11 04:15:49.260', null, null);
+values(3, 1, 6, 16, 'admin@hr.com', '2026-08-18 07:20:57.710', null, null);
 
 insert
     into
@@ -781,7 +781,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 15, 41, 'system', '2026-08-11 04:15:49.261', null, null);
+values(3, 1, 6, 17, 'admin@hr.com', '2026-08-18 07:20:57.714', null, null);
 
 insert
     into
@@ -793,7 +793,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 16, 42, 'system', '2026-08-11 04:15:49.262', null, null);
+values(3, 1, 14, 40, 'admin@hr.com', '2026-08-18 07:20:57.718', null, null);
 
 insert
     into
@@ -805,7 +805,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 17, 43, 'system', '2026-08-11 04:15:49.264', null, null);
+values(3, 1, 1, 1, 'admin@hr.com', '2026-08-18 07:20:57.720', null, null);
 
 insert
     into
@@ -817,7 +817,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(2, 1, 19, 45, 'system', '2026-08-11 04:15:49.265', null, null);
+values(3, 1, 2, 1, 'admin@hr.com', '2026-08-18 07:20:57.722', null, null);
 
 insert
     into
@@ -829,7 +829,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(3, 1, 7, 18, 'system', '2026-08-11 04:15:49.267', null, null);
+values(3, 1, 21, 47, 'admin@hr.com', '2026-08-18 07:20:57.725', null, null);
 
 insert
     into
@@ -841,7 +841,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(3, 1, 7, 19, 'system', '2026-08-11 04:15:49.268', null, null);
+values(3, 1, 21, 46, 'admin@hr.com', '2026-08-18 07:20:57.728', null, null);
 
 insert
     into
@@ -853,7 +853,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(3, 1, 7, 20, 'system', '2026-08-11 04:15:49.269', null, null);
+values(3, 1, 2, 2, 'admin@hr.com', '2026-08-18 07:20:57.731', null, null);
 
 insert
     into
@@ -865,7 +865,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(3, 1, 7, 21, 'system', '2026-08-11 04:15:49.271', null, null);
+values(3, 1, 11, 30, 'admin@hr.com', '2026-08-18 07:20:57.735', null, null);
 
 insert
     into
@@ -877,7 +877,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(3, 1, 7, 22, 'system', '2026-08-11 04:15:49.272', null, null);
+values(3, 1, 8, 23, 'admin@hr.com', '2026-08-18 07:20:57.738', null, null);
 
 insert
     into
@@ -889,7 +889,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(3, 1, 8, 23, 'system', '2026-08-11 04:15:49.273', null, null);
+values(3, 1, 1, 54, 'admin@hr.com', '2026-08-18 07:20:57.742', null, null);
 
 insert
     into
@@ -901,7 +901,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(3, 1, 8, 24, 'system', '2026-08-11 04:15:49.274', null, null);
+values(3, 1, 10, 56, 'admin@hr.com', '2026-08-18 07:20:57.745', null, null);
 
 insert
     into
@@ -913,7 +913,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(3, 1, 8, 25, 'system', '2026-08-11 04:15:49.275', null, null);
+values(2, 1, 9, 27, 'admin@hr.com', '2026-08-18 07:20:53.761', null, null);
 
 insert
     into
@@ -925,7 +925,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(3, 1, 8, 26, 'system', '2026-08-11 04:15:49.276', null, null);
+values(2, 1, 9, 28, 'admin@hr.com', '2026-08-18 07:20:53.767', null, null);
 
 insert
     into
@@ -937,7 +937,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(3, 1, 9, 27, 'system', '2026-08-11 04:15:49.277', null, null);
+values(2, 1, 1, 1, 'admin@hr.com', '2026-08-18 07:20:53.771', null, null);
 
 insert
     into
@@ -949,7 +949,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(3, 1, 9, 28, 'system', '2026-08-11 04:15:49.278', null, null);
+values(2, 1, 2, 1, 'admin@hr.com', '2026-08-18 07:20:53.773', null, null);
 
 insert
     into
@@ -961,7 +961,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(3, 1, 10, 29, 'system', '2026-08-11 04:15:49.280', null, null);
+values(2, 1, 2, 2, 'admin@hr.com', '2026-08-18 07:20:53.777', null, null);
 
 insert
     into
@@ -973,7 +973,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(3, 1, 12, 38, 'system', '2026-08-11 04:15:49.281', null, null);
+values(2, 1, 2, 3, 'admin@hr.com', '2026-08-18 07:20:53.781', null, null);
 
 insert
     into
@@ -985,7 +985,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(3, 1, 13, 39, 'system', '2026-08-11 04:15:49.282', null, null);
+values(2, 1, 2, 4, 'admin@hr.com', '2026-08-18 07:20:53.785', null, null);
 
 insert
     into
@@ -997,7 +997,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(3, 1, 14, 40, 'system', '2026-08-11 04:15:49.283', null, null);
+values(4, 1, 12, 38, 'admin@hr.com', '2026-08-18 07:56:15.587', null, null);
 
 insert
     into
@@ -1009,7 +1009,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(3, 1, 15, 41, 'system', '2026-08-11 04:15:49.284', null, null);
+values(4, 1, 13, 39, 'admin@hr.com', '2026-08-18 07:56:15.593', null, null);
 
 insert
     into
@@ -1021,7 +1021,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(3, 1, 16, 42, 'system', '2026-08-11 04:15:49.284', null, null);
+values(4, 1, 14, 40, 'admin@hr.com', '2026-08-18 07:56:15.606', null, null);
 
 insert
     into
@@ -1033,7 +1033,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(3, 1, 17, 43, 'system', '2026-08-11 04:15:49.285', null, null);
+values(4, 1, 15, 41, 'admin@hr.com', '2026-08-18 07:56:15.609', null, null);
 
 insert
     into
@@ -1045,7 +1045,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(3, 1, 18, 44, 'system', '2026-08-11 04:15:49.286', null, null);
+values(4, 1, 16, 42, 'admin@hr.com', '2026-08-18 07:56:15.613', null, null);
 
 insert
     into
@@ -1057,7 +1057,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(3, 1, 19, 45, 'system', '2026-08-11 04:15:49.287', null, null);
+values(4, 1, 17, 43, 'admin@hr.com', '2026-08-18 07:56:15.617', null, null);
 
 insert
     into
@@ -1069,7 +1069,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(4, 1, 12, 38, 'system', '2026-08-11 04:15:49.290', null, null);
+values(2, 1, 2, 5, 'admin@hr.com', '2026-08-18 07:20:53.789', null, null);
 
 insert
     into
@@ -1081,7 +1081,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(4, 1, 13, 39, 'system', '2026-08-11 04:15:49.290', null, null);
+values(2, 1, 2, 6, 'admin@hr.com', '2026-08-18 07:20:53.792', null, null);
 
 insert
     into
@@ -1093,7 +1093,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(4, 1, 14, 40, 'system', '2026-08-11 04:15:49.291', null, null);
+values(2, 1, 3, 7, 'admin@hr.com', '2026-08-18 07:20:53.800', null, null);
 
 insert
     into
@@ -1105,7 +1105,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(4, 1, 15, 41, 'system', '2026-08-11 04:15:49.292', null, null);
+values(2, 1, 3, 8, 'admin@hr.com', '2026-08-18 07:20:53.804', null, null);
 
 insert
     into
@@ -1117,7 +1117,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(4, 1, 16, 42, 'system', '2026-08-11 04:15:49.293', null, null);
+values(2, 1, 4, 9, 'admin@hr.com', '2026-08-18 07:20:53.807', null, null);
 
 insert
     into
@@ -1129,7 +1129,7 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(4, 1, 17, 43, 'system', '2026-08-11 04:15:49.294', null, null);
+values(2, 1, 4, 10, 'admin@hr.com', '2026-08-18 07:20:53.810', null, null);
 
 insert
     into
@@ -1141,4 +1141,316 @@ insert
     created_dt,
     changed_by,
     changed_dt)
-values(4, 1, 19, 45, 'system', '2026-08-11 04:15:49.295', null, null);
+values(4, 1, 19, 45, 'admin@hr.com', '2026-08-18 07:56:15.620', null, null);
+
+insert
+    into
+    public.tb_m_role_detail (role_id,
+    application_id,
+    function_id,
+    feature_id,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(4, 1, 21, 45, 'admin@hr.com', '2026-08-18 07:56:15.622', null, null);
+
+insert
+    into
+    public.tb_m_role_detail (role_id,
+    application_id,
+    function_id,
+    feature_id,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(4, 1, 11, 30, 'admin@hr.com', '2026-08-18 07:56:15.625', null, null);
+
+insert
+    into
+    public.tb_m_role_detail (role_id,
+    application_id,
+    function_id,
+    feature_id,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(4, 1, 12, 57, 'admin@hr.com', '2026-08-18 07:56:15.627', null, null);
+
+insert
+    into
+    public.tb_m_role_detail (role_id,
+    application_id,
+    function_id,
+    feature_id,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(4, 1, 12, 59, 'admin@hr.com', '2026-08-18 07:56:15.631', null, null);
+
+insert
+    into
+    public.tb_m_role_detail (role_id,
+    application_id,
+    function_id,
+    feature_id,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(4, 1, 12, 60, 'admin@hr.com', '2026-08-18 07:56:15.633', null, null);
+
+insert
+    into
+    public.tb_m_role_detail (role_id,
+    application_id,
+    function_id,
+    feature_id,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(4, 1, 12, 61, 'admin@hr.com', '2026-08-18 07:56:15.635', null, null);
+
+insert
+    into
+    public.tb_m_role_detail (role_id,
+    application_id,
+    function_id,
+    feature_id,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(4, 1, 7, 22, 'admin@hr.com', '2026-08-18 07:56:15.637', null, null);
+
+insert
+    into
+    public.tb_m_role_detail (role_id,
+    application_id,
+    function_id,
+    feature_id,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(2, 1, 5, 12, 'admin@hr.com', '2026-08-18 07:20:53.813', null, null);
+
+insert
+    into
+    public.tb_m_role_detail (role_id,
+    application_id,
+    function_id,
+    feature_id,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(2, 1, 5, 13, 'admin@hr.com', '2026-08-18 07:20:53.817', null, null);
+
+insert
+    into
+    public.tb_m_role_detail (role_id,
+    application_id,
+    function_id,
+    feature_id,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(2, 1, 5, 14, 'admin@hr.com', '2026-08-18 07:20:53.819', null, null);
+
+insert
+    into
+    public.tb_m_role_detail (role_id,
+    application_id,
+    function_id,
+    feature_id,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(2, 1, 6, 15, 'admin@hr.com', '2026-08-18 07:20:53.822', null, null);
+
+insert
+    into
+    public.tb_m_role_detail (role_id,
+    application_id,
+    function_id,
+    feature_id,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(2, 1, 6, 16, 'admin@hr.com', '2026-08-18 07:20:53.824', null, null);
+
+insert
+    into
+    public.tb_m_role_detail (role_id,
+    application_id,
+    function_id,
+    feature_id,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(2, 1, 11, 30, 'admin@hr.com', '2026-08-18 07:20:53.826', null, null);
+
+insert
+    into
+    public.tb_m_role_detail (role_id,
+    application_id,
+    function_id,
+    feature_id,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(2, 1, 11, 31, 'admin@hr.com', '2026-08-18 07:20:53.829', null, null);
+
+insert
+    into
+    public.tb_m_role_detail (role_id,
+    application_id,
+    function_id,
+    feature_id,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(2, 1, 11, 32, 'admin@hr.com', '2026-08-18 07:20:53.831', null, null);
+
+insert
+    into
+    public.tb_m_role_detail (role_id,
+    application_id,
+    function_id,
+    feature_id,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(2, 1, 11, 33, 'admin@hr.com', '2026-08-18 07:20:53.834', null, null);
+
+insert
+    into
+    public.tb_m_role_detail (role_id,
+    application_id,
+    function_id,
+    feature_id,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(2, 1, 17, 43, 'admin@hr.com', '2026-08-18 07:20:53.837', null, null);
+
+insert
+    into
+    public.tb_m_role_detail (role_id,
+    application_id,
+    function_id,
+    feature_id,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(2, 1, 6, 17, 'admin@hr.com', '2026-08-18 07:20:53.840', null, null);
+
+insert
+    into
+    public.tb_m_role_detail (role_id,
+    application_id,
+    function_id,
+    feature_id,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(2, 1, 21, 47, 'admin@hr.com', '2026-08-18 07:20:53.843', null, null);
+
+insert
+    into
+    public.tb_m_role_detail (role_id,
+    application_id,
+    function_id,
+    feature_id,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(2, 1, 21, 46, 'admin@hr.com', '2026-08-18 07:20:53.845', null, null);
+
+insert
+    into
+    public.tb_m_role_detail (role_id,
+    application_id,
+    function_id,
+    feature_id,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(2, 1, 7, 18, 'admin@hr.com', '2026-08-18 07:20:53.848', null, null);
+
+insert
+    into
+    public.tb_m_role_detail (role_id,
+    application_id,
+    function_id,
+    feature_id,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(2, 1, 7, 51, 'admin@hr.com', '2026-08-18 07:20:53.851', null, null);
+
+insert
+    into
+    public.tb_m_role_detail (role_id,
+    application_id,
+    function_id,
+    feature_id,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(2, 1, 1, 54, 'admin@hr.com', '2026-08-18 07:20:53.855', null, null);
+
+insert
+    into
+    public.tb_m_role_detail (role_id,
+    application_id,
+    function_id,
+    feature_id,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(2, 1, 1, 55, 'admin@hr.com', '2026-08-18 07:20:53.858', null, null);
+
+insert
+    into
+    public.tb_m_role_detail (role_id,
+    application_id,
+    function_id,
+    feature_id,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(2, 1, 10, 29, 'admin@hr.com', '2026-08-18 07:20:53.861', null, null);
+
+insert
+    into
+    public.tb_m_role_detail (role_id,
+    application_id,
+    function_id,
+    feature_id,
+    created_by,
+    created_dt,
+    changed_by,
+    changed_dt)
+values(2, 1, 10, 56, 'admin@hr.com', '2026-08-18 07:20:53.865', null, null);
