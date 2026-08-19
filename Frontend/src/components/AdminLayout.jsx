@@ -13,7 +13,7 @@ import NavItem from './NavItem';
 import packageJson from "../../package.json";
 
 const AdminLayout = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
   const { user, menus, logout } = useAuth();
   const name = user?.name;
   const jobRole = (user?.roles && user.roles.length > 0 ? user.roles[0] : 'Member');
@@ -61,7 +61,7 @@ const AdminLayout = () => {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 z-[70] w-64 bg-surface-900/70 backdrop-blur-xl border-r border-white/[0.06] flex flex-col transform transition-transform lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed lg:static inset-y-0 left-0 z-[70] w-64 bg-surface-900/70 backdrop-blur-xl border-r border-white/[0.06] flex flex-col transition-all duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0 lg:ml-0' : '-translate-x-full lg:translate-x-0 lg:-ml-64'}`}>
         <div className="p-5 border-b border-white/[0.06] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex-shrink-0 w-9 h-9 rounded-xl gradient-brand flex items-center justify-center shadow-lg shadow-brand-500/20">
@@ -103,7 +103,7 @@ const AdminLayout = () => {
       <main className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Top Bar */}
         <header className="glass-card rounded-none border-x-0 border-t-0 px-4 lg:px-6 py-3 flex items-center justify-between gap-4 flex-shrink-0 z-50">
-          <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-lg bg-white/[0.06] text-surface-400">
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg bg-white/[0.06] text-surface-400 hover:text-white transition-colors">
             <Menu size={18} />
           </button>
           <div className="flex-1" />

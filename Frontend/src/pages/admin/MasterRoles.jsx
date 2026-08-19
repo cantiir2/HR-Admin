@@ -124,7 +124,7 @@ const MasterRoles = () => {
             Master Role & Hak Akses
           </h1>
           <p className="text-sm text-surface-400 mt-1">
-            Pengaturan Role dan Konfigurasi Matriks Hak Akses Screen/API (OVOID).
+            Pengaturan Role dan Konfigurasi Matriks Hak Akses Screen/API.
           </p>
         </div>
         <PermissionControl action="add">

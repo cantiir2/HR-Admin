@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Download, Loader2, RefreshCw, Search, X } from 'lucide-react';
+import { Check, Download, Eye, Loader2, RefreshCw, Search, X } from 'lucide-react';
 import api from '../../lib/api';
 import AppSelect from '../../components/AppSelect';
 import Pagination from '../../components/Pagination';
 import SortableHeader from '../../components/SortableHeader';
 import useTableSort from '../../hooks/useTableSort';
 import { useToast } from '../../context/ToastContext';
+import WorkingReportPreviewDialog from '../../components/WorkingReportPreviewDialog';
 
 const statuses = [
   ['', 'Semua Status'],
@@ -45,6 +46,7 @@ const AdminWorkingReports = () => {
   });
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [previewReport, setPreviewReport] = useState(null);
   const [monthOptions, setMonthOptions] = useState([]);
   const { showToast } = useToast();
 
@@ -249,6 +251,7 @@ const AdminWorkingReports = () => {
                     <td className="px-4 py-3 text-sm text-surface-400">{report.isLate ? `${report.lateDays} hari` : '-'}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
+                        <button type="button" onClick={() => setPreviewReport(report)} className="btn-ghost text-xs inline-flex items-center gap-1 text-brand-500 hover:text-brand-400"><Eye size={14} />View</button>
                         <button type="button" onClick={() => exportReport(report)} className="btn-ghost text-xs inline-flex items-center gap-1"><Download size={14} />Export</button>
                         {displayStatus === 'SUBMITTED' && (
                           <>
@@ -272,6 +275,11 @@ const AdminWorkingReports = () => {
           </div>
         )}
       </div>
+      <WorkingReportPreviewDialog
+        open={!!previewReport}
+        reportData={previewReport}
+        onClose={() => setPreviewReport(null)}
+      />
     </div>
   );
 };

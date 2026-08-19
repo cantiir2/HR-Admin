@@ -243,7 +243,7 @@ const MasterMenus = () => {
             Master Dynamic Menus (Drag & Drop)
           </h1>
           <p className="text-sm text-surface-400 mt-1">
-            Struktur Menu Dinamis OVOID: Atur Parent-Child, Urutan Drag & Drop, Icon, dan Link Screen Function URL.
+            Struktur Menu Dinamis: Atur Parent-Child, Urutan Drag & Drop, Icon, dan Link Screen Function URL.
           </p>
         </div>
         <div className="flex items-center gap-2 self-start md:self-auto">
@@ -300,10 +300,10 @@ const MasterMenus = () => {
                     onDragOver={e => handleDragOver(e, parent.id)}
                     onDrop={e => handleDrop(e, parent.id)}
                     className={`p-3.5 rounded-xl border flex items-center justify-between transition-all ${dragOverId === parent.id
-                        ? 'border-brand-400 bg-brand-500/20'
-                        : parent.isActive
-                          ? 'bg-white/[0.03] border-white/[0.08] text-white hover:bg-white/[0.06]'
-                          : 'bg-rose-500/5 border-rose-500/20 text-surface-500'
+                      ? 'border-brand-400 bg-brand-500/20'
+                      : parent.isActive
+                        ? 'bg-white/[0.03] border-white/[0.08] text-white hover:bg-white/[0.06]'
+                        : 'bg-rose-500/5 border-rose-500/20 text-surface-500'
                       }`}
                   >
                     <div className="flex items-center gap-3">
@@ -402,10 +402,10 @@ const MasterMenus = () => {
                             onDragOver={e => handleDragOver(e, child.id)}
                             onDrop={e => handleDrop(e, child.id)}
                             className={`p-3 rounded-xl border flex items-center justify-between transition-all ${dragOverId === child.id
-                                ? 'border-brand-400 bg-brand-500/20'
-                                : child.isActive
-                                  ? 'bg-white/[0.02] border-white/[0.06] text-surface-200 hover:bg-white/[0.05]'
-                                  : 'bg-rose-500/5 border-rose-500/15 text-surface-500'
+                              ? 'border-brand-400 bg-brand-500/20'
+                              : child.isActive
+                                ? 'bg-white/[0.02] border-white/[0.06] text-surface-200 hover:bg-white/[0.05]'
+                                : 'bg-rose-500/5 border-rose-500/15 text-surface-500'
                               }`}
                           >
                             <div className="flex items-center gap-3">
@@ -540,11 +540,10 @@ const MasterMenus = () => {
                     type="button"
                     title={iconName}
                     onClick={() => setMenuForm({ ...menuForm, icon: iconName })}
-                    className={`p-2 rounded-lg flex items-center justify-center transition-all ${
-                      menuForm.icon === iconName
+                    className={`p-2 rounded-lg flex items-center justify-center transition-all ${menuForm.icon === iconName
                         ? 'bg-brand-500/20 text-brand-300 ring-1 ring-brand-500/40'
                         : 'text-surface-400 hover:text-white hover:bg-white/[0.08]'
-                    }`}
+                      }`}
                   >
                     <DynamicIcon name={iconName} size={16} />
                   </button>

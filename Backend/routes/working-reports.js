@@ -38,6 +38,20 @@ module.exports = (prisma) => {
     }
   });
 
+  router.get('/:userId/:month/:year', authenticateToken, async (req, res) => {
+    try {
+      if (!(await canAccessWorkingReportUser(prisma, req.user, req.params.userId))) {
+        return res.status(403).json({ error: 'Anda tidak memiliki akses report ini' });
+      }
+      const result = await getWorkingReportDetail(prisma, req.query.pageNo, req.query.pageSize, req.params.userId, req.params.month, req.params.year, req.query.sortBy, req.query.sortOrder);
+      if (result.error) return res.status(400).json({ error: result.error });
+      res.json(result);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
+
   router.post('/submit', authenticateToken, async (req, res) => {
     try {
       const result = await submitWorkingReport(prisma, req.user.id, req.body.month, req.body.year);
