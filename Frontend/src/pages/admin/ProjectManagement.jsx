@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import api from '../../lib/api';
 import { Plus, Pencil, Trash2, X, FolderKanban, MapPin, Users, Calendar, LayoutDashboard } from 'lucide-react';
 import { format } from 'date-fns';
@@ -6,10 +6,12 @@ import { Link } from 'react-router-dom';
 import AppSelect from '../../components/AppSelect';
 import Pagination from '../../components/Pagination';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import { useConfirm } from '../../context/ConfirmContext';
 import PermissionControl from '../../components/PermissionControl';
 
 const ProjectManagement = () => {
+  const { user } = useAuth();
   const [projects, setProjects] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -18,6 +20,8 @@ const ProjectManagement = () => {
   const [selectedProject, setSelectedProject] = useState(null);
   const [memberForm, setMemberForm] = useState({ userId: '', roleInProject: 'Member', joinedAt: '', leftAt: '', allocation: 100 });
   const [editingMemberId, setEditingMemberId] = useState(null);
+  const [projectManagers, setProjectManagers] = useState([]);
+  const [pmInitialized, setPmInitialized] = useState(false);
   const [editMemberForm, setEditMemberForm] = useState({ joinedAt: '', leftAt: '', allocation: 100 });
   const [filters, setFilters] = useState({
     search: '', status: '', projectManagerId: '', customer: '', dateFrom: '', dateTo: ''
@@ -32,6 +36,14 @@ const ProjectManagement = () => {
   });
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+
+
+  const pmOptions = useMemo(() => {
+    return [
+      ['', 'Semua Project Manager'],
+      ...projectManagers.map(pm => [pm.id, pm.name])
+    ];
+  }, [projectManagers]);
 
   const fetchProjects = useCallback(async (pageNo = 1, pageSize = pageSizeRef.current) => {
     if (filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo) {
@@ -247,6 +259,30 @@ const ProjectManagement = () => {
     }
   };
 
+  useEffect(() => {
+    api.get('/api/projects').then(r => {
+      const dataList = Array.isArray(r.data) ? r.data : (r.data?.data || []);
+      const managers = dataList.map(project => project.projectManager).filter(Boolean);
+      if (user?.jobRoleCode === 'PM' && user?.id && !managers.some(m => m.id === user.id)) {
+        managers.push({ id: user.id, name: user.name });
+      }
+      const uniqueManagers = [...new Map(managers.map(manager => [manager.id, manager])).values()];
+      setProjectManagers(uniqueManagers);
+    }).catch(() => { });
+  }, [user]);
+
+  useEffect(() => {
+    if (!pmInitialized && user?.id) {
+      const isPM = user?.jobRoleCode === 'PM' || projectManagers.some(m => m.id === user.id);
+      if (isPM) {
+        setFilters(current => ({ ...current, projectManagerId: user.id }));
+      }
+      if (projectManagers.length > 0 || user?.jobRoleCode === 'PM') {
+        setPmInitialized(true);
+      }
+    }
+  }, [user, projectManagers, pmInitialized]);
+
   const statusColors = {
     active: 'badge-success',
     completed: 'badge-info',
@@ -298,12 +334,7 @@ const ProjectManagement = () => {
               value={filters.projectManagerId}
               className="w-full"
               onChange={value => setFilters({ ...filters, projectManagerId: value })}
-              options={[
-                ['', 'Semua Project Manager'],
-                ...allUsers
-                  .filter(u => u.jobRoleCode === 'PM' || u.role === 'ADMIN')
-                  .map(u => [u.id, `${u.name} (${u.jobRoleCode || u.role})`])
-              ]}
+              options={pmOptions}
             />
           </label>
 

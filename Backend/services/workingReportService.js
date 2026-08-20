@@ -377,7 +377,7 @@ async function submitWorkingReport(prisma, userId, month, year) {
     try {
       const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
       const pmMap = await getActiveUserProjectsInPeriod(prisma, userId, period.month, period.year);
-      
+
       for (const [pmId, pmData] of pmMap.entries()) {
         const projectNames = pmData.projects.join(', ');
         await createNotification(prisma, {
@@ -422,9 +422,6 @@ async function listWorkingReports(prisma, currentUser, filters = {}) {
   }
   if (filters.projectManagerId) {
     andWhere.push({ user: { projects: { some: { project: { projectManagerId: filters.projectManagerId } } } } });
-  }
-  if (currentUser.role !== 'ADMIN') {
-    andWhere.push({ user: { projects: { some: { project: { projectManagerId: currentUser.id } } } } });
   }
 
   const pageNo = Math.max(Number(filters.pageNo) || 1, 1);

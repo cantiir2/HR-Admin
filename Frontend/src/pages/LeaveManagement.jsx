@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useMemo, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Check, Download, Eye, Loader2, Search, X } from 'lucide-react';
 import { format } from 'date-fns';
@@ -36,9 +36,22 @@ const LeaveManagement = () => {
     REJECTED: 'Rejected',
     CANCELLED: 'Cancelled',
   });
-  const [filters, setFilters] = useState({ search: '', status: searchParams.get('status') || '' });
+  const [filters, setFilters] = useState({
+    search: '',
+    projectManagerId: '',
+    status: searchParams.get('status') || ''
+  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [evidenceImage, setEvidenceImage] = useState(null);
+  const [projectManagers, setProjectManagers] = useState([]);
+  const [pmInitialized, setPmInitialized] = useState(false);
+
+  const pmOptions = useMemo(() => {
+    return [
+      ['', 'Semua Project Manager'],
+      ...projectManagers.map(pm => [pm.id, pm.name])
+    ];
+  }, [projectManagers]);
 
   useEffect(() => {
     const fetchStatuses = async () => {
@@ -70,6 +83,29 @@ const LeaveManagement = () => {
 
     fetchStatuses();
   }, []);
+  useEffect(() => {
+    api.get('/api/projects').then(r => {
+      const dataList = Array.isArray(r.data) ? r.data : (r.data?.data || []);
+      const managers = dataList.map(project => project.projectManager).filter(Boolean);
+      if (user?.jobRoleCode === 'PM' && user?.id && !managers.some(m => m.id === user.id)) {
+        managers.push({ id: user.id, name: user.name });
+      }
+      const uniqueManagers = [...new Map(managers.map(manager => [manager.id, manager])).values()];
+      setProjectManagers(uniqueManagers);
+    }).catch(() => { });
+  }, [user]);
+
+  useEffect(() => {
+    if (!pmInitialized && user?.id) {
+      const isPM = user?.jobRoleCode === 'PM' || projectManagers.some(m => m.id === user.id);
+      if (isPM) {
+        setFilters(current => ({ ...current, projectManagerId: user.id }));
+      }
+      if (projectManagers.length > 0 || user?.jobRoleCode === 'PM') {
+        setPmInitialized(true);
+      }
+    }
+  }, [user, projectManagers, pmInitialized]);
   const [page, setPage] = useState({ pageNo: 1, pageSize: 10, totalPages: 1 });
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -158,11 +194,12 @@ const LeaveManagement = () => {
         <p className="text-sm text-surface-400">Approval cuti tahunan karyawan</p>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-[1fr_220px] mb-4">
+      <div className="grid gap-3 md:grid-cols-[1fr_280px_220px] mb-4">
         <div className="relative">
           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-surface-500" />
           <input value={filters.search} onChange={e => updateFilter('search', e.target.value)} placeholder="Cari nama atau email..." className="input-dark pl-11 text-sm" />
         </div>
+        <AppSelect value={filters.projectManagerId} onChange={value => updateFilter('projectManagerId', value)} options={pmOptions} placeholder="Pilih Project Manager" />
         <AppSelect value={filters.status} onChange={value => updateFilter('status', value)} options={statuses} />
       </div>
 

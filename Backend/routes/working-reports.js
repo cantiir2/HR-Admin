@@ -40,9 +40,9 @@ module.exports = (prisma) => {
 
   router.get('/:userId/:month/:year', authenticateToken, async (req, res) => {
     try {
-      if (!(await canAccessWorkingReportUser(prisma, req.user, req.params.userId))) {
-        return res.status(403).json({ error: 'Anda tidak memiliki akses report ini' });
-      }
+      // if (!(await canAccessWorkingReportUser(prisma, req.user, req.params.userId))) {
+      //   return res.status(403).json({ error: 'Anda tidak memiliki akses report ini' });
+      // }
       const result = await getWorkingReportDetail(prisma, req.query.pageNo, req.query.pageSize, req.params.userId, req.params.month, req.params.year, req.query.sortBy, req.query.sortOrder);
       if (result.error) return res.status(400).json({ error: result.error });
       res.json(result);
@@ -68,9 +68,9 @@ module.exports = (prisma) => {
       const userId = req.query.userId || req.user.id;
       const period = validateMonthYear(req.query.month, req.query.year);
       if (period.error) return res.status(400).json({ error: period.error });
-      if (!(await canAccessWorkingReportUser(prisma, req.user, userId))) {
-        return res.status(403).json({ error: 'Anda tidak memiliki akses export WR ini' });
-      }
+      // if (!(await canAccessWorkingReportUser(prisma, req.user, userId))) {
+      //   return res.status(403).json({ error: 'Anda tidak memiliki akses export WR ini' });
+      // }
 
       const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
       if (!user) return res.status(404).json({ error: 'User tidak ditemukan' });

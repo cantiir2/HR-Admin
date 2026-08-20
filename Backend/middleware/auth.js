@@ -35,7 +35,7 @@ const authorizeApiAccess = (prisma) => {
         '/api/auth',
         '/api/health',
         '/metrics',
-        '/api/notifications',
+        '/api/notifications'
       ];
 
       const isBypassed = bypassPrefixes.some(prefix => path.startsWith(prefix));

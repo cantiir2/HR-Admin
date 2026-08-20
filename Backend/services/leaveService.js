@@ -201,7 +201,7 @@ async function getLeaveBalance(prisma, userId, contractId) {
   const entitlementDays = calculateContractMonths(contract.startDate, contract.endDate);
   const approvedLeaves = await prisma.leaveRequest.findMany({
     where: { userId, contractId: contract.id, status: 'APPROVED' },
-    select: { 
+    select: {
       totalDays: true,
       leaveType: true,
       evidencePhoto: true,
@@ -398,8 +398,6 @@ async function listLeaveRequests(prisma, currentUser, filters = {}) {
   }
   if (filters.projectManagerId) {
     andWhere.push({ user: { projects: { some: { project: { projectManagerId: filters.projectManagerId } } } } });
-  } else if (currentUser.role !== 'ADMIN') {
-    andWhere.push({ user: { projects: { some: { project: { projectManagerId: currentUser.id } } } } });
   }
 
   const pageNo = Math.max(Number(filters.pageNo) || 1, 1);

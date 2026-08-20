@@ -1,6 +1,7 @@
 const ExcelJS = require('exceljs');
 const fs = require('fs');
 const path = require('path');
+const { detectProjectArea } = require('../utils/geofence');
 
 function formatDuration(minutes) {
   if (minutes <= 0) return '00.00';
@@ -53,11 +54,14 @@ function calculateWorkingHours(checkInTime, checkOutTime, breakMinutes, overtime
 
   if (diffMins > normalWorkingMins) {
     const excess = diffMins - normalWorkingMins;
-    const actualOvertimeBreak = Math.min(excess, overtimeBreakMinutes);
-    appliedBreakMins += actualOvertimeBreak;
 
-    const actualOvertime = Math.max(0, excess - overtimeBreakMinutes);
-    diffMins = normalWorkingMins + actualOvertime;
+    if (excess >= overtimeBreakMinutes) {
+      appliedBreakMins += overtimeBreakMinutes;
+      const actualOvertime = excess - overtimeBreakMinutes;
+      diffMins = normalWorkingMins + actualOvertime;
+    } else {
+      diffMins = normalWorkingMins;
+    }
   }
 
   return {
@@ -182,6 +186,27 @@ async function generateWorkingReport(userId, month, year, prisma) {
       endDate: { gte: startDate }
     }
   });
+
+  // Get Active Geofences
+  let activeGeofences = [];
+  try {
+    const geofences = await prisma.geofence.findMany({
+      where: { isActive: true }
+    });
+    if (geofences && geofences.length > 0) {
+      activeGeofences = geofences;
+    }
+  } catch (e) { }
+
+  if (!activeGeofences || activeGeofences.length === 0) {
+    try {
+      activeGeofences = await prisma.project.findMany({
+        where: {
+          status: { in: ['active', 'Active', 'ACTIVE'] }
+        }
+      });
+    } catch (e) { }
+  }
 
   // Create Excel Workbook
   const workbook = new ExcelJS.Workbook();
@@ -367,7 +392,17 @@ async function generateWorkingReport(userId, month, year, prisma) {
 
       if (att && att.checkInTime) {
         inTime = formatTimeJakarta(att.checkInTime);
-        placeStr = location;
+
+        if (att.checkInLat !== null && att.checkInLat !== undefined && att.checkInLng !== null && att.checkInLng !== undefined) {
+          const areaMatch = detectProjectArea(att.checkInLat, att.checkInLng, activeGeofences);
+          if (areaMatch) {
+            placeStr = areaMatch.name;
+          } else {
+            placeStr = 'WFH';
+          }
+        } else {
+          placeStr = 'Attendance Request';
+        }
 
         let notes = [];
         if (att.checkInNote) notes.push(att.checkInNote);

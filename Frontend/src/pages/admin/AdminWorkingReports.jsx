@@ -6,6 +6,7 @@ import Pagination from '../../components/Pagination';
 import SortableHeader from '../../components/SortableHeader';
 import useTableSort from '../../hooks/useTableSort';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import WorkingReportPreviewDialog from '../../components/WorkingReportPreviewDialog';
 
 const statuses = [
@@ -36,14 +37,18 @@ const formatDeadlineDate = (deadlineDate) => {
 };
 
 const AdminWorkingReports = () => {
+  const { user } = useAuth();
   const [reports, setReports] = useState([]);
   const [page, setPage] = useState({ pageNo: 1, pageSize: 10, totalPages: 1 });
   const [filters, setFilters] = useState({
     search: '',
+    projectManagerId: '',
     month: String(new Date().getMonth() + 1),
     year: new Date().getFullYear(),
     status: ''
   });
+  const [projectManagers, setProjectManagers] = useState([]);
+  const [pmInitialized, setPmInitialized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [previewReport, setPreviewReport] = useState(null);
@@ -56,6 +61,13 @@ const AdminWorkingReports = () => {
     const current = new Date().getFullYear();
     return [['', 'Semua Tahun'], ...Array.from({ length: 5 }, (_, index) => [current - index, String(current - index)])];
   }, []);
+
+  const pmOptions = useMemo(() => {
+    return [
+      ['', 'Semua Project Manager'],
+      ...projectManagers.map(pm => [pm.id, pm.name])
+    ];
+  }, [projectManagers]);
 
   const fetchReports = async () => {
     try {
@@ -93,6 +105,30 @@ const AdminWorkingReports = () => {
 
     fetchMonths();
   }, []);
+
+  useEffect(() => {
+    api.get('/api/projects').then(r => {
+      const dataList = Array.isArray(r.data) ? r.data : (r.data?.data || []);
+      const managers = dataList.map(project => project.projectManager).filter(Boolean);
+      if (user?.jobRoleCode === 'PM' && user?.id && !managers.some(m => m.id === user.id)) {
+        managers.push({ id: user.id, name: user.name });
+      }
+      const uniqueManagers = [...new Map(managers.map(manager => [manager.id, manager])).values()];
+      setProjectManagers(uniqueManagers);
+    }).catch(() => { });
+  }, [user]);
+
+  useEffect(() => {
+    if (!pmInitialized && user?.id) {
+      const isPM = user?.jobRoleCode === 'PM' || projectManagers.some(m => m.id === user.id);
+      if (isPM) {
+        setFilters(current => ({ ...current, projectManagerId: user.id }));
+      }
+      if (projectManagers.length > 0 || user?.jobRoleCode === 'PM') {
+        setPmInitialized(true);
+      }
+    }
+  }, [user, projectManagers, pmInitialized]);
 
   useEffect(() => {
     const timer = setTimeout(fetchReports, 300);
@@ -213,11 +249,12 @@ const AdminWorkingReports = () => {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-[1fr_180px_180px_180px] mb-4">
+      <div className="grid gap-3 md:grid-cols-[1fr_200px_160px_160px_160px] mb-4">
         <div className="relative">
           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-surface-500" />
           <input value={filters.search} onChange={e => updateFilter('search', e.target.value)} placeholder="Cari nama atau email..." className="input-dark pl-11 text-sm" />
         </div>
+        <AppSelect value={filters.projectManagerId} onChange={value => updateFilter('projectManagerId', value)} options={pmOptions} placeholder="Pilih Project Manager" />
         <AppSelect value={filters.month} onChange={value => updateFilter('month', value)} options={monthOptions} />
         <AppSelect value={filters.year} onChange={value => updateFilter('year', value)} options={years} />
         <AppSelect value={filters.status} onChange={value => updateFilter('status', value)} options={statuses} />
