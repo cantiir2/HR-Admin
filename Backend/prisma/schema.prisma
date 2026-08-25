@@ -208,17 +208,18 @@ model UserJobHistory {
 }
 
 model UserContract {
-  id             String         @id @default(uuid())
-  userId         String
-  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  contractNumber String         @unique
-  vendor         String
-  startDate      DateTime       @db.Date
-  endDate        DateTime       @db.Date
-  contractValue  Decimal        @db.Decimal(18, 2)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  leaveRequests  LeaveRequest[]
+  id               String         @id @default(uuid())
+  userId           String
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contractNumber   String         @unique
+  vendor           String
+  startDate        DateTime       @db.Date
+  endDate          DateTime       @db.Date
+  contractValue    Decimal        @db.Decimal(18, 2)
+  annualLeaveQuota Int            @default(12)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  leaveRequests    LeaveRequest[]
 
   @@index([userId])
   @@map("tb_m_user_contract")

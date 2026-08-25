@@ -120,29 +120,64 @@ async function generateWorkingReport(userId, month, year, prisma) {
     if (roleMaster) user.jobRoleName = roleMaster.name;
   }
 
-  console.log("user", user);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const startDate = new Date(Date.UTC(year, month - 1, 1));
+  const endDate = new Date(Date.UTC(year, month, 1));
+  const endOfMonthDate = new Date(Date.UTC(year, month - 1, daysInMonth, 23, 59, 59, 999));
 
-  // Find Customer / Project Name
-  let customer = '';
-  let customerName = '';
-  let projectName = '';
-  let location = '';
-  let woNumber = '';
-  let projectManagerName = '';
-  let projectManagerPhoto = '';
+  // Find all active projects for this user in the period
+  let activeProjects = [];
+  try {
+    const memberships = await prisma.projectMember.findMany({
+      where: {
+        userId,
+        OR: [
+          {
+            project: {
+              contractStart: { lte: endOfMonthDate },
+              contractEnd: { gte: startDate },
+              status: { notIn: ['cancelled', 'Cancelled', 'CANCELLED'] }
+            }
+          },
+          {
+            project: {
+              status: { in: ['active', 'Active', 'ACTIVE'] }
+            }
+          }
+        ]
+      },
+      include: {
+        project: {
+          include: {
+            projectManager: { select: { id: true, name: true, email: true } }
+          }
+        }
+      },
+      orderBy: { project: { contractStart: 'asc' } }
+    });
 
-  if (user.projects && user.projects.length > 0) {
-    const activeProject = user.projects[0].project;
-    console.log("active project", activeProject);
-    projectName = activeProject.name || '';
-    customer = activeProject.customer || '';
-    customerName = activeProject.customerName || '';
-    location = activeProject.location || '';
-    woNumber = activeProject.woNumber || '';
-    if (activeProject.projectManager) {
-      projectManagerName = activeProject.projectManager.name || '';
+    if (memberships.length > 0) {
+      activeProjects = memberships.map(m => m.project);
+    } else if (user.projects && user.projects.length > 0) {
+      activeProjects = user.projects.map(p => p.project);
+    }
+  } catch (e) {
+    if (user.projects && user.projects.length > 0) {
+      activeProjects = user.projects.map(p => p.project);
     }
   }
+
+  const uniqueProjects = [...new Map(activeProjects.map(p => [p.id || p.name, p])).values()];
+
+  const projectNames = uniqueProjects.map(p => p.name?.trim()).filter(Boolean);
+  const customerNames = [...new Set(uniqueProjects.map(p => p.customer?.trim()).filter(Boolean))];
+  const woNumbers = [...new Set(uniqueProjects.map(p => p.woNumber?.trim()).filter(Boolean))];
+  const pmNames = [...new Set(uniqueProjects.map(p => p.projectManager?.name?.trim()).filter(Boolean))];
+
+  const projectName = projectNames.join(', ');
+  const customer = customerNames.join(', ');
+  const woNumber = woNumbers.join(', ');
+  const projectManagerName = pmNames.join(', ');
 
   // Get Break Time
   const breakTimeConfig = await prisma.systemMaster.findFirst({
@@ -157,14 +192,6 @@ async function generateWorkingReport(userId, month, year, prisma) {
   });
   const otBreakStr = otBreakTimeConfig ? otBreakTimeConfig.code : '00:30';
   const overtimeBreakMinutes = parseTimeToMinutes(otBreakStr);
-
-  const daysInMonth = new Date(year, month, 0).getDate();
-
-  // Get Attendance Data
-  // Convert month/year to local range (since dates are saved as db.Date which might be 00:00 UTC)
-  const startDate = new Date(Date.UTC(year, month - 1, 1));
-  const endDate = new Date(Date.UTC(year, month, 1));
-  const endOfMonthDate = new Date(Date.UTC(year, month - 1, daysInMonth));
 
   const attendances = await prisma.attendance.findMany({
     where: {
@@ -267,8 +294,6 @@ async function generateWorkingReport(userId, month, year, prisma) {
   sheet.mergeCells('F3:G3');
   sheet.getCell('F3').value = 'Customer';
   sheet.getCell('H3').value = customer;
-  sheet.getCell('F4').value = 'Customer PIC';
-  sheet.getCell('H4').value = customerName;
 
   sheet.mergeCells('F4:G4');
   sheet.getCell('F4').value = 'Project Name';

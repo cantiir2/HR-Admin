@@ -35,7 +35,7 @@ const UserManagement = () => {
   const [statusClasses, setStatusClasses] = useState({});
   const pageSizeRef = useRef(10);
   const [jobHistoryForm, setJobHistoryForm] = useState({ id: '', companyName: '', jobTitle: '', description: '', startDate: '', endDate: '', isPresent: false });
-  const [contractHistoryForm, setContractHistoryForm] = useState({ id: '', contractNumber: '', vendor: '', startDate: '', endDate: '', contractValue: '' });
+  const [contractHistoryForm, setContractHistoryForm] = useState({ id: '', contractNumber: '', vendor: '', startDate: '', endDate: '', contractValue: '', annualLeaveQuota: 12 });
   const [form, setForm] = useState({
     name: '', email: '', password: '', roleId: '4', role: 'MEMBER', jobRoleCode: '',
   });
@@ -274,7 +274,7 @@ const UserManagement = () => {
     try {
       const path = `/api/users/${detailUser.id}/contracts${contractHistoryForm.id ? `/${contractHistoryForm.id}` : ''}`;
       await (contractHistoryForm.id ? api.put(path, contractHistoryForm) : api.post(path, contractHistoryForm));
-      setContractHistoryForm({ id: '', contractNumber: '', vendor: '', startDate: '', endDate: '', contractValue: '' });
+      setContractHistoryForm({ id: '', contractNumber: '', vendor: '', startDate: '', endDate: '', contractValue: '', annualLeaveQuota: 12 });
       await refreshDetail();
       showToast({ type: 'success', title: 'Berhasil', message: 'History kontrak berhasil disimpan' });
     } catch (err) { showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Gagal menyimpan kontrak' }); }
@@ -697,6 +697,20 @@ const UserManagement = () => {
                         />
                       </div>
                       <div>
+                        <label className="block text-xs text-surface-400 mb-1">Jatah Cuti (Hari)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          className="input-dark text-sm"
+                          placeholder="12"
+                          value={contractHistoryForm.annualLeaveQuota !== undefined ? contractHistoryForm.annualLeaveQuota : ''}
+                          onChange={e => setContractHistoryForm({
+                            ...contractHistoryForm,
+                            annualLeaveQuota: e.target.value === '' ? '' : parseInt(e.target.value, 10)
+                          })}
+                        />
+                      </div>
+                      <div>
                         <label className="block text-xs text-surface-400 mb-1">Tanggal Mulai *</label>
                         <input type="date" className="input-dark text-sm" value={contractHistoryForm.startDate} onChange={e => setContractHistoryForm({ ...contractHistoryForm, startDate: e.target.value })} />
                       </div>
@@ -708,7 +722,7 @@ const UserManagement = () => {
                     <div className="flex flex-wrap gap-2">
                       <button type="button" onClick={saveContractHistory} className="btn-primary text-sm">{contractHistoryForm.id ? 'Update Kontrak' : 'Tambah Kontrak'}</button>
                       {contractHistoryForm.id && (
-                        <button type="button" onClick={() => setContractHistoryForm({ id: '', contractNumber: '', vendor: '', startDate: '', endDate: '', contractValue: '' })} className="btn-ghost text-sm">Batal Edit</button>
+                        <button type="button" onClick={() => setContractHistoryForm({ id: '', contractNumber: '', vendor: '', startDate: '', endDate: '', contractValue: '', annualLeaveQuota: 12 })} className="btn-ghost text-sm">Batal Edit</button>
                       )}
                     </div>
                   </div>
@@ -719,6 +733,8 @@ const UserManagement = () => {
                         <tr className="text-xs uppercase text-surface-400">
                           <th className="px-3 py-2">Kontrak</th>
                           <th className="px-3 py-2 text-right">Nilai</th>
+                          <th className="px-3 py-2 text-center">Jatah Cuti</th>
+                          <th className="px-3 py-2 text-center">Sisa Cuti</th>
                           <th className="px-3 py-2 text-right">Aksi</th>
                         </tr>
                       </thead>
@@ -731,8 +747,26 @@ const UserManagement = () => {
                               <div className="text-xs text-surface-400">{formatDateLong(item.startDate)} - {formatDateLong(item.endDate)}</div>
                             </td>
                             <td className="px-3 py-2 text-white text-right align-top">{formatRupiah(item.contractValue)}</td>
+                            <td className="px-3 py-2 text-center align-top text-white">
+                              <span className="font-semibold">{item.annualLeaveQuota ?? 12}</span> hari
+                            </td>
+                            <td className="px-3 py-2 text-center align-top">
+                              {item.leaveBalance ? (
+                                <span className={`text-xs font-semibold px-2 py-0.5 rounded ${item.leaveBalance.remainingLeaveDays <= 0 ? 'bg-rose-500/10 text-rose-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                                  {item.leaveBalance.remainingLeaveDays} hari
+                                </span>
+                              ) : (
+                                <span className="text-xs text-surface-500">-</span>
+                              )}
+                            </td>
                             <td className="px-3 py-2 text-right align-top whitespace-nowrap">
-                              <button onClick={() => setContractHistoryForm({ ...item, startDate: item.startDate.split('T')[0], endDate: item.endDate.split('T')[0], contractValue: String(item.contractValue) })} className="p-1.5 text-brand-400" title="Edit"><Pencil size={14} /></button>
+                              <button onClick={() => setContractHistoryForm({
+                                ...item,
+                                startDate: item.startDate.split('T')[0],
+                                endDate: item.endDate.split('T')[0],
+                                contractValue: String(item.contractValue),
+                                annualLeaveQuota: item.annualLeaveQuota !== undefined ? item.annualLeaveQuota : 12
+                              })} className="p-1.5 text-brand-400" title="Edit"><Pencil size={14} /></button>
                               <button onClick={() => deleteDetailRow('contracts', item.id)} className="p-1.5 text-rose-400" title="Delete"><Trash2 size={14} /></button>
                             </td>
                           </tr>

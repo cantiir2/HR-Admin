@@ -9,6 +9,7 @@ vendor text not null,
 "startDate" date not null,
 "endDate" date not null,
 "contractValue" numeric(18, 2) not null,
+"annualLeaveQuota" integer default 12 not null,
 "createdAt" timestamp(3) default CURRENT_TIMESTAMP not null,
 "updatedAt" timestamp(3) not null,
 constraint tb_m_user_contract_pkey primary key (id));

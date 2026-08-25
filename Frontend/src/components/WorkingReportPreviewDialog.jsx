@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { FileText, Loader2, X } from 'lucide-react';
+import { FileText, Loader2, MessageSquare, X } from 'lucide-react';
 import { format } from 'date-fns';
 import api from '../lib/api';
 import SortableHeader from './SortableHeader';
 import Pagination from './Pagination';
 import useTableSort from '../hooks/useTableSort';
 
-const WorkingReportPreviewDialog = ({ open, onClose, reportData }) => {
+const WorkingReportPreviewDialog = ({ open, onClose, reportData, onEditComment }) => {
   const [detail, setDetail] = useState({ report: null, attendances: [] });
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState({ pageNo: 1, pageSize: 10, totalPages: 1 });
@@ -37,6 +37,9 @@ const WorkingReportPreviewDialog = ({ open, onClose, reportData }) => {
 
   if (!open) return null;
 
+  const currentReport = detail.report || reportData;
+  const currentComment = detail.report?.rejectionReason || reportData?.rejectionReason;
+
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
       <div className="w-full max-w-4xl max-h-[90vh] flex flex-col glass-card-light animate-scale-in overflow-hidden">
@@ -56,6 +59,35 @@ const WorkingReportPreviewDialog = ({ open, onClose, reportData }) => {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
+          {currentComment ? (
+            <div className="mb-4 p-3 rounded-xl bg-surface-800/80 border border-white/10 text-sm flex items-start justify-between gap-3">
+              <div>
+                <span className="font-semibold text-white">Catatan / Alasan: </span>
+                <span className="text-surface-300">{currentComment}</span>
+              </div>
+              {onEditComment && currentReport && (
+                <button
+                  type="button"
+                  onClick={() => onEditComment(currentReport)}
+                  className="badge-warning text-xs inline-flex items-center gap-1 shrink-0"
+                >
+                  <MessageSquare size={12} />
+                  Edit Catatan
+                </button>
+              )}
+            </div>
+          ) : onEditComment && currentReport ? (
+            <div className="mb-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => onEditComment(currentReport)}
+                className="badge-warning text-xs inline-flex items-center gap-1"
+              >
+                <MessageSquare size={12} />
+                + Tambah Catatan
+              </button>
+            </div>
+          ) : null}
           <div className="glass-card overflow-hidden">
             {loading ? (
               <div className="py-14 flex items-center justify-center">

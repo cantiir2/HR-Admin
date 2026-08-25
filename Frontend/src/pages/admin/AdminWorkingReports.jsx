@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Download, Eye, Loader2, RefreshCw, Search, X } from 'lucide-react';
+import { Check, Download, Eye, Loader2, MessageSquare, RefreshCw, Search, X } from 'lucide-react';
 import api from '../../lib/api';
 import AppSelect from '../../components/AppSelect';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import Pagination from '../../components/Pagination';
 import SortableHeader from '../../components/SortableHeader';
 import useTableSort from '../../hooks/useTableSort';
@@ -53,6 +54,16 @@ const AdminWorkingReports = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [previewReport, setPreviewReport] = useState(null);
   const [monthOptions, setMonthOptions] = useState([]);
+  const [confirmModal, setConfirmModal] = useState({
+    open: false,
+    type: null,
+    report: null,
+    comment: '',
+    title: '',
+    message: '',
+    confirmLabel: '',
+    tone: 'brand'
+  });
   const { showToast } = useToast();
 
   const { sortBy, sortOrder, handleSort } = useTableSort('user.name', 'asc');
@@ -140,22 +151,88 @@ const AdminWorkingReports = () => {
     setPage(current => ({ ...current, pageNo: 1 }));
   };
 
-  const approveReport = async (id) => {
-    setActionLoading(true);
-    await api.put(`/api/working-reports/${id}/approve`);
-    showToast({ type: 'success', title: 'Berhasil', message: 'Working Report berhasil diapprove' });
-    setActionLoading(false);
-    fetchReports();
+  const handleOpenApprove = (report) => {
+    setConfirmModal({
+      open: true,
+      type: 'approve',
+      report,
+      comment: '',
+      title: 'Approve Working Report',
+      message: `Apakah Anda yakin ingin menyetujui Working Report untuk ${report.user?.name} periode ${String(report.month).padStart(2, '0')}/${report.year}?`,
+      confirmLabel: 'Approve',
+      tone: 'success'
+    });
   };
 
-  const rejectReport = async (id) => {
-    const rejectionReason = window.prompt('Masukkan alasan reject');
-    if (!rejectionReason) return;
-    setActionLoading(true);
-    await api.put(`/api/working-reports/${id}/reject`, { rejectionReason });
-    showToast({ type: 'success', title: 'Berhasil', message: 'Working Report berhasil direject' });
-    setActionLoading(false);
-    fetchReports();
+  const handleOpenReject = (report) => {
+    setConfirmModal({
+      open: true,
+      type: 'reject',
+      report,
+      comment: '',
+      title: 'Reject Working Report',
+      message: `Masukkan alasan penolakan Working Report untuk ${report.user?.name} periode ${String(report.month).padStart(2, '0')}/${report.year}:`,
+      confirmLabel: 'Reject',
+      tone: 'danger'
+    });
+  };
+
+  const handleOpenEditComment = (report) => {
+    setConfirmModal({
+      open: true,
+      type: 'edit-comment',
+      report,
+      comment: report.rejectionReason || '',
+      title: 'Edit Catatan Working Report',
+      message: `Perbarui catatan / alasan untuk ${report.user?.name} periode ${String(report.month).padStart(2, '0')}/${report.year}:`,
+      confirmLabel: 'Simpan',
+      tone: 'brand'
+    });
+  };
+
+  const handleConfirmAction = async () => {
+    const { type, report, comment } = confirmModal;
+    if (!report) return;
+
+    if (type === 'reject' && !comment.trim()) {
+      showToast({ type: 'error', title: 'Validasi Gagal', message: 'Alasan reject wajib diisi' });
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      if (type === 'approve') {
+        await api.put(`/api/working-reports/${report.id}/approve`, { comment: comment.trim() || undefined });
+        showToast({ type: 'success', title: 'Berhasil', message: 'Working Report berhasil diapprove' });
+      } else if (type === 'reject') {
+        await api.put(`/api/working-reports/${report.id}/reject`, { rejectionReason: comment.trim() });
+        showToast({ type: 'success', title: 'Berhasil', message: 'Working Report berhasil direject' });
+      } else if (type === 'edit-comment') {
+        await api.put(`/api/working-reports/${report.id}/comment`, { comment: comment.trim() });
+        showToast({ type: 'success', title: 'Berhasil', message: 'Catatan Working Report berhasil diperbarui' });
+      }
+
+      setConfirmModal({
+        open: false,
+        type: null,
+        report: null,
+        comment: '',
+        title: '',
+        message: '',
+        confirmLabel: '',
+        tone: 'brand'
+      });
+      fetchReports();
+    } catch (err) {
+      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Aksi gagal diproses' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCloseConfirmModal = () => {
+    if (actionLoading) return;
+    setConfirmModal(prev => ({ ...prev, open: false }));
   };
 
   const exportReport = async (report) => {
@@ -270,6 +347,7 @@ const AdminWorkingReports = () => {
                 <SortableHeader label="Deadline" field="deadlineDate" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
                 <SortableHeader label="Status" field="status" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
                 <SortableHeader label="Late" field="lateDays" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
+                <SortableHeader label="Catatan" />
                 <SortableHeader label="Aksi" />
               </tr>
             </thead>
@@ -286,16 +364,28 @@ const AdminWorkingReports = () => {
                     <td className="px-4 py-3 text-sm text-surface-400">{formatDeadlineDate(report.deadlineDate)}</td>
                     <td className="px-4 py-3"><span className={statusClass[displayStatus] || 'badge-info'}>{displayStatus}</span></td>
                     <td className="px-4 py-3 text-sm text-surface-400">{report.isLate ? `${report.lateDays} hari` : '-'}</td>
+                    <td className="px-4 py-3 text-sm text-surface-400 max-w-[200px] truncate" title={report.rejectionReason || '-'}>
+                      {report.rejectionReason || '-'}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
                         <button type="button" onClick={() => setPreviewReport(report)} className="btn-ghost text-xs inline-flex items-center gap-1 text-brand-500 hover:text-brand-400"><Eye size={14} />View</button>
                         <button type="button" onClick={() => exportReport(report)} className="btn-ghost text-xs inline-flex items-center gap-1"><Download size={14} />Export</button>
                         {displayStatus === 'SUBMITTED' && (
                           <>
-                            <button type="button" onClick={() => approveReport(report.id)} className="badge-success"><Check size={13} />Approve</button>
-                            <button type="button" onClick={() => rejectReport(report.id)} className="badge-danger"><X size={13} />Reject</button>
+                            <button type="button" onClick={() => handleOpenApprove(report)} disabled={actionLoading} className="badge-success"><Check size={13} />Approve</button>
+                            <button type="button" onClick={() => handleOpenReject(report)} disabled={actionLoading} className="badge-danger"><X size={13} />Reject</button>
                           </>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditComment(report)}
+                          disabled={actionLoading}
+                          className="badge-warning inline-flex items-center gap-1"
+                        >
+                          <MessageSquare size={13} />
+                          Edit Catatan
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -312,10 +402,52 @@ const AdminWorkingReports = () => {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmModal.open}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmLabel={confirmModal.confirmLabel}
+        tone={confirmModal.tone}
+        loading={actionLoading}
+        onConfirm={handleConfirmAction}
+        onCancel={handleCloseConfirmModal}
+      >
+        {(confirmModal.type === 'reject' || confirmModal.type === 'edit-comment' || confirmModal.type === 'approve') && (
+          <div className="mt-3">
+            <label className="block text-xs font-medium text-surface-300 mb-1.5">
+              {confirmModal.type === 'reject'
+                ? 'Alasan Penolakan'
+                : confirmModal.type === 'approve'
+                ? 'Catatan Approval (Opsional)'
+                : 'Catatan / Alasan'}
+              {confirmModal.type === 'reject' && <span className="text-rose-400 ml-1">*</span>}
+            </label>
+            <textarea
+              value={confirmModal.comment}
+              onChange={(e) => setConfirmModal(prev => ({ ...prev, comment: e.target.value }))}
+              placeholder={
+                confirmModal.type === 'reject'
+                  ? 'Masukkan alasan reject...'
+                  : confirmModal.type === 'approve'
+                  ? 'Masukkan catatan approval jika ada (opsional)...'
+                  : 'Masukkan catatan...'
+              }
+              rows={3}
+              className="input-dark w-full text-sm resize-none"
+              autoFocus
+            />
+          </div>
+        )}
+      </ConfirmDialog>
+
       <WorkingReportPreviewDialog
         open={!!previewReport}
         reportData={previewReport}
         onClose={() => setPreviewReport(null)}
+        onEditComment={(report) => {
+          handleOpenEditComment(report);
+        }}
       />
     </div>
   );

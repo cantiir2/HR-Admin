@@ -11,6 +11,7 @@ const {
   listWorkingReports,
   approveWorkingReport,
   rejectWorkingReport,
+  updateWorkingReportComment,
   generateWorkingReportReminders,
   generateWorkingReportLateStatus,
   validateMonthYear
@@ -99,7 +100,7 @@ module.exports = (prisma) => {
 
   router.put('/:id/approve', authenticateToken, authenticateAdmin, async (req, res) => {
     try {
-      const result = await approveWorkingReport(prisma, req.params.id, req.user.id);
+      const result = await approveWorkingReport(prisma, req.params.id, req.user.id, req.body?.comment || req.body?.rejectionReason);
       if (result.error) return res.status(400).json({ error: result.error });
       res.json({ message: 'Working Report berhasil diapprove', report: result.report });
     } catch (error) {
@@ -110,9 +111,21 @@ module.exports = (prisma) => {
 
   router.put('/:id/reject', authenticateToken, authenticateAdmin, async (req, res) => {
     try {
-      const result = await rejectWorkingReport(prisma, req.params.id, req.user.id, req.body.rejectionReason);
+      const result = await rejectWorkingReport(prisma, req.params.id, req.user.id, req.body?.rejectionReason || req.body?.comment);
       if (result.error) return res.status(400).json({ error: result.error });
       res.json({ message: 'Working Report berhasil direject', report: result.report });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
+
+  router.put('/:id/comment', authenticateToken, authenticateAdmin, async (req, res) => {
+    try {
+      const comment = req.body?.comment !== undefined ? req.body.comment : req.body?.rejectionReason;
+      const result = await updateWorkingReportComment(prisma, req.params.id, comment);
+      if (result.error) return res.status(400).json({ error: result.error });
+      res.json({ message: 'Catatan Working Report berhasil diperbarui', report: result.report });
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Server error' });

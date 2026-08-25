@@ -7,6 +7,7 @@ const { authenticateToken, authenticateAdmin } = require('../middleware/auth');
 const { encryptText, decryptText, maskSensitiveNumber } = require('../utils/encryption');
 const { calculateBase64FileSize, validateBase64File } = require('../utils/fileValidation');
 const { buildOrderBy } = require('../utils/sorting');
+const { getLeaveBalance } = require('../services/leaveService');
 const { log } = require('console');
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -803,12 +804,28 @@ module.exports = (prisma) => {
 
       if (!user) return res.status(404).json({ error: 'User tidak ditemukan' });
 
+      const contractsWithBalance = await Promise.all(
+        (user.contracts || []).map(async (contract) => {
+          const balance = await getLeaveBalance(prisma, user.id, contract.id);
+          return {
+            ...contract,
+            annualLeaveQuota: contract.annualLeaveQuota ?? 12,
+            leaveBalance: {
+              entitlementDays: balance.entitlementDays,
+              usedLeaveDays: balance.usedLeaveDays,
+              remainingLeaveDays: balance.remainingLeaveDays
+            }
+          };
+        })
+      );
+
       const ktpNumber = decryptSafe(user.ktpNumberEncrypted);
       const kkNumber = decryptSafe(user.kkNumberEncrypted);
       const { passwordHash, ktpNumberEncrypted, kkNumberEncrypted, cvFile, ...safeUser } = user;
 
       res.json({
         ...safeUser,
+        contracts: contractsWithBalance,
         ktpNumber,
         kkNumber,
         ktpNumberMasked: maskSensitiveNumber(ktpNumber),
@@ -1343,7 +1360,7 @@ async function updateJobHistory(prisma, userId, id, req, res) {
 }
 
 function validateContract(payload) {
-  const { vendor, startDate, endDate, contractValue } = payload;
+  const { vendor, startDate, endDate, contractValue, annualLeaveQuota } = payload;
   if (!String(vendor || '').trim()) return 'Vendor wajib diisi';
   const periodError = validatePeriod(startDate, endDate);
   if (periodError) return periodError;
@@ -1352,6 +1369,12 @@ function validateContract(payload) {
     !Number.isFinite(Number(contractValue)) || Number(contractValue) < 0) {
     return 'Nilai kontrak harus numerik dan minimal 0';
   }
+  if (annualLeaveQuota !== undefined && annualLeaveQuota !== null && annualLeaveQuota !== '') {
+    const quotaNum = Number(annualLeaveQuota);
+    if (!Number.isInteger(quotaNum) || quotaNum < 0) {
+      return 'Jatah cuti tahunan harus berupa bilangan bulat positif atau 0';
+    }
+  }
   return null;
 }
 
@@ -1359,14 +1382,20 @@ async function createContract(prisma, userId, req, res) {
   try {
     const error = validateContract(req.body);
     if (error) return res.status(400).json({ error });
-    const { vendor, startDate, endDate, contractValue } = req.body;
+    const { vendor, startDate, endDate, contractValue, annualLeaveQuota } = req.body;
     const contractNumber = req.body.contractNumber
       ? await acceptGeneratedContractNumber(prisma, req.body.contractNumber)
       : await generateContractNumber(prisma);
+    
+    const quota = (annualLeaveQuota !== undefined && annualLeaveQuota !== null && annualLeaveQuota !== '')
+      ? Number(annualLeaveQuota)
+      : 12;
+
     const contract = await prisma.userContract.create({
       data: {
         userId, contractNumber, vendor: vendor.trim(),
-        startDate: new Date(startDate), endDate: new Date(endDate), contractValue: String(contractValue)
+        startDate: new Date(startDate), endDate: new Date(endDate), contractValue: String(contractValue),
+        annualLeaveQuota: quota
       }
     });
     res.status(201).json({ message: 'Kontrak berhasil ditambahkan', contract });
@@ -1382,13 +1411,19 @@ async function updateContract(prisma, userId, id, req, res) {
     if (!existing) return res.status(404).json({ error: 'Kontrak tidak ditemukan' });
     const validationError = validateContract(req.body);
     if (validationError) return res.status(400).json({ error: validationError });
-    const { vendor, startDate, endDate, contractValue } = req.body;
+    const { vendor, startDate, endDate, contractValue, annualLeaveQuota } = req.body;
+    const updateData = {
+      vendor: vendor.trim(),
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
+      contractValue: String(contractValue)
+    };
+    if (annualLeaveQuota !== undefined && annualLeaveQuota !== null && annualLeaveQuota !== '') {
+      updateData.annualLeaveQuota = Number(annualLeaveQuota);
+    }
     const contract = await prisma.userContract.update({
       where: { id },
-      data: {
-        vendor: vendor.trim(),
-        startDate: new Date(startDate), endDate: new Date(endDate), contractValue: String(contractValue)
-      }
+      data: updateData
     });
     res.json({ message: 'Kontrak berhasil diperbarui', contract });
   } catch (error) {
@@ -1520,47 +1555,29 @@ async function getCurrentUserContract(prisma, userId) {
       }
     }
 
-    if (activeContract) {
-      return {
-        contractNumber: activeContract.contractNumber,
-        vendor: activeContract.vendor,
-        contractStart: activeContract.startDate,
-        contractEnd: activeContract.endDate,
-        contractValue: activeContract.contractValue,
-        contractStatus: activeContract.contractStatus,
-        isExpired: activeContract.isExpired,
-        isExpiringSoon: activeContract.isExpiringSoon,
-        remainingDays: activeContract.remainingDays
-      };
-    }
+    const selectedContract = activeContract ||
+      (upcomingContracts.length > 0 ? upcomingContracts.sort((a, b) => new Date(a.startDate) - new Date(b.startDate))[0] : null) ||
+      expiredContract;
 
-    if (upcomingContracts.length > 0) {
-      upcomingContracts.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
-      upcomingContract = upcomingContracts[0];
+    if (selectedContract) {
+      const balance = await getLeaveBalance(prisma, userId, selectedContract.id);
       return {
-        contractNumber: upcomingContract.contractNumber,
-        vendor: upcomingContract.vendor,
-        contractStart: upcomingContract.startDate,
-        contractEnd: upcomingContract.endDate,
-        contractValue: upcomingContract.contractValue,
-        contractStatus: upcomingContract.contractStatus,
-        isExpired: upcomingContract.isExpired,
-        isExpiringSoon: upcomingContract.isExpiringSoon,
-        remainingDays: upcomingContract.remainingDays
-      };
-    }
-
-    if (expiredContract) {
-      return {
-        contractNumber: expiredContract.contractNumber,
-        vendor: expiredContract.vendor,
-        contractStart: expiredContract.startDate,
-        contractEnd: expiredContract.endDate,
-        contractValue: expiredContract.contractValue,
-        contractStatus: expiredContract.contractStatus,
-        isExpired: expiredContract.isExpired,
-        isExpiringSoon: expiredContract.isExpiringSoon,
-        remainingDays: expiredContract.remainingDays
+        contractId: selectedContract.id,
+        contractNumber: selectedContract.contractNumber,
+        vendor: selectedContract.vendor,
+        contractStart: selectedContract.startDate,
+        contractEnd: selectedContract.endDate,
+        contractValue: selectedContract.contractValue,
+        annualLeaveQuota: selectedContract.annualLeaveQuota ?? 12,
+        leaveBalance: {
+          entitlementDays: balance.entitlementDays,
+          usedLeaveDays: balance.usedLeaveDays,
+          remainingLeaveDays: balance.remainingLeaveDays
+        },
+        contractStatus: selectedContract.contractStatus,
+        isExpired: selectedContract.isExpired,
+        isExpiringSoon: selectedContract.isExpiringSoon,
+        remainingDays: selectedContract.remainingDays
       };
     }
   }
@@ -1573,6 +1590,8 @@ async function getCurrentUserContract(prisma, userId) {
       contractStart: user.contractStart,
       contractEnd: user.contractEnd,
       contractValue: null,
+      annualLeaveQuota: 12,
+      leaveBalance: null,
       ...statusObj
     };
   }
@@ -1584,6 +1603,8 @@ async function getCurrentUserContract(prisma, userId) {
     contractNumber: null,
     vendor: null,
     contractValue: null,
+    annualLeaveQuota: 0,
+    leaveBalance: null,
     isExpired: false,
     isExpiringSoon: false,
     remainingDays: null

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { format as formatDate } from 'date-fns';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import api from '../lib/api';
 import { ArrowLeft, Plus, Calendar as CalendarIcon, LayoutDashboard, Clock, X, Pencil, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
@@ -13,6 +13,7 @@ import getDay from 'date-fns/getDay';
 import idLocale from 'date-fns/locale/id';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { useAuth } from '../context/AuthContext';
+import { usePermission } from '../hooks/usePermission';
 import AppSelect from '../components/AppSelect';
 import { useToast } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
@@ -128,7 +129,9 @@ const isRangeOverlappingMonth = (start, end, monthStart, monthEnd) => (
 
 const ProjectDetail = () => {
   const { id } = useParams();
+  const location = useLocation();
   const { user } = useAuth();
+  const { canAccess } = usePermission();
   const [project, setProject] = useState(null);
   const [activeTab, setActiveTab] = useState('board'); // 'board' or 'calendar'
   const [calendarMode, setCalendarMode] = useState('month');
@@ -386,7 +389,8 @@ const ProjectDetail = () => {
     });
   });
 
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdminRoute = location.pathname.startsWith('/admin');
+  const isAdmin = isAdminRoute || canAccess({ action: 'create', apiUrl: `/api/projects/${id}/milestones` }) || user?.role === 'System Administrator' || user?.roles?.includes('System Administrator') || user?.role === 'Project Manager';
   const totalWeeks = getTotalWeeks(project.contractStart, project.contractEnd);
 
   const weeks = Array.from({ length: totalWeeks }, (_, index) => {
@@ -440,7 +444,7 @@ const ProjectDetail = () => {
       <div className="p-8 text-center glass-card max-w-md mx-auto mt-20">
         <h3 className="text-lg font-bold text-rose-400 mb-2">Akses Ditolak</h3>
         <p className="text-sm text-surface-400 mb-4">{error}</p>
-        <Link to={isAdmin ? "/admin/projects" : "/member/projects"} className="btn-primary text-xs inline-flex items-center gap-1">
+        <Link to={isAdminRoute ? "/admin/projects" : "/member/projects"} className="btn-primary text-xs inline-flex items-center gap-1">
           <ArrowLeft size={14} /> Kembali ke Daftar Project
         </Link>
       </div>
@@ -456,7 +460,7 @@ const ProjectDetail = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 shrink-0">
         <div>
-          <Link to={isAdmin ? "/admin/projects" : "/member/projects"} className="text-sm text-brand-400 hover:text-brand-300 flex items-center gap-1 mb-2">
+          <Link to={isAdminRoute ? "/admin/projects" : "/member/projects"} className="text-sm text-brand-400 hover:text-brand-300 flex items-center gap-1 mb-2">
             <ArrowLeft size={14} /> Kembali
           </Link>
           <h2 className="text-2xl font-bold text-white">{project.name}</h2>
