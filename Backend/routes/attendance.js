@@ -29,7 +29,7 @@ module.exports = (prisma) => {
     if (match) {
       return { ...match, inRange: true };
     }
-    return { name: 'Luar Area', location: '', inRange: false };
+    return { name: 'WFH', location: '', inRange: false };
   }
 
   function attachAreaStatus(attendance, geofences) {

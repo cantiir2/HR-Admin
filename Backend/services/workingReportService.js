@@ -4,6 +4,7 @@ const {
   getAdminRecipients
 } = require('./notificationService');
 const { validateSortParams, buildOrderBy } = require('../utils/sorting');
+const { getWorkingReportData } = require('./excelService');
 
 const REMINDER_DAYS = [7, 3, 1, 0];
 const MS_PER_DAY = 86400000;
@@ -254,6 +255,13 @@ async function getWorkingReportDetail(prisma, pageNoService, pageSizeService, us
     lateDays: 0
   });
 
+  let previewData = null;
+  try {
+    previewData = await getWorkingReportData(userId, period.month, period.year, prisma);
+  } catch (err) {
+    console.error('Failed to get working report preview data:', err);
+  }
+
   return {
     report: report ? buildWorkingReportResponse(report) : null,
     attendances,
@@ -263,7 +271,8 @@ async function getWorkingReportDetail(prisma, pageNoService, pageSizeService, us
     deadlineDate: state.deadlineDate,
     isLate: state.isLate,
     lateDays: state.lateDays,
-    computedStatus: state.computedStatus
+    computedStatus: state.computedStatus,
+    previewData
   };
 }
 
