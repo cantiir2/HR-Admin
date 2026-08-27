@@ -71,6 +71,9 @@ export default function AttendanceRequestManagement() {
   const [isDeclineModalOpen, setIsDeclineModalOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
+  const isSystemAdmin = user?.role === 'System Administrator' || user?.roles?.includes('System Administrator');
+
+
   const pmOptions = useMemo(() => {
     return [
       ['', 'Semua Project Manager'],
@@ -239,6 +242,7 @@ export default function AttendanceRequestManagement() {
             options={pmOptions}
             className="w-full"
             placeholder="Pilih Project Manager"
+            isDisabled={!isSystemAdmin}
           />
         </div>
         <div className="w-full md:w-48">

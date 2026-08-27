@@ -37,6 +37,7 @@ const ProjectManagement = () => {
   const { showToast } = useToast();
   const { confirm } = useConfirm();
 
+  const isSystemAdmin = user?.role === 'System Administrator';
 
   const pmOptions = useMemo(() => {
     return [
@@ -335,6 +336,7 @@ const ProjectManagement = () => {
               className="w-full"
               onChange={value => setFilters({ ...filters, projectManagerId: value })}
               options={pmOptions}
+              isDisabled={!isSystemAdmin}
             />
           </label>
 

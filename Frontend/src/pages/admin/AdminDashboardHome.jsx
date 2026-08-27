@@ -85,6 +85,8 @@ const AdminDashboardHome = () => {
   const [pendingTasks, setPendingTasks] = useState([]);
   const [pendingLoading, setPendingLoading] = useState(true);
 
+  const isSystemAdmin = user?.role === 'System Administrator';
+
   useEffect(() => {
     api.get('/api/projects').then(r => {
       const dataList = Array.isArray(r.data) ? r.data : (r.data?.data || []);
@@ -243,6 +245,7 @@ const AdminDashboardHome = () => {
           value={projectManagerId}
           onChange={value => { setProjectManagerId(value); setPageNo(1); }}
           options={[['', 'Semua Project Manager'], ...projectManagers.map(manager => [manager.id, manager.name])]}
+          isDisabled={!isSystemAdmin}
         />
       </div>
 

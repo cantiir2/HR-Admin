@@ -50,6 +50,8 @@ const LeaveManagement = () => {
   const [projectManagers, setProjectManagers] = useState([]);
   const [pmInitialized, setPmInitialized] = useState(false);
 
+  const isSystemAdmin = user?.role === 'System Administrator' || user?.roles?.includes('System Administrator');
+
   const pmOptions = useMemo(() => {
     return [
       ['', 'Semua Project Manager'],
@@ -216,7 +218,7 @@ const LeaveManagement = () => {
           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-surface-500" />
           <input value={filters.search} onChange={e => updateFilter('search', e.target.value)} placeholder="Cari nama atau email..." className="input-dark pl-11 text-sm" />
         </div>
-        <AppSelect value={filters.projectManagerId} onChange={value => updateFilter('projectManagerId', value)} options={pmOptions} placeholder="Pilih Project Manager" />
+        <AppSelect value={filters.projectManagerId} onChange={value => updateFilter('projectManagerId', value)} options={pmOptions} placeholder="Pilih Project Manager" isDisabled={!isSystemAdmin} />
         <AppSelect value={filters.status} onChange={value => updateFilter('status', value)} options={statuses} />
       </div>
 

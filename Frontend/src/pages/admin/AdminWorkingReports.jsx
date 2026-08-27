@@ -68,6 +68,8 @@ const AdminWorkingReports = () => {
 
   const { sortBy, sortOrder, handleSort } = useTableSort('user.name', 'asc');
 
+  const isSystemAdmin = user?.role === 'System Administrator';
+
   const years = useMemo(() => {
     const current = new Date().getFullYear();
     return [['', 'Semua Tahun'], ...Array.from({ length: 5 }, (_, index) => [current - index, String(current - index)])];
@@ -331,7 +333,7 @@ const AdminWorkingReports = () => {
           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-surface-500" />
           <input value={filters.search} onChange={e => updateFilter('search', e.target.value)} placeholder="Cari nama atau email..." className="input-dark pl-11 text-sm" />
         </div>
-        <AppSelect value={filters.projectManagerId} onChange={value => updateFilter('projectManagerId', value)} options={pmOptions} placeholder="Pilih Project Manager" />
+        <AppSelect value={filters.projectManagerId} onChange={value => updateFilter('projectManagerId', value)} options={pmOptions} placeholder="Pilih Project Manager" isDisabled={!isSystemAdmin} />
         <AppSelect value={filters.month} onChange={value => updateFilter('month', value)} options={monthOptions} />
         <AppSelect value={filters.year} onChange={value => updateFilter('year', value)} options={years} />
         <AppSelect value={filters.status} onChange={value => updateFilter('status', value)} options={statuses} />
@@ -419,8 +421,8 @@ const AdminWorkingReports = () => {
               {confirmModal.type === 'reject'
                 ? 'Alasan Penolakan'
                 : confirmModal.type === 'approve'
-                ? 'Catatan Approval (Opsional)'
-                : 'Catatan / Alasan'}
+                  ? 'Catatan Approval (Opsional)'
+                  : 'Catatan / Alasan'}
               {confirmModal.type === 'reject' && <span className="text-rose-400 ml-1">*</span>}
             </label>
             <textarea
@@ -430,8 +432,8 @@ const AdminWorkingReports = () => {
                 confirmModal.type === 'reject'
                   ? 'Masukkan alasan reject...'
                   : confirmModal.type === 'approve'
-                  ? 'Masukkan catatan approval jika ada (opsional)...'
-                  : 'Masukkan catatan...'
+                    ? 'Masukkan catatan approval jika ada (opsional)...'
+                    : 'Masukkan catatan...'
               }
               rows={3}
               className="input-dark w-full text-sm resize-none"

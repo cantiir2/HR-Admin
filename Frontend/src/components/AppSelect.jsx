@@ -13,9 +13,12 @@ const AppSelect = ({
   placeholder = 'Pilih...',
   className = '',
   isClearable = false,
-  required = false
+  required = false,
+  disabled = false,
+  isDisabled = false
 }) => {
   const { isDark } = useTheme();
+  const isSelectDisabled = disabled || isDisabled;
   const normalizedOptions = toOptions(options);
   const selected = normalizedOptions.find(option => String(option.value) === String(value)) || null;
   const colors = isDark
@@ -52,16 +55,21 @@ const AppSelect = ({
     control: (base, state) => ({
       ...base,
       minHeight: 46,
-      backgroundColor: state.isFocused ? colors.controlHover : colors.control,
-      borderColor: state.isFocused ? colors.borderFocus : colors.border,
+      backgroundColor: state.isDisabled
+        ? (isDark ? '#1a2234' : '#f1f5f9')
+        : (state.isFocused ? colors.controlHover : colors.control),
+      borderColor: state.isDisabled
+        ? (isDark ? 'rgba(255,255,255,0.05)' : '#e2e8f0')
+        : (state.isFocused ? colors.borderFocus : colors.border),
       borderRadius: isDark ? 12 : 8,
       boxShadow: state.isFocused ? colors.ring : 'none',
       color: colors.text,
-      cursor: 'pointer',
+      cursor: state.isDisabled ? 'not-allowed' : 'pointer',
+      opacity: state.isDisabled ? 0.6 : 1,
       transition: 'border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease',
       '&:hover': {
-        borderColor: colors.borderFocus,
-        backgroundColor: colors.controlHover
+        borderColor: state.isDisabled ? undefined : colors.borderFocus,
+        backgroundColor: state.isDisabled ? undefined : colors.controlHover
       }
     }),
     valueContainer: base => ({
@@ -145,6 +153,7 @@ const AppSelect = ({
         options={normalizedOptions}
         placeholder={placeholder}
         isClearable={isClearable}
+        isDisabled={isSelectDisabled}
         required={required}
         menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
         styles={selectStyles}
