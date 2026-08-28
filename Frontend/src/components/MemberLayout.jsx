@@ -102,9 +102,9 @@ const MemberLayout = () => {
         </div>
 
         <div className="hidden lg:flex absolute top-6 left-8 z-50 items-center gap-2">
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg bg-surface-800/50 hover:bg-surface-800 border border-white/[0.06] text-surface-400 hover:text-white transition-colors backdrop-blur-md">
+          {/* <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg bg-surface-800/50 hover:bg-surface-800 border border-white/[0.06] text-surface-400 hover:text-white transition-colors backdrop-blur-md">
             <Menu size={18} />
-          </button>
+          </button> */}
         </div>
 
         {/* Top Bar for Mobile */}

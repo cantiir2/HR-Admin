@@ -16,12 +16,18 @@ const NavItem = ({ item, setSidebarOpen }) => {
   const isChildActive = item.subItems?.some(sub => location.pathname === sub.to);
   const [isOpen, setIsOpen] = useState(isChildActive || false);
 
+  const handleNavClick = () => {
+    if (window.innerWidth < 1024 && typeof setSidebarOpen === 'function') {
+      setSidebarOpen(false);
+    }
+  };
+
   if (!item.subItems || item.subItems.length === 0) {
     return (
       <NavLink
         to={item.to || '#'}
         end={item.end !== undefined ? item.end : true}
-        onClick={() => setSidebarOpen(false)}
+        onClick={handleNavClick}
         className={({ isActive }) =>
           `flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${isActive
             ? 'gradient-brand text-white shadow-lg shadow-brand-500/20'
@@ -57,7 +63,7 @@ const NavItem = ({ item, setSidebarOpen }) => {
             <NavLink
               key={subItem.to}
               to={subItem.to}
-              onClick={() => setSidebarOpen(false)}
+              onClick={handleNavClick}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${isActive
                   ? 'gradient-brand text-white shadow-lg shadow-brand-500/20'

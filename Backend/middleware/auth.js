@@ -83,14 +83,13 @@ const authorizeApiAccess = (prisma) => {
         const methodMatch = feat.apiMethod === '*' || feat.apiMethod.toUpperCase() === method;
 
         let pattern = feat.apiUrl.trim();
-        const hasWildcard = pattern.endsWith('/*') || pattern.endsWith('*');
 
-        if (hasWildcard) {
-          const cleanPattern = pattern.endsWith('/*') ? pattern.slice(0, -2) : pattern.slice(0, -1);
-          const pathMatch = path === cleanPattern || path.startsWith(`${cleanPattern}/`);
-          return methodMatch && pathMatch;
+        if (pattern.includes('*')) {
+          const escapedPattern = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+          const regexString = '^' + escapedPattern.replace(/\*/g, '.*') + '$';
+          const regex = new RegExp(regexString);
+          return methodMatch && regex.test(path);
         } else {
-          // Exact match
           const cleanPattern = pattern.endsWith('/') ? pattern.slice(0, -1) : pattern;
           const cleanPath = path.endsWith('/') ? path.slice(0, -1) : path;
           return methodMatch && cleanPath === cleanPattern;

@@ -9,6 +9,7 @@ import useTableSort from '../../hooks/useTableSort';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 import WorkingReportPreviewDialog from '../../components/WorkingReportPreviewDialog';
+import PermissionControl from '../../components/PermissionControl';
 
 const statuses = [
   ['', 'Semua Status'],
@@ -308,14 +309,18 @@ const AdminWorkingReports = () => {
           <p className="text-sm text-surface-400">Monitoring, approval, reminder, dan export Working Report</p>
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={generateReminder} disabled={actionLoading} className="btn-ghost text-sm inline-flex items-center gap-2">
-            <RefreshCw size={16} />
-            Reminder
-          </button>
-          <button type="button" onClick={generateLate} disabled={actionLoading} className="btn-primary text-sm inline-flex items-center gap-2">
-            {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-            Late
-          </button>
+          <PermissionControl action="add" apiMethod="POST" apiUrl="/api/working-reports/generate-reminders">
+            <button type="button" onClick={generateReminder} disabled={actionLoading} className="btn-ghost text-sm inline-flex items-center gap-2">
+              <RefreshCw size={16} />
+              Reminder
+            </button>
+          </PermissionControl>
+          <PermissionControl action="add" apiMethod="POST" apiUrl="/api/working-reports/generate-late-status">
+            <button type="button" onClick={generateLate} disabled={actionLoading} className="btn-primary text-sm inline-flex items-center gap-2">
+              {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+              Late
+            </button>
+          </PermissionControl>
           <button
             type="button"
             onClick={exportZipReports}
