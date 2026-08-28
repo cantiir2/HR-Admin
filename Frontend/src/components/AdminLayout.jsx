@@ -102,11 +102,20 @@ const AdminLayout = () => {
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Top Bar */}
-        <header className="glass-card rounded-none border-x-0 border-t-0 px-4 lg:px-6 py-3 flex items-center justify-between gap-4 flex-shrink-0 z-50">
-          {/* <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg bg-white/[0.06] text-surface-400 hover:text-white transition-colors">
-            <Menu size={18} />
-          </button> */}
-          <div className="flex-1" />
+        <div className="hidden lg:flex absolute top-6 right-8 z-50 items-center gap-2">
+          <ThemeToggle />
+          <NotificationBell pagePath="/admin/notifications" />
+        </div>
+        <header className="lg:hidden glass-card rounded-none border-x-0 border-t-0 px-4 py-3 flex items-center justify-between gap-4 flex-shrink-0 z-50">
+          <div className="flex items-center gap-3">
+            <div className="flex-shrink-0 w-8 h-8 rounded-lg gradient-brand flex items-center justify-center shadow-lg shadow-brand-500/20">
+              <Fingerprint size={16} />
+            </div>
+            <h1 className="text-sm font-bold text-white leading-tight">
+              Project Resource Management System
+            </h1>
+          </div>
+
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <NotificationBell pagePath="/admin/notifications" />
