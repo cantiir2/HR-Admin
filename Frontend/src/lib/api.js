@@ -12,14 +12,17 @@ const api = axios.create({
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 || error.response?.status === 403) {
-      // Jika request bukan untuk check auth awal
-      if (error.config.url !== '/api/auth/me') {
+    const status = error.response?.status;
+    const errorMsg = error.response?.data?.error;
+
+    if ((status === 401 || status === 403) && error.config?.url !== '/api/auth/me') {
+      if (errorMsg === 'Token diperlukan' || errorMsg === 'Token tidak valid' || errorMsg === 'Unauthorized: User not authenticated') {
         window.location.href = '/login';
       }
     }
     return Promise.reject(error);
   }
 );
+
 
 export default api;

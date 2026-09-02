@@ -20,10 +20,17 @@ const Login = () => {
     try {
       const user = await login(email, password);
 
-      if (user.role === 'ADMIN') {
-        navigate('/admin');
-      } else {
+      const permissions = user.permissions || [];
+      const userRolesList = user.roles || [user.role];
+
+      const isStaffOrMember = userRolesList.some(r => typeof r === 'string' && (r.toUpperCase() === 'STAFF' || r.toUpperCase() === 'MEMBER'));
+      const memberCount = permissions.filter(p => p.menuUrl && p.menuUrl.startsWith('/member')).length;
+      const adminCount = permissions.filter(p => p.menuUrl && p.menuUrl.startsWith('/admin') && p.menuUrl !== '/admin/notifications' && p.menuUrl !== '/admin/system').length;
+
+      if (isStaffOrMember || memberCount >= adminCount) {
         navigate('/member');
+      } else {
+        navigate('/admin');
       }
     } catch (err) {
       showToast({ type: 'error', title: 'Login Gagal', message: err.response?.data?.error || err.message || 'Gagal login. Periksa koneksi Anda.' });

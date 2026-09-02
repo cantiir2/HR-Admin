@@ -331,11 +331,33 @@ const MemberProfile = () => {
                 </p>
               </div>
               <div>
-                <p className="text-xs text-surface-400">Sisa Hari</p>
+                <p className="text-xs text-surface-400">Sisa Durasi Kontrak</p>
                 <p className="text-sm text-white mt-1">
                   {profile.remainingDays !== null ? `${profile.remainingDays} hari` : '-'}
                 </p>
               </div>
+              {profile.leaveBalance && (
+                <>
+                  <div>
+                    <p className="text-xs text-surface-400">Jatah Cuti Tahunan</p>
+                    <p className="text-sm font-semibold text-white mt-1">
+                      {profile.leaveBalance.entitlementDays} hari
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-surface-400">Cuti Terpakai</p>
+                    <p className="text-sm font-semibold text-amber-400 mt-1">
+                      {profile.leaveBalance.usedLeaveDays} hari
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-surface-400">Sisa Cuti</p>
+                    <p className={`text-sm font-semibold mt-1 ${profile.leaveBalance.remainingLeaveDays <= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                      {profile.leaveBalance.remainingLeaveDays} hari
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
 
             {profile.isExpiringSoon && (

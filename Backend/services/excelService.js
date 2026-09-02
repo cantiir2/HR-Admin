@@ -1,6 +1,7 @@
 const ExcelJS = require('exceljs');
 const fs = require('fs');
 const path = require('path');
+const { detectProjectArea } = require('../utils/geofence');
 
 function formatDuration(minutes) {
   if (minutes <= 0) return '00.00';
@@ -53,11 +54,14 @@ function calculateWorkingHours(checkInTime, checkOutTime, breakMinutes, overtime
 
   if (diffMins > normalWorkingMins) {
     const excess = diffMins - normalWorkingMins;
-    const actualOvertimeBreak = Math.min(excess, overtimeBreakMinutes);
-    appliedBreakMins += actualOvertimeBreak;
 
-    const actualOvertime = Math.max(0, excess - overtimeBreakMinutes);
-    diffMins = normalWorkingMins + actualOvertime;
+    if (excess >= overtimeBreakMinutes) {
+      appliedBreakMins += overtimeBreakMinutes;
+      const actualOvertime = excess - overtimeBreakMinutes;
+      diffMins = normalWorkingMins + actualOvertime;
+    } else {
+      diffMins = normalWorkingMins;
+    }
   }
 
   return {
@@ -70,10 +74,10 @@ function calculateOvertime(totalWorkingMins, normalWorkingMins = 480) {
   return Math.max(0, totalWorkingMins - normalWorkingMins);
 }
 
-// Name Function : generateWorkingReport
+// Name Function : getWorkingReportData
 // Author : Iyan.FID
-// Description : Menghasilkan report jam kerja bulanan beserta perhitungan jam lembur karyawan
-async function generateWorkingReport(userId, month, year, prisma) {
+// Description : Mengambil data komprehensif working report bulanan untuk preview dan export
+async function getWorkingReportData(userId, month, year, prisma) {
   month = parseInt(month, 10);
   year = parseInt(year, 10);
 
@@ -116,29 +120,64 @@ async function generateWorkingReport(userId, month, year, prisma) {
     if (roleMaster) user.jobRoleName = roleMaster.name;
   }
 
-  console.log("user", user);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const startDate = new Date(Date.UTC(year, month - 1, 1));
+  const endDate = new Date(Date.UTC(year, month, 1));
+  const endOfMonthDate = new Date(Date.UTC(year, month - 1, daysInMonth, 23, 59, 59, 999));
 
-  // Find Customer / Project Name
-  let customer = '';
-  let customerName = '';
-  let projectName = '';
-  let location = '';
-  let woNumber = '';
-  let projectManagerName = '';
-  let projectManagerPhoto = '';
+  // Find all active projects for this user in the period
+  let activeProjects = [];
+  try {
+    const memberships = await prisma.projectMember.findMany({
+      where: {
+        userId,
+        OR: [
+          {
+            project: {
+              contractStart: { lte: endOfMonthDate },
+              contractEnd: { gte: startDate },
+              status: { notIn: ['cancelled', 'Cancelled', 'CANCELLED'] }
+            }
+          },
+          {
+            project: {
+              status: { in: ['active', 'Active', 'ACTIVE'] }
+            }
+          }
+        ]
+      },
+      include: {
+        project: {
+          include: {
+            projectManager: { select: { id: true, name: true, email: true } }
+          }
+        }
+      },
+      orderBy: { project: { contractStart: 'asc' } }
+    });
 
-  if (user.projects && user.projects.length > 0) {
-    const activeProject = user.projects[0].project;
-    console.log("active project", activeProject);
-    projectName = activeProject.name || '';
-    customer = activeProject.customer || '';
-    customerName = activeProject.customerName || '';
-    location = activeProject.location || '';
-    woNumber = activeProject.woNumber || '';
-    if (activeProject.projectManager) {
-      projectManagerName = activeProject.projectManager.name || '';
+    if (memberships.length > 0) {
+      activeProjects = memberships.map(m => m.project);
+    } else if (user.projects && user.projects.length > 0) {
+      activeProjects = user.projects.map(p => p.project);
+    }
+  } catch (e) {
+    if (user.projects && user.projects.length > 0) {
+      activeProjects = user.projects.map(p => p.project);
     }
   }
+
+  const uniqueProjects = [...new Map(activeProjects.map(p => [p.id || p.name, p])).values()];
+
+  const projectNames = uniqueProjects.map(p => p.name?.trim()).filter(Boolean);
+  const customerNames = [...new Set(uniqueProjects.map(p => p.customer?.trim() || p.customerName?.trim()).filter(Boolean))];
+  const woNumbers = [...new Set(uniqueProjects.map(p => p.woNumber?.trim()).filter(Boolean))];
+  const pmNames = [...new Set(uniqueProjects.map(p => p.projectManager?.name?.trim()).filter(Boolean))];
+
+  const projectName = projectNames.join(', ');
+  const customer = customerNames.join(', ');
+  const woNumber = woNumbers.join(', ');
+  const projectManagerName = pmNames.join(', ');
 
   // Get Break Time
   const breakTimeConfig = await prisma.systemMaster.findFirst({
@@ -153,14 +192,6 @@ async function generateWorkingReport(userId, month, year, prisma) {
   });
   const otBreakStr = otBreakTimeConfig ? otBreakTimeConfig.code : '00:30';
   const overtimeBreakMinutes = parseTimeToMinutes(otBreakStr);
-
-  const daysInMonth = new Date(year, month, 0).getDate();
-
-  // Get Attendance Data
-  // Convert month/year to local range (since dates are saved as db.Date which might be 00:00 UTC)
-  const startDate = new Date(Date.UTC(year, month - 1, 1));
-  const endDate = new Date(Date.UTC(year, month, 1));
-  const endOfMonthDate = new Date(Date.UTC(year, month - 1, daysInMonth));
 
   const attendances = await prisma.attendance.findMany({
     where: {
@@ -182,6 +213,205 @@ async function generateWorkingReport(userId, month, year, prisma) {
       endDate: { gte: startDate }
     }
   });
+
+  // Get Active Geofences
+  let activeGeofences = [];
+  try {
+    const geofences = await prisma.geofence.findMany({
+      where: { isActive: true }
+    });
+    if (geofences && geofences.length > 0) {
+      activeGeofences = geofences;
+    }
+  } catch (e) { }
+
+  if (!activeGeofences || activeGeofences.length === 0) {
+    try {
+      activeGeofences = await prisma.project.findMany({
+        where: {
+          status: { in: ['active', 'Active', 'ACTIVE'] }
+        }
+      });
+    } catch (e) { }
+  }
+
+  // Get Working Report info if available (for approval/submission dates)
+  let reportRecord = null;
+  try {
+    reportRecord = await prisma.workingReport.findUnique({
+      where: { userId_month_year: { userId, month, year } },
+      include: {
+        approvedBy: { select: { id: true, name: true } },
+        rejectedBy: { select: { id: true, name: true } }
+      }
+    });
+  } catch (e) { }
+
+  let sumTotalWorking = 0;
+  let sumOverTime = 0;
+  const rows = [];
+
+  for (let i = 1; i <= daysInMonth; i++) {
+    const currentDate = new Date(Date.UTC(year, month - 1, i));
+    const currentYmd = toYmdStr(currentDate);
+
+    const att = attendances.find(a => new Date(a.date).getUTCDate() === i);
+    const leave = leaveRequests.find(l => {
+      const startYmd = toYmdStr(l.startDate);
+      const endYmd = toYmdStr(l.endDate);
+      return currentYmd >= startYmd && currentYmd <= endYmd;
+    });
+
+    const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'short' });
+    const dateStr = `${i} (${dayName})`;
+    const isWeekend = dayName === 'Sat' || dayName === 'Sun';
+
+    if (leave) {
+      const keterangan = leave.reason ? leave.reason.trim() : '';
+      const leaveText = keterangan
+        ? (keterangan.toUpperCase().startsWith('CUTI:') ? keterangan : `CUTI: ${keterangan}`)
+        : 'CUTI';
+
+      rows.push({
+        day: i,
+        dayName,
+        dateStr,
+        fullDate: currentYmd,
+        isLeave: true,
+        leaveText,
+        isWeekend,
+        inTime: '',
+        outTime: '',
+        breakTime: '',
+        totalWorkingTime: '',
+        overtime: '',
+        place: '',
+        activity: ''
+      });
+    } else {
+      let inTime = '';
+      let outTime = '';
+      let breakStrRow = '';
+      let totalStr = '';
+      let overStr = '';
+      let placeStr = '';
+      let activityStr = '';
+
+      if (att && att.checkInTime) {
+        inTime = formatTimeJakarta(att.checkInTime);
+
+        if (att.checkInLat !== null && att.checkInLat !== undefined && att.checkInLng !== null && att.checkInLng !== undefined) {
+          const areaMatch = detectProjectArea(att.checkInLat, att.checkInLng, activeGeofences);
+          if (areaMatch) {
+            placeStr = areaMatch.name;
+          } else {
+            placeStr = 'WFH'; // Luar area
+          }
+        } else {
+          placeStr = 'Attendance Request';
+        }
+
+        let notes = [];
+        if (att.checkInNote) notes.push(att.checkInNote);
+
+        if (att.checkOutTime) {
+          outTime = formatTimeJakarta(att.checkOutTime);
+          if (att.checkOutNote) notes.push(att.checkOutNote);
+
+          const calcResult = calculateWorkingHours(att.checkInTime, att.checkOutTime, breakMinutes, overtimeBreakMinutes);
+          const totalMins = calcResult.totalMins;
+          const overMins = calculateOvertime(totalMins, 480);
+
+          breakStrRow = formatDuration(calcResult.appliedBreakMins);
+          totalStr = formatDuration(totalMins);
+          overStr = formatDuration(overMins);
+
+          sumTotalWorking += totalMins;
+          sumOverTime += overMins;
+        } else {
+          outTime = '-';
+          breakStrRow = '-';
+          totalStr = '-';
+          overStr = '00.00';
+        }
+        activityStr = notes.join('\n');
+      }
+
+      rows.push({
+        day: i,
+        dayName,
+        dateStr,
+        fullDate: currentYmd,
+        isLeave: false,
+        leaveText: '',
+        isWeekend,
+        inTime,
+        outTime,
+        breakTime: breakStrRow,
+        totalWorkingTime: totalStr,
+        overtime: overStr,
+        place: placeStr,
+        activity: activityStr
+      });
+    }
+  }
+
+  const today = new Date();
+  const defaultDateStr = today.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-');
+  
+  const issuedDate = reportRecord?.submittedAt 
+    ? new Date(reportRecord.submittedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-')
+    : defaultDateStr;
+
+  const approvedDate = reportRecord?.approvedAt
+    ? new Date(reportRecord.approvedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-')
+    : defaultDateStr;
+
+  const approvedByName = reportRecord?.approvedBy?.name || projectManagerName;
+
+  return {
+    header: {
+      employeeName: user.name,
+      employeeId: user.id.slice(0, 8),
+      position: user.jobRoleName || '',
+      customer,
+      projectName,
+      woNumber,
+      month: String(month).padStart(2, '0'),
+      year: String(year)
+    },
+    rows,
+    summary: {
+      totalWorkingHours: formatDuration(sumTotalWorking),
+      totalOvertimeHours: formatDuration(sumOverTime),
+      sumTotalWorkingMins: sumTotalWorking,
+      sumOverTimeMins: sumOverTime
+    },
+    signatures: {
+      issuedBy: {
+        name: user.name,
+        date: issuedDate
+      },
+      approvedBy: {
+        name: approvedByName,
+        date: approvedDate
+      }
+    },
+    procedureNotes: [
+      'Bagi karyawan yang tugas luar (khusus untuk standby di satu customer), prosedur absensi adalah sbb:',
+      '1. Absen wajib dilakukan pada saat datang dan saat pulang kerja dengan mengisi form terlampir.',
+      '2. Setelah akhir bulan, form yang sudah lengkap tsb dikirim beserta lampirannya seperti: form cuti, keterangan dokter, dll via fax ke manager bersangkutan.',
+      '3. Setelah disetujui manager, form ini diserahkan ke HRD.'
+    ]
+  };
+}
+
+// Name Function : generateWorkingReport
+// Author : Iyan.FID
+// Description : Menghasilkan report jam kerja bulanan beserta perhitungan jam lembur karyawan
+async function generateWorkingReport(userId, month, year, prisma) {
+  const data = await getWorkingReportData(userId, month, year, prisma);
+  const { header, rows, summary, signatures, procedureNotes } = data;
 
   // Create Excel Workbook
   const workbook = new ExcelJS.Workbook();
@@ -226,32 +456,30 @@ async function generateWorkingReport(userId, month, year, prisma) {
   sheet.mergeCells('A3:B3');
   sheet.getCell('A3').value = 'EmployeeName';
   sheet.mergeCells('C3:D3');
-  sheet.getCell('C3').value = user.name;
+  sheet.getCell('C3').value = header.employeeName;
 
   sheet.mergeCells('A4:B4');
   sheet.getCell('A4').value = 'ID No.';
   sheet.mergeCells('C4:D4');
-  sheet.getCell('C4').value = user.id.slice(0, 8);
+  sheet.getCell('C4').value = header.employeeId;
 
   sheet.mergeCells('A5:B5');
   sheet.getCell('A5').value = 'Position';
   sheet.mergeCells('C5:D5');
-  sheet.getCell('C5').value = user.jobRoleName || '';
+  sheet.getCell('C5').value = header.position;
 
   // Header Box 2
   sheet.mergeCells('F3:G3');
   sheet.getCell('F3').value = 'Customer';
-  sheet.getCell('H3').value = customer;
-  sheet.getCell('F4').value = 'Customer PIC';
-  sheet.getCell('H4').value = customerName;
+  sheet.getCell('H3').value = header.customer;
 
   sheet.mergeCells('F4:G4');
   sheet.getCell('F4').value = 'Project Name';
-  sheet.getCell('H4').value = projectName;
+  sheet.getCell('H4').value = header.projectName;
 
   sheet.mergeCells('F5:G5');
   sheet.getCell('F5').value = 'WO Number';
-  sheet.getCell('H5').value = woNumber;
+  sheet.getCell('H5').value = header.woNumber;
 
   const headerCells = ['A3', 'C3', 'A4', 'C4', 'A5', 'C5', 'F3', 'H3', 'F4', 'H4', 'F5', 'H5'];
   headerCells.forEach(cell => {
@@ -269,8 +497,8 @@ async function generateWorkingReport(userId, month, year, prisma) {
   // Month / Year box
   sheet.getCell('A7').value = 'MONTH/YEAR:';
   sheet.getCell('A7').border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-  sheet.getCell('B7').value = month;
-  sheet.getCell('C7').value = year;
+  sheet.getCell('B7').value = parseInt(header.month, 10);
+  sheet.getCell('C7').value = parseInt(header.year, 10);
 
   ['A7', 'B7', 'C7'].forEach(cell => {
     const c = sheet.getCell(cell);
@@ -312,40 +540,20 @@ async function generateWorkingReport(userId, month, year, prisma) {
 
   // Fill Data
   let startRow = 10;
-  let sumTotalWorking = 0;
-  let sumOverTime = 0;
 
-  for (let i = 1; i <= daysInMonth; i++) {
-    const currentDate = new Date(Date.UTC(year, month - 1, i));
-    const currentYmd = toYmdStr(currentDate);
-
-    const att = attendances.find(a => new Date(a.date).getUTCDate() === i);
-    const leave = leaveRequests.find(l => {
-      const startYmd = toYmdStr(l.startDate);
-      const endYmd = toYmdStr(l.endDate);
-      return currentYmd >= startYmd && currentYmd <= endYmd;
-    });
-
-    const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'short' });
-    const dateStr = `${i} (${dayName})`;
-
+  for (const item of rows) {
     const row = sheet.getRow(startRow);
 
-    if (leave) {
+    if (item.isLeave) {
       const cellA = row.getCell('A');
-      cellA.value = dateStr;
+      cellA.value = item.dateStr;
       cellA.font = { ...baseFont, size: 10 };
       cellA.alignment = { horizontal: 'center', vertical: 'middle' };
       cellA.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
 
       sheet.mergeCells(`B${startRow}:H${startRow}`);
-      const keterangan = leave.reason ? leave.reason.trim() : '';
-      const leaveText = keterangan
-        ? (keterangan.toUpperCase().startsWith('CUTI:') ? keterangan : `CUTI: ${keterangan}`)
-        : 'CUTI';
-
       const cellB = row.getCell('B');
-      cellB.value = leaveText;
+      cellB.value = item.leaveText;
 
       ['B', 'C', 'D', 'E', 'F', 'G', 'H'].forEach(col => {
         const c = row.getCell(col);
@@ -357,53 +565,15 @@ async function generateWorkingReport(userId, month, year, prisma) {
 
       row.height = 35;
     } else {
-      let inTime = '';
-      let outTime = '';
-      let breakStrRow = '';
-      let totalStr = '';
-      let overStr = '';
-      let placeStr = '';
-      let activityStr = '';
-
-      if (att && att.checkInTime) {
-        inTime = formatTimeJakarta(att.checkInTime);
-        placeStr = location;
-
-        let notes = [];
-        if (att.checkInNote) notes.push(att.checkInNote);
-
-        if (att.checkOutTime) {
-          outTime = formatTimeJakarta(att.checkOutTime);
-          if (att.checkOutNote) notes.push(att.checkOutNote);
-
-          const calcResult = calculateWorkingHours(att.checkInTime, att.checkOutTime, breakMinutes, overtimeBreakMinutes);
-          const totalMins = calcResult.totalMins;
-          const overMins = calculateOvertime(totalMins, 480);
-
-          breakStrRow = formatDuration(calcResult.appliedBreakMins);
-          totalStr = formatDuration(totalMins);
-          overStr = formatDuration(overMins);
-
-          sumTotalWorking += totalMins;
-          sumOverTime += overMins;
-        } else {
-          outTime = '-';
-          breakStrRow = '-';
-          totalStr = '-';
-          overStr = '00.00';
-        }
-        activityStr = notes.join('\n');
-      }
-
       row.values = {
-        A: dateStr,
-        B: inTime,
-        C: outTime,
-        D: breakStrRow,
-        E: totalStr,
-        F: overStr,
-        G: placeStr,
-        H: activityStr
+        A: item.dateStr,
+        B: item.inTime,
+        C: item.outTime,
+        D: item.breakTime,
+        E: item.totalWorkingTime,
+        F: item.overtime,
+        G: item.place,
+        H: item.activity
       };
 
       // Formatting
@@ -417,7 +587,7 @@ async function generateWorkingReport(userId, month, year, prisma) {
       row.getCell('H').alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
 
       // Auto height for activity
-      if (activityStr.includes('\n')) {
+      if (item.activity && item.activity.includes('\n')) {
         row.height = 30; // approx 2 lines
       }
     }
@@ -429,8 +599,8 @@ async function generateWorkingReport(userId, month, year, prisma) {
   const footerRow = sheet.getRow(startRow);
   sheet.mergeCells(`A${startRow}:D${startRow}`);
   footerRow.getCell('A').value = 'TOTAL';
-  footerRow.getCell('E').value = formatDuration(sumTotalWorking);
-  footerRow.getCell('F').value = formatDuration(sumOverTime);
+  footerRow.getCell('E').value = summary.totalWorkingHours;
+  footerRow.getCell('F').value = summary.totalOvertimeHours;
 
   ['A', 'E', 'F'].forEach(col => {
     const c = footerRow.getCell(col);
@@ -453,13 +623,12 @@ async function generateWorkingReport(userId, month, year, prisma) {
   sheet.getCell(`F${startRow}`).value = 'Signature';
 
   sheet.mergeCells(`B${startRow + 1}:E${startRow + 1}`);
-  sheet.getCell(`B${startRow + 1}`).value = user.name;
+  sheet.getCell(`B${startRow + 1}`).value = signatures.issuedBy.name;
   sheet.mergeCells(`F${startRow + 1}:H${startRow + 2}`); // big signature box
 
   sheet.getCell(`A${startRow + 2}`).value = 'Date';
   sheet.mergeCells(`B${startRow + 2}:E${startRow + 2}`);
-  const today = new Date();
-  sheet.getCell(`B${startRow + 2}`).value = today.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-');
+  sheet.getCell(`B${startRow + 2}`).value = signatures.issuedBy.date;
 
   startRow += 3;
 
@@ -471,13 +640,12 @@ async function generateWorkingReport(userId, month, year, prisma) {
   sheet.getCell(`F${startRow}`).value = 'Signature';
 
   sheet.mergeCells(`B${startRow + 1}:E${startRow + 1}`);
-  sheet.getCell(`B${startRow + 1}`).value = projectManagerName;
+  sheet.getCell(`B${startRow + 1}`).value = signatures.approvedBy.name;
   sheet.mergeCells(`F${startRow + 1}:H${startRow + 2}`);
 
   sheet.getCell(`A${startRow + 2}`).value = 'Date';
   sheet.mergeCells(`B${startRow + 2}:E${startRow + 2}`);
-  sheet.getCell(`B${startRow + 2}`).value = today.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-');
-
+  sheet.getCell(`B${startRow + 2}`).value = signatures.approvedBy.date;
 
   // Apply styles to signature section
   const sigRowStart = startRow - 3;
@@ -519,7 +687,7 @@ async function generateWorkingReport(userId, month, year, prisma) {
   startRow += 4;
 
   // Footer Text
-  const textMsg = `;00\nBagi karyawan yang tugas luar (khusus untuk standby di satu customer), prosedur absensi adalah sbb:\n1. Absen wajib dilakukan pada saat datang dan saat pulang kerja dengan mengisi form terlampir.\n2. Setelah akhir bulan, form yang sudah lengkap tsb dikirim beserta lampirannya seperti: form cuti, keterangan dokter, dll via fax ke manager bersangkutan.\n3. Setelah disetujui manager, form ini diserahkan ke HRD.`;
+  const textMsg = `;00\n${procedureNotes.join('\n')}`;
   sheet.mergeCells(`A${startRow}:H${startRow}`);
   const textCell = sheet.getCell(`A${startRow}`);
   textCell.value = textMsg;
@@ -551,5 +719,9 @@ async function generateWorkingReport(userId, month, year, prisma) {
 }
 
 module.exports = {
-  generateWorkingReport
+  generateWorkingReport,
+  getWorkingReportData,
+  formatDuration,
+  calculateWorkingHours,
+  calculateOvertime
 };

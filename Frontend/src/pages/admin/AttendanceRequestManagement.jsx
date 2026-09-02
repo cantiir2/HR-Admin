@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../../lib/api';
 import { useToast } from '../../context/ToastContext';
@@ -6,10 +6,12 @@ import { useConfirm } from '../../context/ConfirmContext';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { Loader2, Search, Eye, X } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import Pagination from '../../components/Pagination';
 import AppSelect from '../../components/AppSelect';
 import SortableHeader from '../../components/SortableHeader';
 import useTableSort from '../../hooks/useTableSort';
+import PermissionControl from '../../components/PermissionControl';
 
 const RequestTypeBadge = ({ type }) => {
   const styles = {
@@ -43,6 +45,7 @@ const StatusBadge = ({ status }) => {
 
 export default function AttendanceRequestManagement() {
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
 
@@ -52,6 +55,9 @@ export default function AttendanceRequestManagement() {
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '');
+  const [pmFilter, setPMFilter] = useState('');
+  const [projectManagers, setProjectManagers] = useState([]);
+  const [pmInitialized, setPmInitialized] = useState(false);
   const [statuses, setStatuses] = useState([]);
 
   const { sortBy, sortOrder, handleSort } = useTableSort('requestDate', 'desc');
@@ -64,6 +70,40 @@ export default function AttendanceRequestManagement() {
   const [declineReason, setDeclineReason] = useState('');
   const [isDeclineModalOpen, setIsDeclineModalOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+
+  const isSystemAdmin = user?.role === 'System Administrator' || user?.roles?.includes('System Administrator');
+
+
+  const pmOptions = useMemo(() => {
+    return [
+      ['', 'Semua Project Manager'],
+      ...projectManagers.map(pm => [pm.id, pm.name])
+    ];
+  }, [projectManagers]);
+
+  useEffect(() => {
+    api.get('/api/projects').then(r => {
+      const dataList = Array.isArray(r.data) ? r.data : (r.data?.data || []);
+      const managers = dataList.map(project => project.projectManager).filter(Boolean);
+      if (user?.jobRoleCode === 'PM' && user?.id && !managers.some(m => m.id === user.id)) {
+        managers.push({ id: user.id, name: user.name });
+      }
+      const uniqueManagers = [...new Map(managers.map(manager => [manager.id, manager])).values()];
+      setProjectManagers(uniqueManagers);
+    }).catch(() => { });
+  }, [user]);
+
+  useEffect(() => {
+    if (!pmInitialized && user?.id) {
+      const isPM = user?.jobRoleCode === 'PM' || projectManagers.some(m => m.id === user.id);
+      if (isPM) {
+        setPMFilter(user.id);
+      }
+      if (projectManagers.length > 0 || user?.jobRoleCode === 'PM') {
+        setPmInitialized(true);
+      }
+    }
+  }, [user, projectManagers, pmInitialized]);
 
   useEffect(() => {
     const fetchStatuses = async () => {
@@ -86,6 +126,7 @@ export default function AttendanceRequestManagement() {
         params: {
           search,
           status: statusFilter,
+          projectManagerId: pmFilter,
           pageNo: pagination.page,
           pageSize: pagination.limit,
           sortBy,
@@ -104,7 +145,7 @@ export default function AttendanceRequestManagement() {
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter, pagination.page, pagination.limit, sortBy, sortOrder, showToast]);
+  }, [search, statusFilter, pmFilter, pagination.page, pagination.limit, sortBy, sortOrder, showToast]);
 
   useEffect(() => {
     const timer = setTimeout(fetchRequests, 300);
@@ -191,10 +232,26 @@ export default function AttendanceRequestManagement() {
             className="input-dark w-full pl-10"
           />
         </div>
+        <div className="w-full md:w-56">
+          <AppSelect
+            value={pmFilter}
+            onChange={(value) => {
+              setPMFilter(value);
+              setPagination(p => ({ ...p, page: 1 }));
+            }}
+            options={pmOptions}
+            className="w-full"
+            placeholder="Pilih Project Manager"
+            isDisabled={!isSystemAdmin}
+          />
+        </div>
         <div className="w-full md:w-48">
           <AppSelect
             value={statusFilter}
-            onChange={(val) => setStatusFilter(val)}
+            onChange={(val) => {
+              setStatusFilter(val);
+              setPagination(p => ({ ...p, page: 1 }));
+            }}
             options={statuses.map(status => ({ value: status.code, label: status.name }))}
             className="w-full"
           />
@@ -246,12 +303,14 @@ export default function AttendanceRequestManagement() {
                       <StatusBadge status={req.status} />
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => loadEvidence(req)}
-                        className="text-xs text-brand-400 hover:text-brand-300 bg-brand-500/10 hover:bg-brand-500/20 px-2 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1"
-                      >
-                        <Eye size={14} /> Detail / Evidence
-                      </button>
+                      <PermissionControl apiMethod="GET" apiUrl="/api/attendance-requests/*">
+                        <button
+                          onClick={() => loadEvidence(req)}
+                          className="text-xs text-brand-400 hover:text-brand-300 bg-brand-500/10 hover:bg-brand-500/20 px-2 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1"
+                        >
+                          <Eye size={14} /> Detail / Evidence
+                        </button>
+                      </PermissionControl>
                     </td>
                   </tr>
                 ))
@@ -330,20 +389,24 @@ export default function AttendanceRequestManagement() {
 
             {selectedReq.status === 'PENDING' && (
               <div className="p-4 border-t border-white/10 bg-white/[0.02] flex justify-end gap-3">
-                <button
-                  onClick={() => setIsDeclineModalOpen(true)}
-                  disabled={actionLoading}
-                  className="btn-secondary text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 hover:border-rose-500/20 border-surface-700"
-                >
-                  Tolak Request
-                </button>
-                <button
-                  onClick={handleApprove}
-                  disabled={actionLoading}
-                  className="btn-primary"
-                >
-                  {actionLoading ? <Loader2 size={16} className="animate-spin" /> : 'Setujui Request'}
-                </button>
+                <PermissionControl apiMethod="PUT" apiUrl="/api/attendance-requests/*">
+                  <button
+                    onClick={() => setIsDeclineModalOpen(true)}
+                    disabled={actionLoading}
+                    className="btn-secondary text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 hover:border-rose-500/20 border-surface-700"
+                  >
+                    Tolak Request
+                  </button>
+                </PermissionControl>
+                <PermissionControl apiMethod="PUT" apiUrl="/api/attendance-requests/*">
+                  <button
+                    onClick={handleApprove}
+                    disabled={actionLoading}
+                    className="btn-primary"
+                  >
+                    {actionLoading ? <Loader2 size={16} className="animate-spin" /> : 'Setujui Request'}
+                  </button>
+                </PermissionControl>
               </div>
             )}
           </div>

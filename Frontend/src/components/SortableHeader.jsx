@@ -11,7 +11,7 @@ function SortableHeader({ label, field, currentSortBy, currentSortOrder, onSort,
 
   return (
     <th
-      className={`px-6 py-3 text-${align} text-xs font-medium text-gray-500 uppercase tracking-wider ${field ? 'cursor-pointer select-none hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors' : ''} ${className}`}
+      className={`px-6 py-3 text-${align} text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap ${field ? 'cursor-pointer select-none hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors' : ''} ${className}`}
       onClick={() => {
         if (field && onSort) {
           onSort(field);

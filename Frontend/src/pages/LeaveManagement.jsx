@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useMemo, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Check, Download, Eye, Loader2, Search, X } from 'lucide-react';
 import { format } from 'date-fns';
@@ -10,6 +10,7 @@ import useTableSort from '../hooks/useTableSort';
 import { useAuth } from '../context/AuthContext';
 import { downloadBase64File, viewBase64File } from '../lib/fileValidation';
 import { useToast } from '../context/ToastContext';
+import PermissionControl from '../components/PermissionControl';
 
 // Name Function : LeaveManagement
 // Author : Iyan.FID
@@ -35,20 +36,42 @@ const LeaveManagement = () => {
     REJECTED: 'Rejected',
     CANCELLED: 'Cancelled',
   });
-  const [filters, setFilters] = useState({ search: '', status: searchParams.get('status') || '' });
+  const [leaveTypeLabels, setLeaveTypeLabels] = useState({
+    ANNUAL_LEAVE: 'Cuti Tahunan',
+    OTHERS: 'Cuti Khusus/Lainnya',
+  });
+  const [filters, setFilters] = useState({
+    search: '',
+    projectManagerId: '',
+    status: searchParams.get('status') || ''
+  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [evidenceImage, setEvidenceImage] = useState(null);
+  const [projectManagers, setProjectManagers] = useState([]);
+  const [pmInitialized, setPmInitialized] = useState(false);
+
+  const isSystemAdmin = user?.role === 'System Administrator' || user?.roles?.includes('System Administrator');
+
+  const pmOptions = useMemo(() => {
+    return [
+      ['', 'Semua Project Manager'],
+      ...projectManagers.map(pm => [pm.id, pm.name])
+    ];
+  }, [projectManagers]);
 
   useEffect(() => {
-    const fetchStatuses = async () => {
+    const fetchMetadata = async () => {
       try {
-        const res = await api.get('/api/system?category=LEAVE_STATUS&isActive=true');
+        const [statusRes, typeRes] = await Promise.all([
+          api.get('/api/system?category=LEAVE_STATUS&isActive=true'),
+          api.get('/api/system?category=LEAVE_TYPE&isActive=true')
+        ]);
         const dynamicStatuses = [['', 'Semua Status']];
         const dynamicStatusClass = {};
         const dynamicStatusLabels = {};
 
-        if (res.data && res.data.length > 0) {
-          res.data.forEach(item => {
+        if (statusRes.data && statusRes.data.length > 0) {
+          statusRes.data.forEach(item => {
             dynamicStatuses.push([item.code, item.name]);
             if (item.name) dynamicStatusLabels[item.code] = item.name;
             if (item.description) {
@@ -62,13 +85,44 @@ const LeaveManagement = () => {
         setStatuses(dynamicStatuses);
         setStatusLabels(prev => ({ ...prev, ...dynamicStatusLabels }));
         setStatusClass(prev => ({ ...prev, ...dynamicStatusClass }));
+
+        if (typeRes.data && typeRes.data.length > 0) {
+          const dynamicTypes = {};
+          typeRes.data.forEach(item => {
+            dynamicTypes[item.code] = item.name;
+          });
+          setLeaveTypeLabels(prev => ({ ...prev, ...dynamicTypes }));
+        }
       } catch (error) {
-        console.error('Failed to fetch leave statuses', error);
+        console.error('Failed to fetch leave metadata', error);
       }
     };
 
-    fetchStatuses();
+    fetchMetadata();
   }, []);
+  useEffect(() => {
+    api.get('/api/projects').then(r => {
+      const dataList = Array.isArray(r.data) ? r.data : (r.data?.data || []);
+      const managers = dataList.map(project => project.projectManager).filter(Boolean);
+      if (user?.jobRoleCode === 'PM' && user?.id && !managers.some(m => m.id === user.id)) {
+        managers.push({ id: user.id, name: user.name });
+      }
+      const uniqueManagers = [...new Map(managers.map(manager => [manager.id, manager])).values()];
+      setProjectManagers(uniqueManagers);
+    }).catch(() => { });
+  }, [user]);
+
+  useEffect(() => {
+    if (!pmInitialized && user?.id) {
+      const isPM = user?.jobRoleCode === 'PM' || projectManagers.some(m => m.id === user.id);
+      if (isPM) {
+        setFilters(current => ({ ...current, projectManagerId: user.id }));
+      }
+      if (projectManagers.length > 0 || user?.jobRoleCode === 'PM') {
+        setPmInitialized(true);
+      }
+    }
+  }, [user, projectManagers, pmInitialized]);
   const [page, setPage] = useState({ pageNo: 1, pageSize: 10, totalPages: 1 });
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -150,6 +204,8 @@ const LeaveManagement = () => {
     }
   };
 
+  const isAdmin = user?.role === 'System Administrator';
+
   return (
     <div className="animate-fade-in">
       <div className="mb-6">
@@ -157,22 +213,25 @@ const LeaveManagement = () => {
         <p className="text-sm text-surface-400">Approval cuti tahunan karyawan</p>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-[1fr_220px] mb-4">
+      <div className="grid gap-3 md:grid-cols-[1fr_280px_220px] mb-4">
         <div className="relative">
           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-surface-500" />
           <input value={filters.search} onChange={e => updateFilter('search', e.target.value)} placeholder="Cari nama atau email..." className="input-dark pl-11 text-sm" />
         </div>
+        <AppSelect value={filters.projectManagerId} onChange={value => updateFilter('projectManagerId', value)} options={pmOptions} placeholder="Pilih Project Manager" isDisabled={!isSystemAdmin} />
         <AppSelect value={filters.status} onChange={value => updateFilter('status', value)} options={statuses} />
       </div>
 
       <div className="glass-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full text-left whitespace-nowrap">
             <thead>
               <tr className="border-b border-white/[0.06]">
                 <SortableHeader label="Karyawan" field="user.name" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
+                <SortableHeader label="Jenis Cuti" field="leaveType" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
                 <SortableHeader label="Periode" field="startDate" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
                 <SortableHeader label="Total" field="totalDays" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
+                <SortableHeader label="Quota Cuti" />
                 <SortableHeader label="Status" field="status" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
                 <SortableHeader label="Created Date" field="createdAt" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
                 <SortableHeader label="Evidence" />
@@ -187,10 +246,29 @@ const LeaveManagement = () => {
                     <p className="text-sm font-medium text-white">{item.user?.name}</p>
                     <p className="text-xs text-surface-500">{item.user?.email}</p>
                   </td>
+                  <td className="px-4 py-3 text-sm">
+                    <span className={item.leaveType === 'OTHERS' ? 'badge-warning' : 'badge-info'}>
+                      {leaveTypeLabels[item.leaveType] || (item.leaveType === 'OTHERS' ? 'Cuti Khusus/Lainnya' : 'Cuti Tahunan')}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-sm text-surface-300">
                     {format(new Date(item.startDate), 'dd MMM yyyy')} - {format(new Date(item.endDate), 'dd MMM yyyy')}
                   </td>
                   <td className="px-4 py-3 text-sm text-surface-400">{item.totalDays} hari</td>
+                  <td className="px-4 py-3 text-sm">
+                    {item.leaveBalance ? (
+                      <div className="flex flex-col gap-0.5">
+                        <span className={`text-xs font-semibold ${item.leaveBalance.remainingLeaveDays <= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                          Sisa: {item.leaveBalance.remainingLeaveDays} hari
+                        </span>
+                        <span className="text-[11px] text-surface-400">
+                          Jatah: {item.leaveBalance.entitlementDays} | Terpakai: {item.leaveBalance.usedLeaveDays}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-surface-500">-</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3"><span className={statusClass[item.status] || (item.status === 'PENDING' ? 'badge-warning' : 'badge-info')}>{statusLabels[item.status] || item.status}</span></td>
                   <td className="px-4 py-3 text-sm text-surface-400">
                     {format(new Date(item.createdAt), 'dd MMM yyyy')}
@@ -210,18 +288,18 @@ const LeaveManagement = () => {
                           <button type="button" disabled={actionLoading} onClick={() => downloadEvidence(item.id)} className="badge-info"><Download size={13} />Download Evidence</button>
                         </>
                       )}
-                      {item.status === 'PENDING' && (user?.role === 'ADMIN' || item.isCurrentUserPm) && (
-                        <button type="button" disabled={actionLoading} onClick={() => approvePm(item.id)} className="badge-success"><Check size={13} />PM Approve</button>
+                      {item.status === 'PENDING' && (isAdmin || item.isCurrentUserPm) && (
+                        <PermissionControl action="edit" apiUrl="/api/leaves/*/approve-pm">
+                          <button type="button" disabled={actionLoading} onClick={() => approvePm(item.id)} className="badge-success"><Check size={13} />PM Approve</button>
+                        </PermissionControl>
                       )}
-                      {user?.role === 'ADMIN' && ['PENDING', 'APPROVED_BY_PM'].includes(item.status) && (
-                        <button type="button" disabled={actionLoading} onClick={() => approveAdmin(item.id)} className="badge-success"><Check size={13} />Admin Approve</button>
-                      )}
-                      {((item.status === 'PENDING' && (user?.role === 'ADMIN' || item.isCurrentUserPm)) || (item.status === 'APPROVED_BY_PM' && user?.role === 'ADMIN')) && (
-                        <button type="button" disabled={actionLoading} onClick={() => rejectLeave(item.id)} className="badge-danger"><X size={13} />Reject</button>
+                      {item.status === 'PENDING' && (isAdmin || item.isCurrentUserPm) && (
+                        <PermissionControl action="edit" apiUrl="/api/leaves/*/reject">
+                          <button type="button" disabled={actionLoading} onClick={() => rejectLeave(item.id)} className="badge-danger"><X size={13} />Reject</button>
+                        </PermissionControl>
                       )}
                       {!(
-                        (item.status === 'PENDING' && (user?.role === 'ADMIN' || item.isCurrentUserPm)) ||
-                        (user?.role === 'ADMIN' && ['PENDING', 'APPROVED_BY_PM'].includes(item.status))
+                        item.status === 'PENDING' && (isAdmin || item.isCurrentUserPm)
                       ) && !(item.leaveType === 'OTHERS' && item.hasEvidencePhoto) && <span className="text-xs text-surface-500">-</span>}
                     </div>
                   </td>

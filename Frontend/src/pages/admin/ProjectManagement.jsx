@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import api from '../../lib/api';
 import { Plus, Pencil, Trash2, X, FolderKanban, MapPin, Users, Calendar, LayoutDashboard } from 'lucide-react';
 import { format } from 'date-fns';
@@ -6,9 +6,12 @@ import { Link } from 'react-router-dom';
 import AppSelect from '../../components/AppSelect';
 import Pagination from '../../components/Pagination';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import { useConfirm } from '../../context/ConfirmContext';
+import PermissionControl from '../../components/PermissionControl';
 
 const ProjectManagement = () => {
+  const { user } = useAuth();
   const [projects, setProjects] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -17,6 +20,8 @@ const ProjectManagement = () => {
   const [selectedProject, setSelectedProject] = useState(null);
   const [memberForm, setMemberForm] = useState({ userId: '', roleInProject: 'Member', joinedAt: '', leftAt: '', allocation: 100 });
   const [editingMemberId, setEditingMemberId] = useState(null);
+  const [projectManagers, setProjectManagers] = useState([]);
+  const [pmInitialized, setPmInitialized] = useState(false);
   const [editMemberForm, setEditMemberForm] = useState({ joinedAt: '', leftAt: '', allocation: 100 });
   const [filters, setFilters] = useState({
     search: '', status: '', projectManagerId: '', customer: '', dateFrom: '', dateTo: ''
@@ -31,6 +36,15 @@ const ProjectManagement = () => {
   });
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+
+  const isSystemAdmin = user?.role === 'System Administrator';
+
+  const pmOptions = useMemo(() => {
+    return [
+      ['', 'Semua Project Manager'],
+      ...projectManagers.map(pm => [pm.id, pm.name])
+    ];
+  }, [projectManagers]);
 
   const fetchProjects = useCallback(async (pageNo = 1, pageSize = pageSizeRef.current) => {
     if (filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo) {
@@ -246,6 +260,30 @@ const ProjectManagement = () => {
     }
   };
 
+  useEffect(() => {
+    api.get('/api/projects').then(r => {
+      const dataList = Array.isArray(r.data) ? r.data : (r.data?.data || []);
+      const managers = dataList.map(project => project.projectManager).filter(Boolean);
+      if (user?.jobRoleCode === 'PM' && user?.id && !managers.some(m => m.id === user.id)) {
+        managers.push({ id: user.id, name: user.name });
+      }
+      const uniqueManagers = [...new Map(managers.map(manager => [manager.id, manager])).values()];
+      setProjectManagers(uniqueManagers);
+    }).catch(() => { });
+  }, [user]);
+
+  useEffect(() => {
+    if (!pmInitialized && user?.id) {
+      const isPM = user?.jobRoleCode === 'PM' || projectManagers.some(m => m.id === user.id);
+      if (isPM) {
+        setFilters(current => ({ ...current, projectManagerId: user.id }));
+      }
+      if (projectManagers.length > 0 || user?.jobRoleCode === 'PM') {
+        setPmInitialized(true);
+      }
+    }
+  }, [user, projectManagers, pmInitialized]);
+
   const statusColors = {
     active: 'badge-success',
     completed: 'badge-info',
@@ -259,9 +297,11 @@ const ProjectManagement = () => {
           <h2 className="text-xl font-bold text-white">Dashboard Project</h2>
           <p className="text-sm text-surface-400">Kelola project dan tim</p>
         </div>
-        <button onClick={openCreate} className="btn-primary flex items-center gap-2 text-sm">
-          <Plus size={16} /> Tambah Project
-        </button>
+        <PermissionControl action="add" apiUrl="/api/projects">
+          <button onClick={openCreate} className="btn-primary flex items-center gap-2 text-sm">
+            <Plus size={16} /> Tambah Project
+          </button>
+        </PermissionControl>
       </div>
 
       <div className="glass-card p-4 mb-5">
@@ -295,12 +335,8 @@ const ProjectManagement = () => {
               value={filters.projectManagerId}
               className="w-full"
               onChange={value => setFilters({ ...filters, projectManagerId: value })}
-              options={[
-                ['', 'Semua Project Manager'],
-                ...allUsers
-                  .filter(u => u.jobRoleCode === 'PM' || u.role === 'ADMIN')
-                  .map(u => [u.id, `${u.name} (${u.jobRoleCode || u.role})`])
-              ]}
+              options={pmOptions}
+              isDisabled={!isSystemAdmin}
             />
           </label>
 
@@ -422,18 +458,26 @@ const ProjectManagement = () => {
             </div>
 
             <div className="flex gap-2">
-              <Link to={`/admin/projects/${project.id}`} className="flex-1 btn-primary text-xs text-center flex items-center justify-center gap-1">
-                <LayoutDashboard size={12} /> Detail
-              </Link>
-              <button onClick={() => openMembers(project)} className="p-2 rounded-lg hover:bg-white/[0.08] text-surface-400 hover:text-brand-400 transition-colors" title="Anggota">
-                <Users size={14} />
-              </button>
-              <button onClick={() => openEdit(project)} className="p-2 rounded-lg hover:bg-white/[0.08] text-surface-400 hover:text-brand-400 transition-colors" title="Edit">
-                <Pencil size={14} />
-              </button>
-              <button onClick={() => handleDelete(project.id)} className="p-2 rounded-lg hover:bg-rose-500/10 text-surface-400 hover:text-rose-400 transition-colors" title="Hapus">
-                <Trash2 size={14} />
-              </button>
+              <PermissionControl action="list" apiUrl="/api/projects/*">
+                <Link to={`/admin/projects/${project.id}`} className="flex-1 btn-primary text-xs text-center flex items-center justify-center gap-1">
+                  <LayoutDashboard size={12} /> List
+                </Link>
+              </PermissionControl>
+              <PermissionControl action="edit" apiUrl="/api/projects/*/members">
+                <button onClick={() => openMembers(project)} className="p-2 rounded-lg hover:bg-white/[0.08] text-surface-400 hover:text-brand-400 transition-colors" title="Anggota">
+                  <Users size={14} />
+                </button>
+              </PermissionControl>
+              <PermissionControl action="edit" apiUrl="/api/projects/*">
+                <button onClick={() => openEdit(project)} className="p-2 rounded-lg hover:bg-white/[0.08] text-surface-400 hover:text-brand-400 transition-colors" title="Edit">
+                  <Pencil size={14} />
+                </button>
+              </PermissionControl>
+              <PermissionControl action="delete" apiUrl="/api/projects/*">
+                <button onClick={() => handleDelete(project.id)} className="p-2 rounded-lg hover:bg-rose-500/10 text-surface-400 hover:text-rose-400 transition-colors" title="Hapus">
+                  <Trash2 size={14} />
+                </button>
+              </PermissionControl>
             </div>
           </div>
         ))}

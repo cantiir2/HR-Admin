@@ -380,10 +380,6 @@ module.exports = (prisma) => {
       const request = await prisma.attendanceRequest.findUnique({ where: { id: req.params.id } });
       if (!request) return res.status(404).json({ error: 'Not found' });
 
-      if (req.user.role !== 'ADMIN' && request.userId !== req.user.id) {
-        return res.status(403).json({ error: 'Forbidden' });
-      }
-
       res.json({
         evidencePhoto: request.evidencePhoto,
         evidencePhotoName: request.evidencePhotoName,
@@ -418,7 +414,7 @@ module.exports = (prisma) => {
       if (search) {
         userConditions.name = { contains: search, mode: 'insensitive' };
       }
-      const effectivePmId = projectManagerId || (req.user.role !== 'ADMIN' ? req.user.id : undefined);
+      const effectivePmId = projectManagerId || (req.user.role !== 'System Administrator' ? req.user.id : undefined);
       if (effectivePmId) {
         userConditions.projects = {
           some: {

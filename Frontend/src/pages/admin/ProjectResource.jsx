@@ -79,7 +79,15 @@ export default function ProjectResource() {
   const [appliedForwardMonths, setAppliedForwardMonths] = useState(5);
   
   const [memberOptions, setMemberOptions] = useState([]);
-  const [pmOptions, setPmOptions] = useState([]);
+  const [projectManagers, setProjectManagers] = useState([]);
+  const [pmInitialized, setPmInitialized] = useState(false);
+
+  const pmOptions = useMemo(() => {
+    return [
+      ['', 'Semua Project Manager'],
+      ...projectManagers.map(pm => [pm.id, pm.name])
+    ];
+  }, [projectManagers]);
   
   const [appliedFilters, setAppliedFilters] = useState({
     memberId: '',
@@ -122,14 +130,6 @@ export default function ProjectResource() {
       
       const pmData = response.data.projectManagers || [];
       setData(pmData);
-      
-      if (!currentPmId) {
-        const pmMap = new Map();
-        pmData.forEach(pm => {
-          pmMap.set(pm.id, { value: pm.id, label: pm.name });
-        });
-        setPmOptions([{ value: '', label: 'All Project Managers' }, ...Array.from(pmMap.values()).sort((a, b) => a.label.localeCompare(b.label))]);
-      }
 
       if (!currentMemberId) {
         const memberMap = new Map();
@@ -154,6 +154,31 @@ export default function ProjectResource() {
     }
   };
   
+  useEffect(() => {
+    api.get('/api/projects').then(r => {
+      const dataList = Array.isArray(r.data) ? r.data : (r.data?.data || []);
+      const managers = dataList.map(project => project.projectManager).filter(Boolean);
+      if (user?.jobRoleCode === 'PM' && user?.id && !managers.some(m => m.id === user.id)) {
+        managers.push({ id: user.id, name: user.name });
+      }
+      const uniqueManagers = [...new Map(managers.map(manager => [manager.id, manager])).values()];
+      setProjectManagers(uniqueManagers);
+    }).catch(() => { });
+  }, [user]);
+
+  useEffect(() => {
+    if (!pmInitialized && user?.id) {
+      const isPM = user?.jobRoleCode === 'PM' || projectManagers.some(m => m.id === user.id);
+      if (isPM) {
+        setProjectManagerId(user.id);
+        fetchData({ projectManagerId: user.id });
+      }
+      if (projectManagers.length > 0 || user?.jobRoleCode === 'PM') {
+        setPmInitialized(true);
+      }
+    }
+  }, [user, projectManagers, pmInitialized]);
+
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -234,7 +259,7 @@ export default function ProjectResource() {
               options={pmOptions}
               value={projectManagerId}
               onChange={setProjectManagerId}
-              placeholder="All Project Managers"
+              placeholder="Pilih Project Manager"
             />
           </div>
           <div className="relative flex-1 min-w-[200px] z-20">

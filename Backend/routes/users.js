@@ -7,6 +7,7 @@ const { authenticateToken, authenticateAdmin } = require('../middleware/auth');
 const { encryptText, decryptText, maskSensitiveNumber } = require('../utils/encryption');
 const { calculateBase64FileSize, validateBase64File } = require('../utils/fileValidation');
 const { buildOrderBy } = require('../utils/sorting');
+const { getLeaveBalance } = require('../services/leaveService');
 const { log } = require('console');
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -131,7 +132,39 @@ module.exports = (prisma) => {
           ]
         });
       }
-      if (role) andWhere.push({ role });
+      // Fetch roles mapping lookup
+      const [allUserRoles, allRoleMasters] = await Promise.all([
+        prisma.userRole.findMany(),
+        prisma.roleMaster.findMany()
+      ]);
+
+      const roleMasterMap = new Map(allRoleMasters.map(r => [Number(r.id), r.name]));
+      const userRoleInfoMap = new Map();
+      allUserRoles.forEach(ur => {
+        const rName = roleMasterMap.get(Number(ur.roleId));
+        if (rName) {
+          userRoleInfoMap.set(ur.userName, { roleId: Number(ur.roleId), roleName: rName });
+        }
+      });
+
+      if (role) {
+        if (!isNaN(role)) {
+          // Filtered by roleId
+          const targetRoleId = Number(role);
+          const matchedUserNames = new Set(
+            allUserRoles.filter(ur => Number(ur.roleId) === targetRoleId).map(ur => ur.userName)
+          );
+          andWhere.push({
+            OR: [
+              { email: { in: Array.from(matchedUserNames) } },
+              { id: { in: Array.from(matchedUserNames) } }
+            ]
+          });
+        } else {
+          // Filtered by role string (e.g. ADMIN / MEMBER or Role Name)
+          andWhere.push({ role });
+        }
+      }
       if (jobRoleCode) andWhere.push({ jobRoleCode });
 
       const where = andWhere.length ? { AND: andWhere } : {};
@@ -143,13 +176,21 @@ module.exports = (prisma) => {
         contracts: { orderBy: { endDate: 'desc' }, take: 1 },
         projects: { include: { project: { select: { name: true } } } }
       };
-      const toSafeUser = user => ({
-        ...user,
-        ktpNumberEncrypted: undefined,
-        kkNumberEncrypted: undefined,
-        ktpNumberMasked: maskEncryptedNumber(user.ktpNumberEncrypted),
-        kkNumberMasked: maskEncryptedNumber(user.kkNumberEncrypted)
-      });
+      const toSafeUser = user => {
+        const urInfo = userRoleInfoMap.get(user.email) || userRoleInfoMap.get(user.id) || null;
+        const roleName = urInfo ? urInfo.roleName : (user.role === 'ADMIN' ? 'System Administrator' : 'STAFF');
+        const roleId = urInfo ? urInfo.roleId : (user.role === 'ADMIN' ? 1 : 4);
+
+        return {
+          ...user,
+          roleId,
+          roleName,
+          ktpNumberEncrypted: undefined,
+          kkNumberEncrypted: undefined,
+          ktpNumberMasked: maskEncryptedNumber(user.ktpNumberEncrypted),
+          kkNumberMasked: maskEncryptedNumber(user.kkNumberEncrypted)
+        };
+      };
 
       let totalRows;
       let users;
@@ -645,9 +686,9 @@ module.exports = (prisma) => {
   });
 
   // POST create user (Admin)
-  router.post('/', authenticateToken, authenticateAdmin, async (req, res) => {
+  const handleCreateUser = async (req, res) => {
     try {
-      const { email, password, name, role, jobRoleCode, contractStart, contractEnd } = req.body;
+      const { email, password, name, role, roleId, jobRoleCode, contractStart, contractEnd } = req.body;
       if (!email || !password || !name) {
         return res.status(400).json({ error: 'Email, password, dan nama wajib diisi' });
       }
@@ -658,13 +699,28 @@ module.exports = (prisma) => {
       const salt = await bcrypt.genSalt(10);
       const passwordHash = await bcrypt.hash(password, salt);
 
+      const isSystemAdminRole = roleId === 1 || roleId === '1' || role === 'ADMIN';
+
       const user = await prisma.user.create({
         data: {
           email, passwordHash, name,
-          role: role === 'ADMIN' ? 'ADMIN' : 'MEMBER',
+          role: isSystemAdminRole ? 'ADMIN' : 'MEMBER',
           jobRoleCode: jobRoleCode || null,
           contractStart: contractStart ? new Date(contractStart) : null,
           contractEnd: contractEnd ? new Date(contractEnd) : null,
+        }
+      });
+
+      // Save role in tb_m_user_role
+      const targetRoleId = roleId ? BigInt(roleId) : (isSystemAdminRole ? BigInt(1) : BigInt(4));
+      await prisma.userRole.deleteMany({
+        where: { OR: [{ userName: user.email }, { userName: user.id }] }
+      });
+      await prisma.userRole.create({
+        data: {
+          userName: user.email,
+          roleId: targetRoleId,
+          createdBy: req.user.email || req.user.name || 'system'
         }
       });
 
@@ -673,16 +729,23 @@ module.exports = (prisma) => {
       console.error(error);
       res.status(500).json({ error: 'Server error' });
     }
-  });
+  };
+
+  router.post('/add', authenticateToken, authenticateAdmin, handleCreateUser);
+  router.post('/', authenticateToken, authenticateAdmin, handleCreateUser);
 
   // PUT update user (Admin)
   router.put('/:id', authenticateToken, authenticateAdmin, async (req, res) => {
     try {
-      const { email, name, role, jobRoleCode, contractStart, contractEnd, password } = req.body;
+      const { email, name, role, roleId, jobRoleCode, contractStart, contractEnd, password } = req.body;
       const data = {};
       if (email) data.email = email;
       if (name) data.name = name;
-      if (role) data.role = role === 'ADMIN' ? 'ADMIN' : 'MEMBER';
+      if (roleId === 1 || roleId === '1' || role === 'ADMIN') {
+        data.role = 'ADMIN';
+      } else if (roleId) {
+        data.role = 'MEMBER';
+      }
       if (jobRoleCode !== undefined) data.jobRoleCode = jobRoleCode || null;
       if (contractStart !== undefined) data.contractStart = contractStart ? new Date(contractStart) : null;
       if (contractEnd !== undefined) data.contractEnd = contractEnd ? new Date(contractEnd) : null;
@@ -695,12 +758,29 @@ module.exports = (prisma) => {
         where: { id: req.params.id },
         data
       });
+
+      // Save updated role in tb_m_user_role if provided
+      if (roleId) {
+        const targetRoleId = BigInt(roleId);
+        await prisma.userRole.deleteMany({
+          where: { OR: [{ userName: user.email }, { userName: user.id }] }
+        });
+        await prisma.userRole.create({
+          data: {
+            userName: user.email || user.id,
+            roleId: targetRoleId,
+            createdBy: req.user.email || req.user.name || 'system'
+          }
+        });
+      }
+
       res.json({ message: 'User berhasil diperbarui' });
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Server error' });
     }
   });
+
 
   // GET detail user (Admin)
   router.get('/:id/detail', authenticateToken, authenticateAdmin, async (req, res) => {
@@ -724,12 +804,28 @@ module.exports = (prisma) => {
 
       if (!user) return res.status(404).json({ error: 'User tidak ditemukan' });
 
+      const contractsWithBalance = await Promise.all(
+        (user.contracts || []).map(async (contract) => {
+          const balance = await getLeaveBalance(prisma, user.id, contract.id);
+          return {
+            ...contract,
+            annualLeaveQuota: contract.annualLeaveQuota ?? 12,
+            leaveBalance: {
+              entitlementDays: balance.entitlementDays,
+              usedLeaveDays: balance.usedLeaveDays,
+              remainingLeaveDays: balance.remainingLeaveDays
+            }
+          };
+        })
+      );
+
       const ktpNumber = decryptSafe(user.ktpNumberEncrypted);
       const kkNumber = decryptSafe(user.kkNumberEncrypted);
       const { passwordHash, ktpNumberEncrypted, kkNumberEncrypted, cvFile, ...safeUser } = user;
 
       res.json({
         ...safeUser,
+        contracts: contractsWithBalance,
         ktpNumber,
         kkNumber,
         ktpNumberMasked: maskSensitiveNumber(ktpNumber),
@@ -1264,7 +1360,7 @@ async function updateJobHistory(prisma, userId, id, req, res) {
 }
 
 function validateContract(payload) {
-  const { vendor, startDate, endDate, contractValue } = payload;
+  const { vendor, startDate, endDate, contractValue, annualLeaveQuota } = payload;
   if (!String(vendor || '').trim()) return 'Vendor wajib diisi';
   const periodError = validatePeriod(startDate, endDate);
   if (periodError) return periodError;
@@ -1273,6 +1369,12 @@ function validateContract(payload) {
     !Number.isFinite(Number(contractValue)) || Number(contractValue) < 0) {
     return 'Nilai kontrak harus numerik dan minimal 0';
   }
+  if (annualLeaveQuota !== undefined && annualLeaveQuota !== null && annualLeaveQuota !== '') {
+    const quotaNum = Number(annualLeaveQuota);
+    if (!Number.isInteger(quotaNum) || quotaNum < 0) {
+      return 'Jatah cuti tahunan harus berupa bilangan bulat positif atau 0';
+    }
+  }
   return null;
 }
 
@@ -1280,14 +1382,20 @@ async function createContract(prisma, userId, req, res) {
   try {
     const error = validateContract(req.body);
     if (error) return res.status(400).json({ error });
-    const { vendor, startDate, endDate, contractValue } = req.body;
+    const { vendor, startDate, endDate, contractValue, annualLeaveQuota } = req.body;
     const contractNumber = req.body.contractNumber
       ? await acceptGeneratedContractNumber(prisma, req.body.contractNumber)
       : await generateContractNumber(prisma);
+    
+    const quota = (annualLeaveQuota !== undefined && annualLeaveQuota !== null && annualLeaveQuota !== '')
+      ? Number(annualLeaveQuota)
+      : 12;
+
     const contract = await prisma.userContract.create({
       data: {
         userId, contractNumber, vendor: vendor.trim(),
-        startDate: new Date(startDate), endDate: new Date(endDate), contractValue: String(contractValue)
+        startDate: new Date(startDate), endDate: new Date(endDate), contractValue: String(contractValue),
+        annualLeaveQuota: quota
       }
     });
     res.status(201).json({ message: 'Kontrak berhasil ditambahkan', contract });
@@ -1303,13 +1411,19 @@ async function updateContract(prisma, userId, id, req, res) {
     if (!existing) return res.status(404).json({ error: 'Kontrak tidak ditemukan' });
     const validationError = validateContract(req.body);
     if (validationError) return res.status(400).json({ error: validationError });
-    const { vendor, startDate, endDate, contractValue } = req.body;
+    const { vendor, startDate, endDate, contractValue, annualLeaveQuota } = req.body;
+    const updateData = {
+      vendor: vendor.trim(),
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
+      contractValue: String(contractValue)
+    };
+    if (annualLeaveQuota !== undefined && annualLeaveQuota !== null && annualLeaveQuota !== '') {
+      updateData.annualLeaveQuota = Number(annualLeaveQuota);
+    }
     const contract = await prisma.userContract.update({
       where: { id },
-      data: {
-        vendor: vendor.trim(),
-        startDate: new Date(startDate), endDate: new Date(endDate), contractValue: String(contractValue)
-      }
+      data: updateData
     });
     res.json({ message: 'Kontrak berhasil diperbarui', contract });
   } catch (error) {
@@ -1441,47 +1555,29 @@ async function getCurrentUserContract(prisma, userId) {
       }
     }
 
-    if (activeContract) {
-      return {
-        contractNumber: activeContract.contractNumber,
-        vendor: activeContract.vendor,
-        contractStart: activeContract.startDate,
-        contractEnd: activeContract.endDate,
-        contractValue: activeContract.contractValue,
-        contractStatus: activeContract.contractStatus,
-        isExpired: activeContract.isExpired,
-        isExpiringSoon: activeContract.isExpiringSoon,
-        remainingDays: activeContract.remainingDays
-      };
-    }
+    const selectedContract = activeContract ||
+      (upcomingContracts.length > 0 ? upcomingContracts.sort((a, b) => new Date(a.startDate) - new Date(b.startDate))[0] : null) ||
+      expiredContract;
 
-    if (upcomingContracts.length > 0) {
-      upcomingContracts.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
-      upcomingContract = upcomingContracts[0];
+    if (selectedContract) {
+      const balance = await getLeaveBalance(prisma, userId, selectedContract.id);
       return {
-        contractNumber: upcomingContract.contractNumber,
-        vendor: upcomingContract.vendor,
-        contractStart: upcomingContract.startDate,
-        contractEnd: upcomingContract.endDate,
-        contractValue: upcomingContract.contractValue,
-        contractStatus: upcomingContract.contractStatus,
-        isExpired: upcomingContract.isExpired,
-        isExpiringSoon: upcomingContract.isExpiringSoon,
-        remainingDays: upcomingContract.remainingDays
-      };
-    }
-
-    if (expiredContract) {
-      return {
-        contractNumber: expiredContract.contractNumber,
-        vendor: expiredContract.vendor,
-        contractStart: expiredContract.startDate,
-        contractEnd: expiredContract.endDate,
-        contractValue: expiredContract.contractValue,
-        contractStatus: expiredContract.contractStatus,
-        isExpired: expiredContract.isExpired,
-        isExpiringSoon: expiredContract.isExpiringSoon,
-        remainingDays: expiredContract.remainingDays
+        contractId: selectedContract.id,
+        contractNumber: selectedContract.contractNumber,
+        vendor: selectedContract.vendor,
+        contractStart: selectedContract.startDate,
+        contractEnd: selectedContract.endDate,
+        contractValue: selectedContract.contractValue,
+        annualLeaveQuota: selectedContract.annualLeaveQuota ?? 12,
+        leaveBalance: {
+          entitlementDays: balance.entitlementDays,
+          usedLeaveDays: balance.usedLeaveDays,
+          remainingLeaveDays: balance.remainingLeaveDays
+        },
+        contractStatus: selectedContract.contractStatus,
+        isExpired: selectedContract.isExpired,
+        isExpiringSoon: selectedContract.isExpiringSoon,
+        remainingDays: selectedContract.remainingDays
       };
     }
   }
@@ -1494,6 +1590,8 @@ async function getCurrentUserContract(prisma, userId) {
       contractStart: user.contractStart,
       contractEnd: user.contractEnd,
       contractValue: null,
+      annualLeaveQuota: 12,
+      leaveBalance: null,
       ...statusObj
     };
   }
@@ -1505,6 +1603,8 @@ async function getCurrentUserContract(prisma, userId) {
     contractNumber: null,
     vendor: null,
     contractValue: null,
+    annualLeaveQuota: 0,
+    leaveBalance: null,
     isExpired: false,
     isExpiringSoon: false,
     remainingDays: null

@@ -13,17 +13,17 @@ import packageJson from "../../package.json";
 
 
 const MemberLayout = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
+  const { user, menus, logout } = useAuth();
   const name = user?.name;
-  const jobRole = user?.jobRoleCode || 'Member';
+  const jobRole = (user?.roles && user.roles.length > 0 ? user.roles[0] : 'Member');
   const version = `v${packageJson.version}`;
 
   const handleLogout = async () => {
     await logout();
   };
 
-  const navItems = [
+  const defaultNavItems = [
     { to: '/member', icon: MapIcon, label: 'Dashboard Absensi', end: true },
     {
       label: 'Time Management',
@@ -36,9 +36,12 @@ const MemberLayout = () => {
     },
     { to: '/member/projects', icon: FolderClosed, label: 'Project Saya' },
     { to: '/member/profile', icon: User, label: 'Profil Saya' },
-    ...(user?.jobRoleCode === 'PM' ? [{ to: '/member/leave-approval', icon: ClipboardCheck, label: 'Leave Approval' }] : []),
+    // ...(user?.jobRoleCode === 'PM' ? [{ to: '/member/leave-approval', icon: ClipboardCheck, label: 'Leave Approval' }] : []),
     { to: '/member/notifications', icon: Bell, label: 'Inbox' },
   ];
+
+  const navItems = menus && menus.length > 0 ? menus : defaultNavItems;
+
 
   return (
     <div className="flex h-screen bg-surface-950 overflow-hidden">
@@ -48,7 +51,7 @@ const MemberLayout = () => {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 z-[70] w-64 bg-surface-900/70 backdrop-blur-xl border-r border-white/[0.06] flex flex-col transform transition-transform lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed lg:static inset-y-0 left-0 z-[70] w-64 bg-surface-900/70 backdrop-blur-xl border-r border-white/[0.06] flex flex-col transition-all duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0 lg:ml-0' : '-translate-x-full lg:translate-x-0 lg:-ml-64'}`}>
         <div className="p-5 border-b border-white/[0.06] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex-shrink-0 w-9 h-9 rounded-xl gradient-brand flex items-center justify-center shadow-lg shadow-brand-500/20">
@@ -98,6 +101,12 @@ const MemberLayout = () => {
           <NotificationBell pagePath="/member/notifications" />
         </div>
 
+        <div className="hidden lg:flex absolute top-6 left-8 z-50 items-center gap-2">
+          {/* <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg bg-surface-800/50 hover:bg-surface-800 border border-white/[0.06] text-surface-400 hover:text-white transition-colors backdrop-blur-md">
+            <Menu size={18} />
+          </button> */}
+        </div>
+
         {/* Top Bar for Mobile */}
         <header className="lg:hidden glass-card rounded-none border-x-0 border-t-0 px-4 py-3 flex items-center justify-between gap-4 flex-shrink-0 z-50">
           <div className="flex items-center gap-3">
@@ -113,7 +122,7 @@ const MemberLayout = () => {
             <ThemeToggle />
             <NotificationBell pagePath="/member/notifications" />
             <button
-              onClick={() => setSidebarOpen(true)}
+              onClick={() => setSidebarOpen(!sidebarOpen)}
               className="p-2 rounded-lg bg-white/[0.06] text-surface-400"
             >
               <Menu size={18} />

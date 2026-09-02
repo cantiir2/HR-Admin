@@ -21,8 +21,19 @@ function buildEmailPayload(notification, data, recipient) {
 /** Creator by: FID.Iyan **/
 /*****/
 async function getAdminRecipients(prisma) {
+  const adminRoles = await prisma.userRole.findMany({
+    where: { roleId: { in: [BigInt(1), BigInt(2)] } },
+    select: { userName: true }
+  });
+  const userNames = adminRoles.map(r => r.userName);
   return prisma.user.findMany({
-    where: { role: 'ADMIN' },
+    where: {
+      OR: [
+        { email: { in: userNames } },
+        { id: { in: userNames } },
+        { role: 'ADMIN' }
+      ]
+    },
     select: { id: true, name: true, email: true, role: true }
   });
 }
@@ -196,7 +207,6 @@ async function createBulkNotifications(prisma, recipients = [], data = {}) {
 async function getPmAdminRecipients(prisma) {
   return prisma.user.findMany({
     where: {
-      role: 'ADMIN',
       jobRoleCode: 'PM'
     },
     select: {
@@ -209,11 +219,11 @@ async function getPmAdminRecipients(prisma) {
   });
 }
 
-/*****/
-/** Nama Function: getProjectManagerRecipientsForAttendanceRequest **/
-/** Deskripsi Function: Mencari PM project yang relevan berdasarkan assignment member dan tanggal request attendance **/
-/** Creator by: FID.Iyan **/
-/*****/
+/*****
+ * Nama Function: getProjectManagerRecipientsForAttendanceRequest
+ * Deskripsi Function: Mencari PM project yang relevan berdasarkan assignment member dan tanggal request attendance
+ * Creator by: FID.Iyan
+ *****/
 async function getProjectManagerRecipientsForAttendanceRequest(prisma, userId, requestDate) {
   const d = new Date(requestDate);
 
@@ -250,7 +260,6 @@ async function getProjectManagerRecipientsForAttendanceRequest(prisma, userId, r
 
     const pm = assignment.project.projectManager;
     if (!pm) continue;
-    if (pm.role !== 'ADMIN') continue;
     if (pm.jobRoleCode !== 'PM') continue;
 
     if (!pmMap.has(pm.id)) {

@@ -1,9 +1,10 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Loader2 } from 'lucide-react';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, isRouteAllowed } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -17,12 +18,27 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
-    // Role not authorized, redirect to appropriate dashboard
-    return <Navigate to={user.role === 'ADMIN' ? '/admin' : '/member'} replace />;
+  const userPermissions = user.permissions || [];
+  const hasAdminPermission = user.role === 'ADMIN' || userPermissions.some(p => p.menuUrl && p.menuUrl.startsWith('/admin'));
+
+  if (allowedRoles) {
+    const hasRoleAccess = allowedRoles.some(r =>
+      (r === 'ADMIN' && hasAdminPermission) ||
+      (r === 'MEMBER' && !hasAdminPermission)
+    );
+
+    if (!hasRoleAccess) {
+      return <Navigate to={hasAdminPermission ? '/admin' : '/member'} replace />;
+    }
+  }
+
+  // Route screen check
+  if (!isRouteAllowed(location.pathname)) {
+    return <Navigate to={hasAdminPermission ? '/admin' : '/member'} replace />;
   }
 
   return children;
 };
 
 export default ProtectedRoute;
+

@@ -208,17 +208,18 @@ model UserJobHistory {
 }
 
 model UserContract {
-  id             String         @id @default(uuid())
-  userId         String
-  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  contractNumber String         @unique
-  vendor         String
-  startDate      DateTime       @db.Date
-  endDate        DateTime       @db.Date
-  contractValue  Decimal        @db.Decimal(18, 2)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  leaveRequests  LeaveRequest[]
+  id               String         @id @default(uuid())
+  userId           String
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contractNumber   String         @unique
+  vendor           String
+  startDate        DateTime       @db.Date
+  endDate          DateTime       @db.Date
+  contractValue    Decimal        @db.Decimal(18, 2)
+  annualLeaveQuota Int            @default(12)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  leaveRequests    LeaveRequest[]
 
   @@index([userId])
   @@map("tb_m_user_contract")
@@ -439,3 +440,118 @@ model AttendanceRequest {
   @@index([requestDate])
   @@map("tb_t_attendance_request")
 }
+
+// ─── OVOID Authorization Models ────────────────────────────────────────────
+
+model Application {
+  id          BigInt    @id @default(autoincrement())
+  name        String    @db.VarChar(50)
+  url         String?   @db.VarChar(200)
+  initialPage String?   @map("initial_page") @db.VarChar(200)
+  description String?   @db.VarChar(200)
+  icon        String?   @db.VarChar(100)
+  createdBy   String?   @map("created_by") @db.VarChar(50)
+  createdAt   DateTime? @default(now()) @map("created_dt")
+  changedBy   String?   @map("changed_by") @db.VarChar(50)
+  changedAt   DateTime? @map("changed_dt")
+
+  @@map("tb_m_application")
+}
+
+model Feature {
+  id        BigInt    @id @default(autoincrement())
+  apiMethod String    @map("api_method") @db.VarChar(50)
+  apiUrl    String    @map("api_url") @db.VarChar(200)
+  createdBy String?   @map("created_by") @db.VarChar(50)
+  createdAt DateTime? @default(now()) @map("created_dt")
+  changedBy String?   @map("changed_by") @db.VarChar(50)
+  changedAt DateTime? @map("changed_dt")
+
+  @@map("tb_m_feature")
+}
+
+model FunctionMaster {
+  id            BigInt    @id @default(autoincrement())
+  applicationId BigInt    @map("application_id")
+  name          String    @db.VarChar(50)
+  description   String?   @db.VarChar(200)
+  url           String    @db.VarChar(200)
+  createdBy     String?   @map("created_by") @db.VarChar(50)
+  createdAt     DateTime? @default(now()) @map("created_dt")
+  changedBy     String?   @map("changed_by") @db.VarChar(50)
+  changedAt     DateTime? @map("changed_dt")
+
+  @@map("tb_m_function")
+}
+
+model FunctionDetail {
+  applicationId BigInt    @map("application_id")
+  functionId    BigInt    @map("function_id")
+  featureId     BigInt    @map("feature_id")
+  apiMethod     String    @map("api_method") @db.VarChar(50)
+  apiUrl        String    @map("api_url") @db.VarChar(200)
+  createdBy     String?   @map("created_by") @db.VarChar(50)
+  createdAt     DateTime? @default(now()) @map("created_dt")
+  changedBy     String?   @map("changed_by") @db.VarChar(50)
+  changedAt     DateTime? @map("changed_dt")
+
+  @@id([applicationId, functionId, featureId])
+  @@map("tb_m_function_detail")
+}
+
+model RoleMaster {
+  id          BigInt    @id @default(autoincrement())
+  name        String    @db.VarChar(50)
+  description String?   @db.VarChar(200)
+  createdBy   String?   @map("created_by") @db.VarChar(50)
+  createdAt   DateTime? @default(now()) @map("created_dt")
+  changedBy   String?   @map("changed_by") @db.VarChar(50)
+  changedAt   DateTime? @map("changed_dt")
+  isActive    Boolean?  @default(true) @map("is_active")
+
+  @@map("tb_m_role")
+}
+
+model RoleDetail {
+  roleId        BigInt    @map("role_id")
+  applicationId BigInt    @map("application_id")
+  functionId    BigInt    @map("function_id")
+  featureId     BigInt    @map("feature_id")
+  createdBy     String?   @map("created_by") @db.VarChar(50)
+  createdAt     DateTime? @default(now()) @map("created_dt")
+  changedBy     String?   @map("changed_by") @db.VarChar(50)
+  changedAt     DateTime? @map("changed_dt")
+
+  @@id([roleId, applicationId, functionId, featureId])
+  @@map("tb_m_role_detail")
+}
+
+model UserRole {
+  userName  String    @map("user_name") @db.VarChar(50)
+  roleId    BigInt    @map("role_id")
+  createdBy String?   @map("created_by") @db.VarChar(50)
+  createdAt DateTime? @default(now()) @map("created_dt")
+  changedBy String?   @map("changed_by") @db.VarChar(50)
+  changedAt DateTime? @map("changed_dt")
+
+  @@id([userName, roleId])
+  @@map("tb_m_user_role")
+}
+
+model Menu {
+  id            BigInt    @id @default(autoincrement())
+  parentId      BigInt?   @map("parent_id")
+  displayText   String    @map("display_text") @db.VarChar(100)
+  applicationId BigInt?   @map("application_id")
+  functionId    BigInt?   @map("function_id")
+  icon          String?   @db.VarChar(100)
+  isActive      Boolean?  @default(true) @map("is_active")
+  createdBy     String?   @map("created_by") @db.VarChar(50)
+  createdAt     DateTime? @default(now()) @map("created_dt")
+  changedBy     String?   @map("changed_by") @db.VarChar(50)
+  changedAt     DateTime? @map("changed_dt")
+  seq           Int       @default(0)
+
+  @@map("tb_m_menu")
+}
+

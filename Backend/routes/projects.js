@@ -271,7 +271,7 @@ module.exports = (prisma) => {
   });
 
   // GET single project
-  router.get('/:id', authenticateToken, async (req, res) => {
+  router.get('/:id', authenticateToken, authenticateAdmin, async (req, res) => {
     try {
       const project = await prisma.project.findUnique({
         where: { id: req.params.id },

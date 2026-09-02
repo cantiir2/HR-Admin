@@ -151,6 +151,25 @@ const WorkingReport = () => {
         </div>
       )}
 
+      {detail.report?.rejectionReason && (
+        <div className={`mb-4 p-3.5 rounded-xl border text-sm ${
+          reportStatus === 'REJECTED'
+            ? 'bg-rose-500/10 border-rose-500/20 text-rose-300'
+            : reportStatus === 'APPROVED'
+            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+            : 'bg-amber-500/10 border-amber-500/20 text-amber-300'
+        }`}>
+          <p className="font-semibold mb-0.5">
+            {reportStatus === 'REJECTED'
+              ? 'Alasan Penolakan:'
+              : reportStatus === 'APPROVED'
+              ? 'Catatan Approval:'
+              : 'Catatan dari Admin:'}
+          </p>
+          <p className="text-white/90 whitespace-pre-wrap">{detail.report.rejectionReason}</p>
+        </div>
+      )}
+
       <div className="grid gap-3 md:grid-cols-4 mb-4">
         <div className="stat-card">
           <p className="text-xs text-surface-400 mb-2">Status</p>

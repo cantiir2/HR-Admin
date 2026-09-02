@@ -1,18 +1,33 @@
 import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
+import DynamicIcon from './DynamicIcon';
+
+const renderIcon = (IconProp, size = 18) => {
+  if (!IconProp) return <DynamicIcon name="CircleDot" size={size} />;
+  if (typeof IconProp === 'string') {
+    return <DynamicIcon name={IconProp} size={size} />;
+  }
+  return <IconProp size={size} />;
+};
 
 const NavItem = ({ item, setSidebarOpen }) => {
   const location = useLocation();
   const isChildActive = item.subItems?.some(sub => location.pathname === sub.to);
   const [isOpen, setIsOpen] = useState(isChildActive || false);
 
-  if (!item.subItems) {
+  const handleNavClick = () => {
+    if (window.innerWidth < 1024 && typeof setSidebarOpen === 'function') {
+      setSidebarOpen(false);
+    }
+  };
+
+  if (!item.subItems || item.subItems.length === 0) {
     return (
       <NavLink
-        to={item.to}
-        end={item.end}
-        onClick={() => setSidebarOpen(false)}
+        to={item.to || '#'}
+        end={item.end !== undefined ? item.end : true}
+        onClick={handleNavClick}
         className={({ isActive }) =>
           `flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${isActive
             ? 'gradient-brand text-white shadow-lg shadow-brand-500/20'
@@ -20,7 +35,7 @@ const NavItem = ({ item, setSidebarOpen }) => {
           }`
         }
       >
-        <item.icon size={18} />
+        {renderIcon(item.icon, 18)}
         {item.label}
       </NavLink>
     );
@@ -36,7 +51,7 @@ const NavItem = ({ item, setSidebarOpen }) => {
           }`}
       >
         <div className="flex items-center gap-3">
-          <item.icon size={18} />
+          {renderIcon(item.icon, 18)}
           {item.label}
         </div>
         <ChevronDown size={16} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
@@ -48,7 +63,7 @@ const NavItem = ({ item, setSidebarOpen }) => {
             <NavLink
               key={subItem.to}
               to={subItem.to}
-              onClick={() => setSidebarOpen(false)}
+              onClick={handleNavClick}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${isActive
                   ? 'gradient-brand text-white shadow-lg shadow-brand-500/20'
@@ -56,7 +71,7 @@ const NavItem = ({ item, setSidebarOpen }) => {
                 }`
               }
             >
-              <subItem.icon size={16} />
+              {renderIcon(subItem.icon, 16)}
               {subItem.label}
             </NavLink>
           ))}
@@ -67,3 +82,4 @@ const NavItem = ({ item, setSidebarOpen }) => {
 };
 
 export default NavItem;
+

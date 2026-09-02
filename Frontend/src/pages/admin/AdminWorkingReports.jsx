@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Download, Loader2, RefreshCw, Search, X } from 'lucide-react';
+import { Check, Download, Eye, Loader2, MessageSquare, RefreshCw, Search, X } from 'lucide-react';
 import api from '../../lib/api';
 import AppSelect from '../../components/AppSelect';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import Pagination from '../../components/Pagination';
 import SortableHeader from '../../components/SortableHeader';
 import useTableSort from '../../hooks/useTableSort';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
+import WorkingReportPreviewDialog from '../../components/WorkingReportPreviewDialog';
+import PermissionControl from '../../components/PermissionControl';
 
 const statuses = [
   ['', 'Semua Status'],
@@ -35,25 +39,49 @@ const formatDeadlineDate = (deadlineDate) => {
 };
 
 const AdminWorkingReports = () => {
+  const { user } = useAuth();
   const [reports, setReports] = useState([]);
   const [page, setPage] = useState({ pageNo: 1, pageSize: 10, totalPages: 1 });
   const [filters, setFilters] = useState({
     search: '',
+    projectManagerId: '',
     month: String(new Date().getMonth() + 1),
     year: new Date().getFullYear(),
     status: ''
   });
+  const [projectManagers, setProjectManagers] = useState([]);
+  const [pmInitialized, setPmInitialized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [previewReport, setPreviewReport] = useState(null);
   const [monthOptions, setMonthOptions] = useState([]);
+  const [confirmModal, setConfirmModal] = useState({
+    open: false,
+    type: null,
+    report: null,
+    comment: '',
+    title: '',
+    message: '',
+    confirmLabel: '',
+    tone: 'brand'
+  });
   const { showToast } = useToast();
 
   const { sortBy, sortOrder, handleSort } = useTableSort('user.name', 'asc');
+
+  const isSystemAdmin = user?.role === 'System Administrator';
 
   const years = useMemo(() => {
     const current = new Date().getFullYear();
     return [['', 'Semua Tahun'], ...Array.from({ length: 5 }, (_, index) => [current - index, String(current - index)])];
   }, []);
+
+  const pmOptions = useMemo(() => {
+    return [
+      ['', 'Semua Project Manager'],
+      ...projectManagers.map(pm => [pm.id, pm.name])
+    ];
+  }, [projectManagers]);
 
   const fetchReports = async () => {
     try {
@@ -93,6 +121,30 @@ const AdminWorkingReports = () => {
   }, []);
 
   useEffect(() => {
+    api.get('/api/projects').then(r => {
+      const dataList = Array.isArray(r.data) ? r.data : (r.data?.data || []);
+      const managers = dataList.map(project => project.projectManager).filter(Boolean);
+      if (user?.jobRoleCode === 'PM' && user?.id && !managers.some(m => m.id === user.id)) {
+        managers.push({ id: user.id, name: user.name });
+      }
+      const uniqueManagers = [...new Map(managers.map(manager => [manager.id, manager])).values()];
+      setProjectManagers(uniqueManagers);
+    }).catch(() => { });
+  }, [user]);
+
+  useEffect(() => {
+    if (!pmInitialized && user?.id) {
+      const isPM = user?.jobRoleCode === 'PM' || projectManagers.some(m => m.id === user.id);
+      if (isPM) {
+        setFilters(current => ({ ...current, projectManagerId: user.id }));
+      }
+      if (projectManagers.length > 0 || user?.jobRoleCode === 'PM') {
+        setPmInitialized(true);
+      }
+    }
+  }, [user, projectManagers, pmInitialized]);
+
+  useEffect(() => {
     const timer = setTimeout(fetchReports, 300);
     return () => clearTimeout(timer);
   }, [filters, page.pageNo, page.pageSize, sortBy, sortOrder]);
@@ -102,22 +154,88 @@ const AdminWorkingReports = () => {
     setPage(current => ({ ...current, pageNo: 1 }));
   };
 
-  const approveReport = async (id) => {
-    setActionLoading(true);
-    await api.put(`/api/working-reports/${id}/approve`);
-    showToast({ type: 'success', title: 'Berhasil', message: 'Working Report berhasil diapprove' });
-    setActionLoading(false);
-    fetchReports();
+  const handleOpenApprove = (report) => {
+    setConfirmModal({
+      open: true,
+      type: 'approve',
+      report,
+      comment: '',
+      title: 'Approve Working Report',
+      message: `Apakah Anda yakin ingin menyetujui Working Report untuk ${report.user?.name} periode ${String(report.month).padStart(2, '0')}/${report.year}?`,
+      confirmLabel: 'Approve',
+      tone: 'success'
+    });
   };
 
-  const rejectReport = async (id) => {
-    const rejectionReason = window.prompt('Masukkan alasan reject');
-    if (!rejectionReason) return;
-    setActionLoading(true);
-    await api.put(`/api/working-reports/${id}/reject`, { rejectionReason });
-    showToast({ type: 'success', title: 'Berhasil', message: 'Working Report berhasil direject' });
-    setActionLoading(false);
-    fetchReports();
+  const handleOpenReject = (report) => {
+    setConfirmModal({
+      open: true,
+      type: 'reject',
+      report,
+      comment: '',
+      title: 'Reject Working Report',
+      message: `Masukkan alasan penolakan Working Report untuk ${report.user?.name} periode ${String(report.month).padStart(2, '0')}/${report.year}:`,
+      confirmLabel: 'Reject',
+      tone: 'danger'
+    });
+  };
+
+  const handleOpenEditComment = (report) => {
+    setConfirmModal({
+      open: true,
+      type: 'edit-comment',
+      report,
+      comment: report.rejectionReason || '',
+      title: 'Edit Catatan Working Report',
+      message: `Perbarui catatan / alasan untuk ${report.user?.name} periode ${String(report.month).padStart(2, '0')}/${report.year}:`,
+      confirmLabel: 'Simpan',
+      tone: 'brand'
+    });
+  };
+
+  const handleConfirmAction = async () => {
+    const { type, report, comment } = confirmModal;
+    if (!report) return;
+
+    if (type === 'reject' && !comment.trim()) {
+      showToast({ type: 'error', title: 'Validasi Gagal', message: 'Alasan reject wajib diisi' });
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      if (type === 'approve') {
+        await api.put(`/api/working-reports/${report.id}/approve`, { comment: comment.trim() || undefined });
+        showToast({ type: 'success', title: 'Berhasil', message: 'Working Report berhasil diapprove' });
+      } else if (type === 'reject') {
+        await api.put(`/api/working-reports/${report.id}/reject`, { rejectionReason: comment.trim() });
+        showToast({ type: 'success', title: 'Berhasil', message: 'Working Report berhasil direject' });
+      } else if (type === 'edit-comment') {
+        await api.put(`/api/working-reports/${report.id}/comment`, { comment: comment.trim() });
+        showToast({ type: 'success', title: 'Berhasil', message: 'Catatan Working Report berhasil diperbarui' });
+      }
+
+      setConfirmModal({
+        open: false,
+        type: null,
+        report: null,
+        comment: '',
+        title: '',
+        message: '',
+        confirmLabel: '',
+        tone: 'brand'
+      });
+      fetchReports();
+    } catch (err) {
+      showToast({ type: 'error', title: 'Gagal', message: err.response?.data?.error || 'Aksi gagal diproses' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCloseConfirmModal = () => {
+    if (actionLoading) return;
+    setConfirmModal(prev => ({ ...prev, open: false }));
   };
 
   const exportReport = async (report) => {
@@ -191,14 +309,18 @@ const AdminWorkingReports = () => {
           <p className="text-sm text-surface-400">Monitoring, approval, reminder, dan export Working Report</p>
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={generateReminder} disabled={actionLoading} className="btn-ghost text-sm inline-flex items-center gap-2">
-            <RefreshCw size={16} />
-            Reminder
-          </button>
-          <button type="button" onClick={generateLate} disabled={actionLoading} className="btn-primary text-sm inline-flex items-center gap-2">
-            {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-            Late
-          </button>
+          <PermissionControl action="add" apiMethod="POST" apiUrl="/api/working-reports/generate-reminders">
+            <button type="button" onClick={generateReminder} disabled={actionLoading} className="btn-ghost text-sm inline-flex items-center gap-2">
+              <RefreshCw size={16} />
+              Reminder
+            </button>
+          </PermissionControl>
+          <PermissionControl action="add" apiMethod="POST" apiUrl="/api/working-reports/generate-late-status">
+            <button type="button" onClick={generateLate} disabled={actionLoading} className="btn-primary text-sm inline-flex items-center gap-2">
+              {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+              Late
+            </button>
+          </PermissionControl>
           <button
             type="button"
             onClick={exportZipReports}
@@ -211,11 +333,12 @@ const AdminWorkingReports = () => {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-[1fr_180px_180px_180px] mb-4">
+      <div className="grid gap-3 md:grid-cols-[1fr_200px_160px_160px_160px] mb-4">
         <div className="relative">
           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-surface-500" />
           <input value={filters.search} onChange={e => updateFilter('search', e.target.value)} placeholder="Cari nama atau email..." className="input-dark pl-11 text-sm" />
         </div>
+        <AppSelect value={filters.projectManagerId} onChange={value => updateFilter('projectManagerId', value)} options={pmOptions} placeholder="Pilih Project Manager" isDisabled={!isSystemAdmin} />
         <AppSelect value={filters.month} onChange={value => updateFilter('month', value)} options={monthOptions} />
         <AppSelect value={filters.year} onChange={value => updateFilter('year', value)} options={years} />
         <AppSelect value={filters.status} onChange={value => updateFilter('status', value)} options={statuses} />
@@ -231,6 +354,7 @@ const AdminWorkingReports = () => {
                 <SortableHeader label="Deadline" field="deadlineDate" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
                 <SortableHeader label="Status" field="status" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
                 <SortableHeader label="Late" field="lateDays" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={(field) => handleSort(field, () => setPage(p => ({ ...p, pageNo: 1 })))} />
+                <SortableHeader label="Catatan" />
                 <SortableHeader label="Aksi" />
               </tr>
             </thead>
@@ -247,15 +371,28 @@ const AdminWorkingReports = () => {
                     <td className="px-4 py-3 text-sm text-surface-400">{formatDeadlineDate(report.deadlineDate)}</td>
                     <td className="px-4 py-3"><span className={statusClass[displayStatus] || 'badge-info'}>{displayStatus}</span></td>
                     <td className="px-4 py-3 text-sm text-surface-400">{report.isLate ? `${report.lateDays} hari` : '-'}</td>
+                    <td className="px-4 py-3 text-sm text-surface-400 max-w-[200px] truncate" title={report.rejectionReason || '-'}>
+                      {report.rejectionReason || '-'}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
+                        <button type="button" onClick={() => setPreviewReport(report)} className="btn-ghost text-xs inline-flex items-center gap-1 text-brand-500 hover:text-brand-400"><Eye size={14} />View</button>
                         <button type="button" onClick={() => exportReport(report)} className="btn-ghost text-xs inline-flex items-center gap-1"><Download size={14} />Export</button>
                         {displayStatus === 'SUBMITTED' && (
                           <>
-                            <button type="button" onClick={() => approveReport(report.id)} className="badge-success"><Check size={13} />Approve</button>
-                            <button type="button" onClick={() => rejectReport(report.id)} className="badge-danger"><X size={13} />Reject</button>
+                            <button type="button" onClick={() => handleOpenApprove(report)} disabled={actionLoading} className="badge-success"><Check size={13} />Approve</button>
+                            <button type="button" onClick={() => handleOpenReject(report)} disabled={actionLoading} className="badge-danger"><X size={13} />Reject</button>
                           </>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditComment(report)}
+                          disabled={actionLoading}
+                          className="badge-warning inline-flex items-center gap-1"
+                        >
+                          <MessageSquare size={13} />
+                          Edit Catatan
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -272,6 +409,53 @@ const AdminWorkingReports = () => {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmModal.open}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmLabel={confirmModal.confirmLabel}
+        tone={confirmModal.tone}
+        loading={actionLoading}
+        onConfirm={handleConfirmAction}
+        onCancel={handleCloseConfirmModal}
+      >
+        {(confirmModal.type === 'reject' || confirmModal.type === 'edit-comment' || confirmModal.type === 'approve') && (
+          <div className="mt-3">
+            <label className="block text-xs font-medium text-surface-300 mb-1.5">
+              {confirmModal.type === 'reject'
+                ? 'Alasan Penolakan'
+                : confirmModal.type === 'approve'
+                  ? 'Catatan Approval (Opsional)'
+                  : 'Catatan / Alasan'}
+              {confirmModal.type === 'reject' && <span className="text-rose-400 ml-1">*</span>}
+            </label>
+            <textarea
+              value={confirmModal.comment}
+              onChange={(e) => setConfirmModal(prev => ({ ...prev, comment: e.target.value }))}
+              placeholder={
+                confirmModal.type === 'reject'
+                  ? 'Masukkan alasan reject...'
+                  : confirmModal.type === 'approve'
+                    ? 'Masukkan catatan approval jika ada (opsional)...'
+                    : 'Masukkan catatan...'
+              }
+              rows={3}
+              className="input-dark w-full text-sm resize-none"
+              autoFocus
+            />
+          </div>
+        )}
+      </ConfirmDialog>
+
+      <WorkingReportPreviewDialog
+        open={!!previewReport}
+        reportData={previewReport}
+        onClose={() => setPreviewReport(null)}
+        onEditComment={(report) => {
+          handleOpenEditComment(report);
+        }}
+      />
     </div>
   );
 };

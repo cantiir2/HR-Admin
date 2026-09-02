@@ -6,6 +6,7 @@ import L from 'leaflet';
 import { MapPin, MousePointerClick, Trash2, Save, CheckCircle2, AlertTriangle, Info, Loader2, Search, X, Plus } from 'lucide-react';
 import AppSelect from '../../components/AppSelect';
 import { useToast } from '../../context/ToastContext';
+import PermissionControl from '../../components/PermissionControl';
 
 const vertexIcon = (index) => L.divIcon({
   className: 'custom-vertex-marker',
@@ -476,35 +477,39 @@ const ProjectGeofenceConfig = () => {
           </div>
 
           <div className="pt-4 border-t border-surface-200 dark:border-white/10 mt-4 space-y-2">
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl gradient-brand text-white font-medium hover:opacity-90 transition-all shadow-lg shadow-brand-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" />
-                  Menyimpan...
-                </>
-              ) : (
-                <>
-                  <Save size={18} />
-                  Simpan Area Geofence
-                </>
-              )}
-            </button>
-
-            {selectedGeofenceId !== 'NEW' && (
+            <PermissionControl action={selectedGeofenceId === 'NEW' ? 'add' : 'edit'}>
               <button
                 type="button"
-                onClick={handleDelete}
-                disabled={deleting}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 text-xs font-medium transition-all"
+                onClick={handleSave}
+                disabled={saving}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl gradient-brand text-white font-medium hover:opacity-90 transition-all shadow-lg shadow-brand-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Trash2 size={14} />
-                Hapus Geofence Ini
+                {saving ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    Menyimpan...
+                  </>
+                ) : (
+                  <>
+                    <Save size={18} />
+                    Simpan Area Geofence
+                  </>
+                )}
               </button>
+            </PermissionControl>
+
+            {selectedGeofenceId !== 'NEW' && (
+              <PermissionControl action="delete">
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 text-xs font-medium transition-all"
+                >
+                  <Trash2 size={14} />
+                  Hapus Geofence Ini
+                </button>
+              </PermissionControl>
             )}
           </div>
         </div>

@@ -4,6 +4,7 @@ const {
   getAdminRecipients
 } = require('./notificationService');
 const { validateSortParams, buildOrderBy } = require('../utils/sorting');
+const { getWorkingReportData } = require('./excelService');
 
 const REMINDER_DAYS = [7, 3, 1, 0];
 const MS_PER_DAY = 86400000;
@@ -254,6 +255,13 @@ async function getWorkingReportDetail(prisma, pageNoService, pageSizeService, us
     lateDays: 0
   });
 
+  let previewData = null;
+  try {
+    previewData = await getWorkingReportData(userId, period.month, period.year, prisma);
+  } catch (err) {
+    console.error('Failed to get working report preview data:', err);
+  }
+
   return {
     report: report ? buildWorkingReportResponse(report) : null,
     attendances,
@@ -263,7 +271,8 @@ async function getWorkingReportDetail(prisma, pageNoService, pageSizeService, us
     deadlineDate: state.deadlineDate,
     isLate: state.isLate,
     lateDays: state.lateDays,
-    computedStatus: state.computedStatus
+    computedStatus: state.computedStatus,
+    previewData
   };
 }
 
@@ -377,7 +386,7 @@ async function submitWorkingReport(prisma, userId, month, year) {
     try {
       const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
       const pmMap = await getActiveUserProjectsInPeriod(prisma, userId, period.month, period.year);
-      
+
       for (const [pmId, pmData] of pmMap.entries()) {
         const projectNames = pmData.projects.join(', ');
         await createNotification(prisma, {
@@ -423,9 +432,6 @@ async function listWorkingReports(prisma, currentUser, filters = {}) {
   if (filters.projectManagerId) {
     andWhere.push({ user: { projects: { some: { project: { projectManagerId: filters.projectManagerId } } } } });
   }
-  if (currentUser.role !== 'ADMIN') {
-    andWhere.push({ user: { projects: { some: { project: { projectManagerId: currentUser.id } } } } });
-  }
 
   const pageNo = Math.max(Number(filters.pageNo) || 1, 1);
   const pageSize = Math.min(Math.max(Number(filters.pageSize) || 10, 1), 50);
@@ -468,7 +474,7 @@ async function listWorkingReports(prisma, currentUser, filters = {}) {
 /** Deskripsi Function: Menyetujui working report oleh admin **/
 /** Creator by: FID.Iyan **/
 /*****/
-async function approveWorkingReport(prisma, reportId, approverId) {
+async function approveWorkingReport(prisma, reportId, approverId, comment = null) {
   const report = await prisma.workingReport.findUnique({ where: { id: reportId } });
   if (!report) return { error: 'Working Report tidak ditemukan' };
   if (!['SUBMITTED', 'REJECTED'].includes(report.status)) {
@@ -483,7 +489,7 @@ async function approveWorkingReport(prisma, reportId, approverId) {
       approvedById: approverId,
       rejectedAt: null,
       rejectedById: null,
-      rejectionReason: null
+      rejectionReason: comment ? String(comment).trim() : null
     }
   });
 
@@ -505,11 +511,34 @@ async function approveWorkingReport(prisma, reportId, approverId) {
   return { report: updatedReport };
 }
 
-/*****/
-/** Nama Function: rejectWorkingReport **/
-/** Deskripsi Function: Menolak working report oleh admin dengan alasan **/
-/** Creator by: FID.Iyan **/
-/*****/
+/*****
+ * Nama Function: updateWorkingReportComment
+ * Deskripsi Function: Memperbarui catatan / alasan pada working report
+ * Creator by: FID.Iyan
+ *****/
+async function updateWorkingReportComment(prisma, reportId, comment) {
+  const report = await prisma.workingReport.findUnique({ where: { id: reportId } });
+  if (!report) return { error: 'Working Report tidak ditemukan' };
+
+  const sanitizedComment = comment !== undefined && comment !== null && String(comment).trim() !== ''
+    ? String(comment).trim()
+    : null;
+
+  const updatedReport = await prisma.workingReport.update({
+    where: { id: reportId },
+    data: {
+      rejectionReason: sanitizedComment
+    }
+  });
+
+  return { report: updatedReport };
+}
+
+/*****
+ * Nama Function: rejectWorkingReport
+ * Deskripsi Function: Menolak working report oleh admin dengan alasan
+ * Creator by: FID.Iyan
+ *****/
 async function rejectWorkingReport(prisma, reportId, rejectedById, rejectionReason) {
   if (!String(rejectionReason || '').trim()) return { error: 'Alasan reject wajib diisi' };
   const report = await prisma.workingReport.findUnique({ where: { id: reportId } });
@@ -672,6 +701,7 @@ module.exports = {
   listWorkingReports,
   approveWorkingReport,
   rejectWorkingReport,
+  updateWorkingReportComment,
   generateWorkingReportReminders,
   generateWorkingReportLateStatus,
   validateMonthYear

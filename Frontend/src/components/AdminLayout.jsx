@@ -13,16 +13,17 @@ import NavItem from './NavItem';
 import packageJson from "../../package.json";
 
 const AdminLayout = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
+  const { user, menus, logout } = useAuth();
   const name = user?.name;
+  const jobRole = (user?.roles && user.roles.length > 0 ? user.roles[0] : 'Member');
   const version = `v${packageJson.version}`;
 
   const handleLogout = async () => {
     await logout();
   };
 
-  const navItems = [
+  const defaultNavItems = [
     { to: '/admin', icon: MapIcon, label: 'Dashboard', end: true },
     { to: '/admin/users', icon: Users, label: 'User Management' },
     {
@@ -49,6 +50,9 @@ const AdminLayout = () => {
     { to: '/admin/system', icon: Settings, label: 'System Master' },
   ];
 
+  const navItems = menus && menus.length > 0 ? menus : defaultNavItems;
+
+
   return (
     <div className="flex h-screen bg-surface-950 overflow-hidden">
       {/* Sidebar Overlay */}
@@ -57,7 +61,7 @@ const AdminLayout = () => {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 z-[70] w-64 bg-surface-900/70 backdrop-blur-xl border-r border-white/[0.06] flex flex-col transform transition-transform lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed lg:static inset-y-0 left-0 z-[70] w-64 bg-surface-900/70 backdrop-blur-xl border-r border-white/[0.06] flex flex-col transition-all duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0 lg:ml-0' : '-translate-x-full lg:translate-x-0 lg:-ml-64'}`}>
         <div className="p-5 border-b border-white/[0.06] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex-shrink-0 w-9 h-9 rounded-xl gradient-brand flex items-center justify-center shadow-lg shadow-brand-500/20">
@@ -85,7 +89,7 @@ const AdminLayout = () => {
             <UserAvatar name={name} photo={user?.profilePhoto} size="sm" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-white truncate">{name}</p>
-              <p className="text-[11px] text-surface-500">Administrator</p>
+              <p className="text-[11px] text-surface-500">{jobRole}</p>
             </div>
           </div>
           <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-white/[0.04] border border-white/[0.06] text-surface-400 hover:text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/20 transition-all text-sm">
@@ -98,14 +102,29 @@ const AdminLayout = () => {
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Top Bar */}
-        <header className="glass-card rounded-none border-x-0 border-t-0 px-4 lg:px-6 py-3 flex items-center justify-between gap-4 flex-shrink-0 z-50">
-          <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-lg bg-white/[0.06] text-surface-400">
-            <Menu size={18} />
-          </button>
-          <div className="flex-1" />
+        <div className="hidden lg:flex absolute top-6 right-8 z-50 items-center gap-2">
+          <ThemeToggle />
+          <NotificationBell pagePath="/admin/notifications" />
+        </div>
+        <header className="lg:hidden glass-card rounded-none border-x-0 border-t-0 px-4 py-3 flex items-center justify-between gap-4 flex-shrink-0 z-50">
+          <div className="flex items-center gap-3">
+            <div className="flex-shrink-0 w-8 h-8 rounded-lg gradient-brand flex items-center justify-center shadow-lg shadow-brand-500/20">
+              <Fingerprint size={16} />
+            </div>
+            <h1 className="text-sm font-bold text-white leading-tight">
+              Project Resource Management System
+            </h1>
+          </div>
+
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <NotificationBell pagePath="/admin/notifications" />
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 rounded-lg bg-white/[0.06] text-surface-400"
+            >
+              <Menu size={18} />
+            </button>
           </div>
         </header>
 

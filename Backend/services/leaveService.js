@@ -198,10 +198,12 @@ async function getLeaveBalance(prisma, userId, contractId) {
     return { contract: null, entitlementDays: 0, usedLeaveDays: 0, remainingLeaveDays: 0 };
   }
 
-  const entitlementDays = calculateContractMonths(contract.startDate, contract.endDate);
+  const entitlementDays = (contract.annualLeaveQuota !== null && contract.annualLeaveQuota !== undefined)
+    ? Number(contract.annualLeaveQuota)
+    : calculateContractMonths(contract.startDate, contract.endDate);
   const approvedLeaves = await prisma.leaveRequest.findMany({
     where: { userId, contractId: contract.id, status: 'APPROVED' },
-    select: { 
+    select: {
       totalDays: true,
       leaveType: true,
       evidencePhoto: true,
@@ -328,8 +330,7 @@ async function createLeaveRequest(prisma, userId, data = {}, currentUser) {
         type: 'LEAVE_REQUEST',
         title: 'Pengajuan Cuti Baru',
         message: detail,
-        detail,
-        emailDetail: detail,
+        // emailDetail: detail,
         referenceId: leave.id,
         referenceType: 'LEAVE_REQUEST',
         skipDuplicate: true,
@@ -398,8 +399,6 @@ async function listLeaveRequests(prisma, currentUser, filters = {}) {
   }
   if (filters.projectManagerId) {
     andWhere.push({ user: { projects: { some: { project: { projectManagerId: filters.projectManagerId } } } } });
-  } else if (currentUser.role !== 'ADMIN') {
-    andWhere.push({ user: { projects: { some: { project: { projectManagerId: currentUser.id } } } } });
   }
 
   const pageNo = Math.max(Number(filters.pageNo) || 1, 1);
@@ -434,8 +433,27 @@ async function listLeaveRequests(prisma, currentUser, filters = {}) {
     })
   ]);
 
+  const userContractBalances = new Map();
+  const dataWithBalances = await Promise.all(data.map(async (item) => {
+    const key = `${item.userId}_${item.contractId}`;
+    let balance = userContractBalances.get(key);
+    if (!balance) {
+      balance = await getLeaveBalance(prisma, item.userId, item.contractId);
+      userContractBalances.set(key, balance);
+    }
+    const response = toLeaveResponse(item, currentUser);
+    return {
+      ...response,
+      leaveBalance: {
+        entitlementDays: balance.entitlementDays,
+        usedLeaveDays: balance.usedLeaveDays,
+        remainingLeaveDays: balance.remainingLeaveDays
+      }
+    };
+  }));
+
   return {
-    data: data.map(item => toLeaveResponse(item, currentUser)),
+    data: dataWithBalances,
     total: totalRows,
     page: { pageNo, pageSize, totalRows, totalPages: Math.ceil(totalRows / pageSize) }
   };
@@ -459,11 +477,6 @@ async function getLeaveEvidencePhoto(prisma, leaveId, currentUser) {
   });
   if (!leave) return { status: 404, error: 'Pengajuan cuti tidak ditemukan' };
   if (!leave.evidencePhoto) return { status: 404, error: 'Evidence photo tidak ditemukan' };
-
-  const hasAccess = currentUser.role === 'ADMIN' ||
-    leave.userId === currentUser.id ||
-    await isProjectManagerForUser(prisma, currentUser.id, leave.userId);
-  if (!hasAccess) return { status: 403, error: 'Anda tidak memiliki akses evidence photo ini' };
 
   return {
     fileData: leave.evidencePhoto,
@@ -503,43 +516,72 @@ async function approveLeaveByPm(prisma, leaveId, approver) {
   });
   if (!leave) return { error: 'Pengajuan cuti tidak ditemukan' };
   if (leave.status !== 'PENDING') return { error: 'Pengajuan cuti tidak dalam status pending' };
-  if (approver.role !== 'ADMIN' && !(await isProjectManagerForUser(prisma, approver.id, leave.userId))) {
+
+  const isAdmin = approver.role === 'ADMIN' ||
+    approver.role === 'System Administrator' ||
+    (Array.isArray(approver.roles) && (approver.roles.includes('ADMIN') || approver.roles.includes('System Administrator')));
+
+  if (!isAdmin && !(await isProjectManagerForUser(prisma, approver.id, leave.userId))) {
     return { error: 'Anda tidak memiliki akses approval cuti ini' };
   }
 
   const transactionResult = await prisma.$transaction(async (tx) => {
     const updated = await tx.leaveRequest.update({
       where: { id: leaveId },
-      data: { status: 'APPROVED_BY_PM', pmApproverId: approver.id, pmApprovedAt: new Date() }
+      data: { status: 'APPROVED', pmApproverId: approver.id, pmApprovedAt: new Date() }
     });
-    const admins = await getAdminRecipients(tx);
-    const notifs1 = await createBulkNotifications(tx, admins, {
-      type: 'LEAVE_APPROVAL',
-      title: 'Pengajuan Cuti Disetujui PM',
-      message: `${leave.user.name} sudah disetujui oleh Project Manager dan menunggu approval Admin.`,
-      referenceId: leave.id,
-      referenceType: 'LEAVE_REQUEST',
-      skipDuplicate: true,
-      sendEmail: false
-    });
-    const notifs2 = await createNotification(tx, {
+
+    const notifUser = await createNotification(tx, {
       userId: leave.userId,
       recipient: leave.user,
       type: 'LEAVE_APPROVAL',
-      title: 'Pengajuan Cuti Disetujui PM',
-      message: 'Pengajuan cuti Anda sudah disetujui Project Manager dan menunggu approval Admin.',
+      title: 'Pengajuan Cuti Disetujui',
+      message: 'Pengajuan cuti Anda telah disetujui.',
       referenceId: leave.id,
       referenceType: 'LEAVE_REQUEST',
       sendEmail: false
     });
-    return { leave: updated, notifications: [...notifs1, notifs2] };
+
+    const notifications = [notifUser];
+
+    if (isAdmin) {
+      const pms = await getProjectManagerRecipientsForUser(tx, leave.userId);
+      if (pms.length > 0) {
+        const notifsPms = await createBulkNotifications(tx, pms, {
+          type: 'LEAVE_APPROVAL',
+          title: 'Pengajuan Cuti Disetujui Admin',
+          message: `Pengajuan cuti ${leave.user.name} telah disetujui Admin atas persetujuan PM.`,
+          referenceId: leave.id,
+          referenceType: 'LEAVE_REQUEST',
+          skipDuplicate: true,
+          sendEmail: false
+        });
+        notifications.push(...notifsPms);
+      }
+    } else {
+      const admins = await getAdminRecipients(tx);
+      if (admins.length > 0) {
+        const notifsAdmins = await createBulkNotifications(tx, admins, {
+          type: 'LEAVE_APPROVAL',
+          title: 'Pengajuan Cuti Disetujui PM',
+          message: `Pengajuan cuti ${leave.user.name} telah disetujui oleh Project Manager.`,
+          referenceId: leave.id,
+          referenceType: 'LEAVE_REQUEST',
+          skipDuplicate: true,
+          sendEmail: false
+        });
+        notifications.push(...notifsAdmins);
+      }
+    }
+
+    return { leave: updated, notifications };
   });
 
   sendNotificationEmails(prisma, transactionResult.notifications).catch(() => { });
   return { leave: transactionResult.leave };
 }
 
-/*****/
+/*****
 /** Nama Function: approveLeaveByAdmin **/
 /** Deskripsi Function: Menyetujui cuti final oleh admin **/
 /** Creator by: FID.Iyan **/
@@ -586,7 +628,7 @@ async function approveLeaveByAdmin(prisma, leaveId, adminId) {
   return { leave: transactionResult.leave };
 }
 
-/*****/
+/*****
 /** Nama Function: rejectLeaveRequest **/
 /** Deskripsi Function: Menolak pengajuan cuti oleh PM atau Admin **/
 /** Creator by: FID.Iyan **/
@@ -599,7 +641,12 @@ async function rejectLeaveRequest(prisma, leaveId, rejectedBy, rejectionReason) 
   });
   if (!leave) return { error: 'Pengajuan cuti tidak ditemukan' };
   if (!['PENDING', 'APPROVED_BY_PM'].includes(leave.status)) return { error: 'Pengajuan cuti tidak dapat direject' };
-  if (rejectedBy.role !== 'ADMIN' && !(await isProjectManagerForUser(prisma, rejectedBy.id, leave.userId))) {
+
+  const isAdmin = rejectedBy.role === 'ADMIN' ||
+    rejectedBy.role === 'System Administrator' ||
+    (Array.isArray(rejectedBy.roles) && (rejectedBy.roles.includes('ADMIN') || rejectedBy.roles.includes('System Administrator')));
+
+  if (!isAdmin && !(await isProjectManagerForUser(prisma, rejectedBy.id, leave.userId))) {
     return { error: 'Anda tidak memiliki akses reject cuti ini' };
   }
 

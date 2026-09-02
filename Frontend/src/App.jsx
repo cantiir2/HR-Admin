@@ -26,6 +26,17 @@ import ProjectGeofenceConfig from './pages/admin/ProjectGeofenceConfig';
 import ProtectedRoute from './components/ProtectedRoute';
 import AttendanceRequest from './pages/AttendanceRequest';
 import AttendanceRequestManagement from './pages/admin/AttendanceRequestManagement';
+import AuthorizationManagement from './pages/admin/AuthorizationManagement';
+import MasterRoles from './pages/admin/MasterRoles';
+import MasterMenus from './pages/admin/MasterMenus';
+import { useAuth } from './context/AuthContext';
+
+function NotificationsRedirect() {
+  const { user } = useAuth();
+  const userPermissions = user?.permissions || [];
+  const hasAdminNotif = userPermissions.some(p => p.menuUrl === '/admin/notifications' || (p.menuUrl && p.menuUrl.startsWith('/admin')));
+  return <Navigate to={hasAdminNotif ? '/admin/notifications' : '/member/notifications'} replace />;
+}
 
 function App() {
   return (
@@ -64,6 +75,9 @@ function App() {
                   <Route index element={<AdminDashboardHome />} />
                   <Route path="attendance" element={<AdminAttendanceList />} />
                   <Route path="users" element={<UserManagement />} />
+                  <Route path="roles" element={<MasterRoles />} />
+                  <Route path="menus" element={<MasterMenus />} />
+                  <Route path="authorization" element={<AuthorizationManagement />} />
                   <Route path="projects" element={<ProjectManagement />} />
                   <Route path="projects/:id" element={<ProjectDetail />} />
                   <Route path="working-reports" element={<AdminWorkingReports />} />
@@ -75,6 +89,14 @@ function App() {
                   <Route path="project-resources" element={<ProjectResource />} />
                   <Route path="project-geofence" element={<ProjectGeofenceConfig />} />
                 </Route>
+
+
+
+                <Route path="/notifications" element={
+                  <ProtectedRoute>
+                    <NotificationsRedirect />
+                  </ProtectedRoute>
+                } />
 
                 <Route path="/" element={<Navigate to="/login" replace />} />
                 <Route path="*" element={<Navigate to="/login" replace />} />
