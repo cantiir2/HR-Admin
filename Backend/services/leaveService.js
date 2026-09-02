@@ -478,11 +478,6 @@ async function getLeaveEvidencePhoto(prisma, leaveId, currentUser) {
   if (!leave) return { status: 404, error: 'Pengajuan cuti tidak ditemukan' };
   if (!leave.evidencePhoto) return { status: 404, error: 'Evidence photo tidak ditemukan' };
 
-  const hasAccess = currentUser.role === 'ADMIN' ||
-    leave.userId === currentUser.id ||
-    await isProjectManagerForUser(prisma, currentUser.id, leave.userId);
-  if (!hasAccess) return { status: 403, error: 'Anda tidak memiliki akses evidence photo ini' };
-
   return {
     fileData: leave.evidencePhoto,
     fileName: leave.evidencePhotoName || 'leave-evidence',
