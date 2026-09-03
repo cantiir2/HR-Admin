@@ -1,6 +1,6 @@
 {
   "name": "backend",
-  "version": "0.26.08.28",
+  "version": "0.26.09.03",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",

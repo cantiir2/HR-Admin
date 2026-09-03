@@ -297,11 +297,6 @@ const ProjectManagement = () => {
           <h2 className="text-xl font-bold text-white">Dashboard Project</h2>
           <p className="text-sm text-surface-400">Kelola project dan tim</p>
         </div>
-        <PermissionControl action="add" apiUrl="/api/projects">
-          <button onClick={openCreate} className="btn-primary flex items-center gap-2 text-sm">
-            <Plus size={16} /> Tambah Project
-          </button>
-        </PermissionControl>
       </div>
 
       <div className="glass-card p-4 mb-5">
@@ -363,7 +358,7 @@ const ProjectManagement = () => {
         </div>
 
         {/* Bagian Tombol Reset - Terpisah di bawah kanan */}
-        <div className="flex justify-end mt-4 pt-3 border-t border-white/[0.06]">
+        <div className="flex justify-end items-center gap-3 mt-4 pt-3 border-t border-white/[0.06]">
           <button
             type="button"
             className="btn-ghost text-sm px-4 py-2"
@@ -387,6 +382,13 @@ const ProjectManagement = () => {
         </div>
       </div>
 
+      <div className="flex justify-end mt-4 pt-3 border-t border-white/[0.06]">
+        <PermissionControl action="add" apiUrl="/api/projects">
+          <button onClick={openCreate} className="btn-primary flex items-center gap-2 text-sm">
+            <Plus size={16} /> Tambah Project
+          </button>
+        </PermissionControl>
+      </div>
       {/* Project Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {!loading && projects.map(project => (

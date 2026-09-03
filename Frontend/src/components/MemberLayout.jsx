@@ -75,10 +75,6 @@ const MemberLayout = () => {
         </nav>
 
         <div className="p-4 border-t border-white/[0.06]">
-          <div className="mb-3 flex justify-end gap-2 lg:hidden">
-            {/* <ThemeToggle /> */}
-            {/* <NotificationBell pagePath="/member/notifications" /> */}
-          </div>
           <div className="flex items-center gap-3 mb-3 px-1">
             <UserAvatar name={name} photo={user?.profilePhoto} size="sm" />
             <div className="flex-1 min-w-0">
@@ -94,39 +90,23 @@ const MemberLayout = () => {
       </aside>
 
       {/* Main Content */}
-      <main className="relative flex-1 flex flex-col h-full overflow-hidden">
-        {/* Top Bar for Desktop */}
-        <div className="hidden lg:flex absolute top-6 right-8 z-50 items-center gap-2">
-          <ThemeToggle />
-          <NotificationBell pagePath="/member/notifications" />
-        </div>
-
-        <div className="hidden lg:flex absolute top-6 left-8 z-50 items-center gap-2">
-          {/* <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg bg-surface-800/50 hover:bg-surface-800 border border-white/[0.06] text-surface-400 hover:text-white transition-colors backdrop-blur-md">
-            <Menu size={18} />
-          </button> */}
-        </div>
-
-        {/* Top Bar for Mobile */}
-        <header className="lg:hidden glass-card rounded-none border-x-0 border-t-0 px-4 py-3 flex items-center justify-between gap-4 flex-shrink-0 z-50">
+      <main className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
+        {/* Header Section */}
+        <header className="h-16 px-4 lg:px-6 border-b border-white/[0.06] bg-surface-900/60 backdrop-blur-xl flex items-center justify-between flex-shrink-0 z-30">
           <div className="flex items-center gap-3">
-            <div className="flex-shrink-0 w-8 h-8 rounded-lg gradient-brand flex items-center justify-center shadow-lg shadow-brand-500/20">
-              <Fingerprint size={16} />
-            </div>
-            <h1 className="text-sm font-bold text-white leading-tight">
-              Project Resource Management System
-            </h1>
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(prev => !prev)}
+              className="p-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-surface-400 hover:text-white transition-colors"
+              title={sidebarOpen ? 'Sembunyikan Sidebar' : 'Tampilkan Sidebar'}
+            >
+              <Menu size={18} />
+            </button>
           </div>
 
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <NotificationBell pagePath="/member/notifications" />
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 rounded-lg bg-white/[0.06] text-surface-400"
-            >
-              <Menu size={18} />
-            </button>
           </div>
         </header>
 
