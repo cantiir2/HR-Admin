@@ -35,3 +35,7 @@ INSERT INTO public.tb_m_system (id,category,code,"name",description,"isActive","
 	 ('e12c5c9f-68ab-4aed-a414-60db47a716e2','RELIGION','KHC','Kong Hu Cu','',true,'2026-05-06 03:46:47.604','2026-05-06 03:46:47.604'),
 	 ('5a05bfa8-77b3-448f-95d4-61efdae742ff','RELIGION','IS','Islam','',true,'2026-05-06 03:52:16.572','2026-05-06 03:52:16.572'),
 	 ('82accfbc-6da1-4c5e-b4e6-bda0ac8a1b5f','BREAK_TIME','01:00','Jam Istirahat','Untuk pengaturan export Break Time',true,'2026-05-07 03:45:04.693','2026-05-07 03:45:04.693');
+
+INSERT INTO public.tb_m_system (id, category, code, "name", description, "isActive", "createdAt", "updatedAt") VALUES
+	 ('c7b9415f-9e2a-4572-b643-a88773ae3090', 'WEEKEND_BREAK_THRESHOLD', '04:00', 'Batas Jam Istirahat Weekend', 'Durasi minimal kerja weekend sebelum dipotong break time', true, NOW(), NOW())
+ON CONFLICT (category, code) DO NOTHING;

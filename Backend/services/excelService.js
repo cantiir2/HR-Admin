@@ -4,10 +4,10 @@ const path = require('path');
 const { detectProjectArea } = require('../utils/geofence');
 
 function formatDuration(minutes) {
-  if (minutes <= 0) return '00.00';
+  if (minutes <= 0) return '00:00';
   const h = Math.floor(minutes / 60);
   const m = Math.floor(minutes % 60);
-  return `${String(h).padStart(2, '0')}.${String(m).padStart(2, '0')}`;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
 function parseTimeToMinutes(timeStr) {
@@ -24,9 +24,7 @@ function formatTimeJakarta(dateValue) {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false
-  })
-    .format(new Date(dateValue))
-    .replace(':', '.');
+  }).format(new Date(dateValue));
 }
 
 function toYmdStr(dateValue) {
@@ -193,6 +191,12 @@ async function getWorkingReportData(userId, month, year, prisma) {
   const otBreakStr = otBreakTimeConfig ? otBreakTimeConfig.code : '00:30';
   const overtimeBreakMinutes = parseTimeToMinutes(otBreakStr);
 
+  const weekendThresholdConfig = await prisma.systemMaster.findFirst({
+    where: { category: 'WEEKEND_BREAK_THRESHOLD' }
+  });
+  const weekendThresholdStr = weekendThresholdConfig ? weekendThresholdConfig.code : '04:00';
+  const weekendThresholdMinutes = parseTimeToMinutes(weekendThresholdStr) || 240;
+
   const attendances = await prisma.attendance.findMany({
     where: {
       userId: userId,
@@ -318,11 +322,28 @@ async function getWorkingReportData(userId, month, year, prisma) {
           outTime = formatTimeJakarta(att.checkOutTime);
           if (att.checkOutNote) notes.push(att.checkOutNote);
 
-          const calcResult = calculateWorkingHours(att.checkInTime, att.checkOutTime, breakMinutes, overtimeBreakMinutes);
-          const totalMins = calcResult.totalMins;
-          const overMins = calculateOvertime(totalMins, 480);
+          let appliedBreakMins = 0;
+          let totalMins = 0;
+          let overMins = 0;
 
-          breakStrRow = formatDuration(calcResult.appliedBreakMins);
+          if (isWeekend) {
+            const start = new Date(att.checkInTime);
+            const end = new Date(att.checkOutTime);
+            const grossMins = Math.floor((end - start) / 60000);
+
+            appliedBreakMins = grossMins > weekendThresholdMinutes ? breakMinutes : 0;
+            const netMins = Math.max(0, grossMins - appliedBreakMins);
+
+            totalMins = netMins;
+            overMins = netMins;
+          } else {
+            const calcResult = calculateWorkingHours(att.checkInTime, att.checkOutTime, breakMinutes, overtimeBreakMinutes);
+            appliedBreakMins = calcResult.appliedBreakMins;
+            totalMins = calcResult.totalMins;
+            overMins = calculateOvertime(totalMins, 480);
+          }
+
+          breakStrRow = formatDuration(appliedBreakMins);
           totalStr = formatDuration(totalMins);
           overStr = formatDuration(overMins);
 
@@ -332,7 +353,7 @@ async function getWorkingReportData(userId, month, year, prisma) {
           outTime = '-';
           breakStrRow = '-';
           totalStr = '-';
-          overStr = '00.00';
+          overStr = '00:00';
         }
         activityStr = notes.join('\n');
       }
@@ -358,8 +379,8 @@ async function getWorkingReportData(userId, month, year, prisma) {
 
   const today = new Date();
   const defaultDateStr = today.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-');
-  
-  const issuedDate = reportRecord?.submittedAt 
+
+  const issuedDate = reportRecord?.submittedAt
     ? new Date(reportRecord.submittedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-')
     : defaultDateStr;
 
