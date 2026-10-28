@@ -40,7 +40,7 @@ function toYmdStr(dateValue) {
 // Author : Iyan.FID
 // Description : Menghitung total jam kerja efektif setelah dikurangi jam istirahat normal dan istirahat lembur
 function calculateWorkingHours(checkInTime, checkOutTime, breakMinutes, overtimeBreakMinutes = 0, normalWorkingMins = 480) {
-  if (!checkInTime || !checkOutTime) return { totalMins: 0, appliedBreakMins: 0 };
+  if (!checkInTime || !checkOutTime) return { totalMins: 0, appliedBreakMins: 0, displayBreakMins: 0 };
 
   const start = new Date(checkInTime);
   const end = new Date(checkOutTime);
@@ -64,7 +64,8 @@ function calculateWorkingHours(checkInTime, checkOutTime, breakMinutes, overtime
 
   return {
     totalMins: Math.max(0, diffMins),
-    appliedBreakMins: appliedBreakMins
+    appliedBreakMins: appliedBreakMins,
+    displayBreakMins: breakMinutes
   };
 }
 
@@ -323,6 +324,7 @@ async function getWorkingReportData(userId, month, year, prisma) {
           if (att.checkOutNote) notes.push(att.checkOutNote);
 
           let appliedBreakMins = 0;
+          let displayBreakMins = 0;
           let totalMins = 0;
           let overMins = 0;
 
@@ -332,6 +334,7 @@ async function getWorkingReportData(userId, month, year, prisma) {
             const grossMins = Math.floor((end - start) / 60000);
 
             appliedBreakMins = grossMins > weekendThresholdMinutes ? breakMinutes : 0;
+            displayBreakMins = appliedBreakMins;
             const netMins = Math.max(0, grossMins - appliedBreakMins);
 
             totalMins = netMins;
@@ -339,11 +342,12 @@ async function getWorkingReportData(userId, month, year, prisma) {
           } else {
             const calcResult = calculateWorkingHours(att.checkInTime, att.checkOutTime, breakMinutes, overtimeBreakMinutes);
             appliedBreakMins = calcResult.appliedBreakMins;
+            displayBreakMins = calcResult.displayBreakMins;
             totalMins = calcResult.totalMins;
             overMins = calculateOvertime(totalMins, 480);
           }
 
-          breakStrRow = formatDuration(appliedBreakMins);
+          breakStrRow = formatDuration(displayBreakMins);
           totalStr = formatDuration(totalMins);
           overStr = formatDuration(overMins);
 
