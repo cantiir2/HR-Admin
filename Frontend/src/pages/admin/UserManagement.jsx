@@ -28,10 +28,10 @@ const UserManagement = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const { showToast } = useToast();
   const { confirm } = useConfirm();
-  const [filters, setFilters] = useState({ search: '', role: '', jobRoleCode: '', contractStatus: '' });
+  const [filters, setFilters] = useState({ search: '', role: '', jobRoleCode: '', contractStatus: [] });
   const [page, setPage] = useState({ pageNo: 1, pageSize: 10, totalRows: 0, totalPages: 1 });
   const [loading, setLoading] = useState(false);
-  const [statusOptions, setStatusOptions] = useState([['', 'Semua Kontrak']]);
+  const [statusOptions, setStatusOptions] = useState([]);
   const [statusClasses, setStatusClasses] = useState({});
   const pageSizeRef = useRef(10);
   const [jobHistoryForm, setJobHistoryForm] = useState({ id: '', companyName: '', jobTitle: '', description: '', startDate: '', endDate: '', isPresent: false });
@@ -65,7 +65,7 @@ const UserManagement = () => {
 
         if (res.data && res.data.length > 0) {
           const dynamicStatusClass = {};
-          const fetchedOptions = [['', 'Semua Kontrak']];
+          const fetchedOptions = [];
 
           res.data.forEach(item => {
             fetchedOptions.push([item.code, item.name || item.code]);
@@ -352,19 +352,21 @@ const UserManagement = () => {
             options={[['', 'Semua Job Role'], ...jobRoles.filter(j => j.isActive).map(j => [j.code, `${j.code} - ${j.name}`])]}
           />
           <AppSelect
+            isMulti
+            isClearable
+            placeholder="Pilih Status Kontrak..."
             value={filters.contractStatus}
             onChange={value => setFilters({ ...filters, contractStatus: value })}
             options={statusOptions}
           />
         </div>
 
-        {/* Bagian Tombol Reset - Terpisah di bawah kanan */}
         <div className="flex justify-end mt-4 pt-3 border-t border-white/[0.06]">
           <button
             type="button"
             className="btn-ghost text-sm px-4 py-2"
             onClick={() => {
-              setFilters({ search: '', role: '', jobRoleCode: '', contractStatus: '' });
+              setFilters({ search: '', role: '', jobRoleCode: '', contractStatus: [] });
               setPage(prev => ({ ...prev, pageNo: 1 }));
             }}
           >
@@ -414,16 +416,32 @@ const UserManagement = () => {
                     </td>
                     <td className="px-4 py-3">
                       {contractEnd ? (
-                        <div>
-                          <p className="text-xs text-surface-400">
+                        <div className="space-y-1.5">
+                          <p className="text-xs text-surface-300 font-medium whitespace-nowrap">
                             {(latestContract?.startDate || user.contractStart) && format(new Date(latestContract?.startDate || user.contractStart), 'dd MMM yy')} - {format(new Date(contractEnd), 'dd MMM yy')}
                           </p>
-                          {days !== null && days <= 30 && days >= 0 && (
-                            <span className="text-[10px] text-amber-400 font-medium">⚠ {days} hari lagi</span>
-                          )}
-                          {days !== null && days < 0 && (
-                            <span className="text-[10px] text-rose-400 font-medium">✗ Expired</span>
-                          )}
+                          <div className="flex flex-wrap items-center gap-1">
+                            {days !== null && days > 30 && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                Aktif
+                              </span>
+                            )}
+                            {days !== null && days <= 30 && days >= 0 && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                ⚠ {days} hari lagi
+                              </span>
+                            )}
+                            {days !== null && days < 0 && days >= -30 && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-500/10 text-orange-400 border border-orange-500/20">
+                                ⏳ Masa Tenggang ({30 + days} hari)
+                              </span>
+                            )}
+                            {days !== null && days < -30 && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                                ✗ Permanently Inactive
+                              </span>
+                            )}
+                          </div>
                         </div>
                       ) : <span className="text-xs text-surface-600">-</span>}
                     </td>

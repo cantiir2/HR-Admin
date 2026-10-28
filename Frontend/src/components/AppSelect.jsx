@@ -15,12 +15,15 @@ const AppSelect = ({
   isClearable = false,
   required = false,
   disabled = false,
-  isDisabled = false
+  isDisabled = false,
+  isMulti = false
 }) => {
   const { isDark } = useTheme();
   const isSelectDisabled = disabled || isDisabled;
   const normalizedOptions = toOptions(options);
-  const selected = normalizedOptions.find(option => String(option.value) === String(value)) || null;
+  const selected = isMulti
+    ? normalizedOptions.filter(option => Array.isArray(value) && value.includes(option.value))
+    : (normalizedOptions.find(option => String(option.value) === String(value)) || null);
   const colors = isDark
     ? {
         control: '#111827',
@@ -136,6 +139,28 @@ const AppSelect = ({
     noOptionsMessage: base => ({
       ...base,
       color: colors.muted
+    }),
+    multiValue: base => ({
+      ...base,
+      backgroundColor: isDark ? 'rgba(239, 54, 84, 0.2)' : '#ffe4e6',
+      borderRadius: 6,
+      border: isDark ? '1px solid rgba(239, 54, 84, 0.4)' : '1px solid #fecdd3'
+    }),
+    multiValueLabel: base => ({
+      ...base,
+      color: isDark ? '#fda4af' : '#e11d48',
+      fontSize: 12,
+      fontWeight: 500,
+      padding: '2px 6px'
+    }),
+    multiValueRemove: base => ({
+      ...base,
+      color: isDark ? '#fda4af' : '#e11d48',
+      cursor: 'pointer',
+      ':hover': {
+        backgroundColor: isDark ? 'rgba(239, 54, 84, 0.4)' : '#fca5a5',
+        color: '#ffffff'
+      }
     })
   };
 
@@ -148,8 +173,16 @@ const AppSelect = ({
       )}
       <Select
         classNamePrefix="app-select"
+        isMulti={isMulti}
+        closeMenuOnSelect={!isMulti}
         value={selected}
-        onChange={option => onChange(option?.value ?? '')}
+        onChange={selectedOption => {
+          if (isMulti) {
+            onChange(selectedOption ? selectedOption.map(item => item.value) : []);
+          } else {
+            onChange(selectedOption?.value ?? '');
+          }
+        }}
         options={normalizedOptions}
         placeholder={placeholder}
         isClearable={isClearable}

@@ -39,3 +39,10 @@ INSERT INTO public.tb_m_system (id,category,code,"name",description,"isActive","
 INSERT INTO public.tb_m_system (id, category, code, "name", description, "isActive", "createdAt", "updatedAt") VALUES
 	 ('c7b9415f-9e2a-4572-b643-a88773ae3090', 'WEEKEND_BREAK_THRESHOLD', '04:00', 'Batas Jam Istirahat Weekend', 'Durasi minimal kerja weekend sebelum dipotong break time', true, NOW(), NOW())
 ON CONFLICT (category, code) DO NOTHING;
+
+
+INSERT INTO public.tb_m_system (id, category, code, "name", description, "isActive", "createdAt", "updatedAt") 
+VALUES 
+  (gen_random_uuid(), 'CONTRACT_STATUS', 'temporary_inactive', 'Temporary Inactive', 'badge-warning', true, NOW(), NOW()),
+  (gen_random_uuid(), 'CONTRACT_STATUS', 'permanently_inactive', 'Permanently Inactive', 'badge-danger', true, NOW(), NOW())
+ON CONFLICT (category, code) DO NOTHING;

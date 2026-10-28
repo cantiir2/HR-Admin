@@ -102,7 +102,7 @@ const AdminLayout = () => {
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
         {/* Header Section */}
-        <header className="h-16 px-4 lg:px-6 border-b border-white/[0.06] bg-surface-900/60 backdrop-blur-xl flex items-center justify-between flex-shrink-0 z-30">
+        <header className="h-16 px-4 lg:px-6 border-b border-white/[0.06] bg-surface-100/60 backdrop-blur-xl flex items-center justify-between flex-shrink-0 z-30">
           <div className="flex items-center gap-3">
             <button
               type="button"

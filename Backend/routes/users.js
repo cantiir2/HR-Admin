@@ -195,28 +195,47 @@ module.exports = (prisma) => {
       let totalRows;
       let users;
 
-      if (contractStatus) {
+      const hasContractStatusFilter = Array.isArray(contractStatus)
+        ? contractStatus.length > 0
+        : Boolean(contractStatus);
+
+      if (hasContractStatusFilter) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const thirtyDaysLater = new Date(today);
         thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
+
+        const thirtyDaysAgo = new Date(today);
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const targetStatuses = Array.isArray(contractStatus)
+          ? contractStatus.filter(Boolean)
+          : [contractStatus];
 
         const candidates = await prisma.user.findMany({
           where,
           select,
           orderBy
         });
+
+        const isMatchSingle = (status, endDate) => {
+          if (status === 'active') return endDate >= today;
+          if (status === 'expiring_30_days') return endDate >= today && endDate <= thirtyDaysLater;
+          if (status === 'temporary_inactive') return endDate < today && endDate >= thirtyDaysAgo;
+          if (status === 'permanently_inactive') return endDate < thirtyDaysAgo;
+          if (status === 'expired') return endDate < today;
+          return false;
+        };
+
         const matchesStatus = user => {
           const contractEnd = user.contracts[0]?.endDate || user.contractEnd;
           if (!contractEnd) return false;
           const endDate = new Date(contractEnd);
-          if (contractStatus === 'active') return endDate >= today;
-          if (contractStatus === 'expired') return endDate < today;
-          if (contractStatus === 'expiring_30_days') {
-            return endDate >= today && endDate <= thirtyDaysLater;
-          }
-          return true;
+          endDate.setHours(0, 0, 0, 0);
+
+          return targetStatuses.some(st => isMatchSingle(st, endDate));
         };
+
         const filteredUsers = candidates.filter(matchesStatus);
         totalRows = filteredUsers.length;
         users = filteredUsers.slice(skip, skip + pageSize);
@@ -1386,7 +1405,7 @@ async function createContract(prisma, userId, req, res) {
     const contractNumber = req.body.contractNumber
       ? await acceptGeneratedContractNumber(prisma, req.body.contractNumber)
       : await generateContractNumber(prisma);
-    
+
     const quota = (annualLeaveQuota !== undefined && annualLeaveQuota !== null && annualLeaveQuota !== '')
       ? Number(annualLeaveQuota)
       : 12;
@@ -1495,8 +1514,14 @@ function calculateContractStatus(contractStart, contractEnd) {
   let remainingDays = null;
 
   if (end < today) {
-    contractStatus = 'EXPIRED';
     isExpired = true;
+    const diffTime = today.getTime() - end.getTime();
+    const daysSinceExpired = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    if (daysSinceExpired <= 30) {
+      contractStatus = 'TEMPORARY_INACTIVE';
+    } else {
+      contractStatus = 'PERMANENTLY_INACTIVE';
+    }
   } else if (start <= today && end >= today) {
     contractStatus = 'ACTIVE';
   } else if (start > today) {
